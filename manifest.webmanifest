@@ -1,0 +1,28 @@
+{
+  "name": "Traumsprung – Die fünf Traumfunken",
+  "short_name": "Traumsprung",
+  "description": "Ein fantasievolles Jump-and-Run mit Traumwechsel, Geheimnissen und Sternenkriegerin.",
+  "lang": "de",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "fullscreen",
+  "orientation": "landscape",
+  "background_color": "#190f2c",
+  "theme_color": "#190f2c",
+  "icons": [
+    {
+      "src": "./assets/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "./assets/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ],
+  "display_override": [
+    "fullscreen",
+    "standalone"
+  ]
+}
