@@ -7854,7 +7854,7 @@ setLang();menuSignature='';updateInterface();
     return;
   }
   window.__traumsprungDreamGateInstalled=true;
-  const VERSION='1.0 (Build 65)';
+  const VERSION='1.0 (Build 66)';
   const KEY_TIME='traumsprung-playtime-v1';
   const KEY_NAME='traumsprung-menu-nickname-v1';
   const KEY_DREAM='traumsprung-menu-realm-v1';
@@ -17622,7 +17622,7 @@ setLang();menuSignature='';updateInterface();
     hase(f, x, d, F) {
       const luft = !f.ground, y = f.y, sq = luft ? .9 : 1 + Math.sin(t / 5 + f.x) * .03;
       // Ohren
-      for (const s of [-1, 1]) { cx.save(); cx.translate(x + 13 + s * 4, y + 6); cx.rotate(s * .25 + (luft ? -s * .3 : Math.sin(t / 9 + s) * .08));
+      for (const s of [-1, 1]) { cx.save(); cx.translate(x + 13 + s * 4, y + 6); cx.rotate(s * .18 + (luft ? -s * .1 : Math.sin(t / 24 + s) * .025));   // 4.0-p27: ruhiger (Ohren wackelten zu stark)
         E(0, -9, 3.6, 9, F[0]); cx.strokeStyle = OL; cx.lineWidth = 1.3; cx.stroke(); E(0, -8, 1.6, 6, F[2]); cx.restore(); }
       // Körper
       cx.fillStyle = verlauf(y + 2, y + 22, F[0], F[1]); cx.beginPath(); cx.ellipse(x + 13, y + 13, 12, 10 * sq, 0, 0, 7); cx.fill(); cx.strokeStyle = OL; cx.lineWidth = 1.5; cx.stroke();
