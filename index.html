@@ -931,7 +931,7 @@ function musStep(){
 // Wachbrücken (R) tragen in Hand-Leveln auch im Traum – nur der Albtraum nimmt sie weg.
 // 3.7: Lauftempo wie bei Giana Sisters – ruhiger (vorher 3.55)
 // 3.8: wach ruhig und konzentriert (2.6), im Traum und Albtraum flotter (3.0)
-const runSpeed=()=>dreamPhase===0&&level>0&&window.TRAUMSPRUNG_LEVEL_HANDMADE?2.6:3.0;
+const runSpeed=()=>dreamPhase===0&&level>0&&window.TRAUMSPRUNG_LEVEL_HANDMADE?2.3:2.65;   /* 4.0-p14: etwas gemächlicher, näher am Giana-Tempo (vorher 2,6 / 3,0) */
 try{window.TRAUMSPRUNG_HERO=localStorage.getItem('traumsprung-held')||'';}catch(e){window.TRAUMSPRUNG_HERO='';}
 const rOn=()=>dreamPhase===0||(dreamPhase===1&&level>0&&!!window.TRAUMSPRUNG_LEVEL_HANDMADE);
 const sol=(tx,ty)=>tx<0||tx>=W||(ty>=0&&ty<H&&('#PB?XKCJI'.includes(grid[ty][tx])||(grid[ty][tx]==='D'&&dreamPhase>=1)||(grid[ty][tx]==='V'&&dreamPhase>=1)||(grid[ty][tx]==='R'&&rOn())||(grid[ty][tx]==='Q'&&dreamPhase!==1)||(grid[ty][tx]==='Y'&&dreamPhase===1)));   // 4.0 Welt 4: Q = Pegeltür (offen im Traum), Y = Wassertür (offen wach)
@@ -3506,7 +3506,7 @@ function smoothDraw(alpha){
     build(a) {
       a.ground(0, 14); a.pearls(10, 3, 9); a.tiles(8, 5, 'B%B'); a.tiles(4, 4, 'BbBbB'); a.foe(11, 0); a.seal(8, 6);
       // Sturmgrat: Gegenwind
-      a.wind(15, 74, { kraft: -.9, oben: 2, unten: 13 });
+      a.wind(15, 74, { kraft: -.65, oben: 2, unten: 13 });
       for (const [x, w, top] of [[17, 4, 11], [24, 4, 10], [31, 3, 10], [37, 4, 9], [44, 3, 10], [50, 4, 9], [57, 3, 10], [63, 4, 9], [70, 5, 10]]) { insel(a, x, w, top); a.pearls(top - 1, x, x + w - 1); }
       a.kobold(41, 6, -1, { takt: 200 }); a.kobold(60, 6, -1, { takt: 200, ph: 100 }); a.foe(26, 0, { row: 10 }); a.foe(52, 0, { row: 9 });
       a.tiles(6, 24, 'B?B'); a.tiles(5, 37, 'BBB'); a.tiles(5, 50, 'BmB'); a.tiles(5, 63, 'BBbB');
@@ -3860,7 +3860,7 @@ function smoothDraw(alpha){
       a.mark(40, 'B'); a.mark(48, 'G'); a.mark(55, 'R'); a.mark(63, 'B'); a.mark(72, 'U');
       // Burghof: Krähen, das Turmzimmer (rein im Traum, raus wach) – der Hebel darin hebt das Fallgitter
       a.tiles(8, 76, 'BB?BB'); a.kraehe(82, 7, { rx: 3, ry: 1.2, ph: 1 }); a.tiles(4, 79, 'BBB');
-      a.bubble(85, 10); tuer(a, 90, false);
+      a.bubble(85, 10, { time: 300 }); tuer(a, 90, false);
       a.tiles(6, 91, '#####'); mauer(a, 91, 0, 5); mauer(a, 95, 0, 5); a.tor(96, 6, 11, { offen: 'wach' }); mauer(a, 96, 0, 5);
       a.schalter(94, 11, { auf: [[112, 6, 11]] }); a.seal(92, 10); a.pearls(10, 91, 93);
       mauer(a, 112, 0, 5); a.tiles(8, 102, 'B?B?B'); a.pearls(10, 99, 110); a.kraehe(106, 6, { rx: 2, ry: 1, form: 'kreis' });
@@ -3993,7 +3993,7 @@ function smoothDraw(alpha){
       a.mark(82, 'B'); a.mark(86, 'G'); a.mark(96, 'R'); a.mark(104, 'B'); a.mark(114, 'U');
       // Die eingestürzte Brücke – Funke 3 auf dem letzten Bogen
       a.restart(117); a.pit(121, 140); a.island(124, 10, 2); a.island(129, 9, 2); a.island(134, 8, 2); a.seal(135, 5); a.island(138, 10, 2);
-      a.kraehe(131, 5, { rx: 3, ry: 1, speed: .04 }); a.pearls(8, 124, 140); a.tiles(4, 129, 'BBB');
+      a.kraehe(131, 5, { rx: 3, ry: 1, speed: .04 }); a.pearls(8, 124, 132); a.pearls(8, 134, 140); a.tiles(4, 129, 'BBB');
       a.ruestung(146); a.foe(152, 0, { nm: 1 }); a.tiles(8, 143, 'B?B?B'); a.tiles(4, 150, 'BmB');
       a.mark(117, 'B'); a.mark(124, 'G'); a.mark(134, 'R'); a.mark(143, 'B'); a.mark(152, 'U');
       // Der letzte Hof: zwei Sonnentüren, Krähenschwarm
@@ -4381,7 +4381,7 @@ function smoothDraw(alpha){
       a.ground(0, 141);
       a.erinnerung(10, 1); a.erinnerung(30, 4); a.erinnerung(60, 6); a.erinnerung(80, 9);
       a.pearls(10, 3, 9); a.tiles(8, 5, 'B%B'); a.tiles(4, 4, 'BbBbB'); a.foe(12, 0); a.hidden(16, 8, '?');
-      a.bubble(19, 10, { time: 300 }); tuer(a, 23, false); a.pearls(10, 24, 28); a.seal(26, 8); a.wind(30, 38, { kraft: 1.1 }); a.island(34, 7, 3); a.seal(35, 5); a.tiles(4, 31, 'BB?BB');
+      a.bubble(19, 10, { time: 300 }); tuer(a, 23, false); a.pearls(10, 24, 28); a.seal(26, 8); a.wind(30, 38, { kraft: 1.1 }); a.tiles(9, 31, 'KK'); a.island(34, 7, 3); a.seal(35, 5); a.tiles(4, 31, 'BB?BB');
       a.funkentuer(44); a.ruestung(55); a.tiles(8, 53, 'BwB'); a.scherbling(62); a.kraehe(70, 6, { rx: 2, ry: 1 }); a.tiles(8, 78, 'BmB'); a.maus(85);
       a.mark(4, 'B'); a.mark(12, 'G'); a.mark(19, 'R'); a.mark(26, 'B'); a.mark(31, 'U');
       a.mark(35, 'B'); a.mark(44, 'G'); a.mark(55, 'R'); a.mark(78, 'B'); a.mark(85, 'U');
@@ -5337,7 +5337,8 @@ function calculateSceneY(){
   const want=VH*.12,head=camAnchorY*sceneZoom+base;
   if(head<want)y=Math.min(0,base+(want-head));
   // Im Sprung nur, wenn sie oben aus dem Bild käme.
-  const heroTop=P.y*sceneZoom+y;if(heroTop<0)y=Math.min(0,y-heroTop);
+  // 4.0-p14: schon unterhalb der Kopfzeile nachrücken (vorher erst, wenn sie oben aus dem Bild verschwand)
+  const rand=VH*.26,heroTop=P.y*sceneZoom+y;if(heroTop<rand)y=Math.min(0,y+(rand-heroTop));
   return y;
 }
 draw=function(){baseDraw();};
@@ -6773,7 +6774,7 @@ setLang();menuSignature='';updateInterface();
     cameraGroundLerp: .12,
     cameraAirLerp: .085,
     cameraBossLerp: .08,
-    cameraVerticalLerp: .19,
+    cameraVerticalLerp: .34,   // 4.0-p14: Bild folgt beim Hochspringen schneller (vorher .19)
     hitStopFrames: 3,
     invincibilityAfterRespawn: 160
   });
