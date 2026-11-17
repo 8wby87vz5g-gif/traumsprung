@@ -1520,8 +1520,9 @@ function draw(){
   for(const p of pt){cx.globalAlpha=Math.max(0,p.life/p.max);cx.fillStyle=p.c;cx.beginPath();cx.arc(p.x-cam,p.y,p.r,0,7);cx.fill()}cx.globalAlpha=1;
   for(const p of pops){cx.globalAlpha=Math.min(1,p.life/14);const x=p.x-cam;if(p.g){cx.fillStyle='#6ff3ff';cx.beginPath();cx.moveTo(x,p.y-9);cx.lineTo(x+7,p.y);cx.lineTo(x,p.y+9);cx.lineTo(x-7,p.y);cx.fill()}else txt(p.s,x,p.y,8)}cx.globalAlpha=1;
   cx.fillStyle=th.g[0];cx.globalAlpha=.55;if(!calm)for(let i=0;i<24;i++){const px=((i*61+t*(.6+i%3*.3)-cam*.9)%VW+VW)%VW,py=((i*37+t*(.5+i%4*.2))%VH+VH)%VH;cx.beginPath();cx.ellipse(px,py,3,1.6,t/20+i,0,7);cx.fill()}cx.globalAlpha=1;
-  g=cx.createRadialGradient(VW/2,VH/2,VH*.45,VW/2,VH/2,VH*.9);g.addColorStop(0,'rgba(10,0,25,0)');g.addColorStop(1,'rgba(10,0,25,.45)');cx.fillStyle=g;cx.fillRect(0,0,VW,VH);
   drawDreamObjects();window.TRAUMSPRUNG_RPG?.drawWorld(cx,cam);cx.setTransform(RENDER_SCALE,0,0,RENDER_SCALE,0,0);
+  /* 4.0-p12: Randabdunklung im Bildschirmraum – vorher in Weltkoordinaten (Zoom), endete sie als harte Linie quer durchs Bild */
+  g=cx.createRadialGradient(VW/2,VH/2,VH*.45,VW/2,VH/2,VH*.9);g.addColorStop(0,'rgba(10,0,25,0)');g.addColorStop(1,'rgba(10,0,25,.45)');cx.fillStyle=g;cx.fillRect(0,0,VW,VH);
   if(false){
   cx.fillStyle='rgba(20,5,40,.4)';cx.fillRect(0,0,VW,38);
   cx.fillStyle='#6ff3ff';cx.beginPath();cx.moveTo(18,10);cx.lineTo(26,19);cx.lineTo(18,29);cx.lineTo(10,19);cx.fill();
@@ -6640,10 +6641,11 @@ setLang();menuSignature='';updateInterface();
     if(!states.left||states.left.id!==e.pointerId)return;
     e.preventDefault();pulse(left,e.clientX,e.clientY);
     if(quer()){
-      // der Anker folgt dem Finger in Laufrichtung; 18 px zurückwischen = umdrehen
-      const L=states.left,x=e.clientX;
-      if(states.direction>0){if(x>L.anker)L.anker=x;else if(x<L.anker-18){L.anker=x;direction(-1);}}
-      else{if(x<L.anker)L.anker=x;else if(x>L.anker+18){L.anker=x;direction(1);}}
+      // 4.0-p12: fester Ankerpunkt (wo der Daumen aufgesetzt hat) – erst 28 px daneben wechselt die Richtung.
+      // Kleines Zittern des Daumens dreht die Figur nicht mehr hin und her.
+      const L=states.left,dx=e.clientX-L.anker;
+      if(dx>28&&states.direction!==1)direction(1);
+      else if(dx<-28&&states.direction!==-1)direction(-1);
       return;
     }
     direction(dirAt(e.clientX,states.direction));
@@ -16598,5 +16600,12 @@ setLang();menuSignature='';updateInterface();
 }
 </style><style>/* 4.0-p11: kein dunkler Balken mehr oben im Spiel – Kopfzeile durchsichtig, Schrift mit Schatten gut lesbar */
 .hud,body.mobile-playing .hud,.immersive-play .hud{background:transparent!important;box-shadow:none!important;text-shadow:0 1px 2px #0e0925,0 0 6px #0e0925cc!important}
+</style><style>/* 4.0-p12: im Querformat keinerlei Kasten oder Lichtfleck auf den unsichtbaren Steuerflächen */
+@media (pointer:coarse) and (orientation:landscape), (max-width:900px) and (max-height:500px) and (orientation:landscape){
+  body.mobile-playing .mobile-input-zone,body.mobile-playing .mobile-input-zone.is-active{background:none!important;border:0!important;box-shadow:none!important;outline:0!important;-webkit-tap-highlight-color:transparent}
+  body.mobile-playing .mobile-input-zone::before,body.mobile-playing .mobile-input-zone::after,body.mobile-playing .mobile-input-zone.is-active::after{display:none!important;content:none!important}
+  body.mobile-playing .mobile-move-zone.is-active .mobile-move-visual,body.mobile-playing .mobile-jump-zone.is-active .mobile-jump-visual{opacity:0!important;box-shadow:none!important}
+  body.mobile-playing.ts-tasten-hinweis .mobile-move-zone.is-active .mobile-move-visual,body.mobile-playing.ts-tasten-hinweis .mobile-jump-zone.is-active .mobile-jump-visual{opacity:.35!important}
+}
 </style>
 </html>
