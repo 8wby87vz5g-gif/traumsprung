@@ -682,7 +682,10 @@ body.mobile-playing .touch-control.mobile-pressed{box-shadow:0 0 16px #ffe3a377,
  #menu.ts8-menu *,#menu.ts8-menu *::before,#menu.ts8-menu *::after{animation:none!important;transition:none!important}
 }
 
-</style>
+</style><style>/* 4.0-p19: Levelverlauf-Balken im Querformat ganz oben am Rand statt quer durchs Bild */
+@media (orientation:landscape) and (max-height:600px){
+ #hud .route{top:env(safe-area-inset-top,0px);bottom:auto;height:3px;opacity:.85}
+}</style>
 <header class="topbar"><a class="brand" href="#" aria-label="Traumsprung Hauptmenü">Traumsprung<span>Die fünf Traumfunken</span></a><div class="header-actions"><button id="fullscreen-button" class="fullscreen-button" aria-label="Vollbild an oder aus" title="Vollbild an oder aus">⛶</button><span class="version">Traumsprung 4.0-p3c</span></div></header>
 <main>
 <div class="game-shell" id="shell">
