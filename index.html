@@ -6580,6 +6580,8 @@ setLang();menuSignature='';updateInterface();
 
   const media=matchMedia('(pointer:coarse), (max-width:760px)');
   const isMobile=()=>media.matches;
+  const querMedia=matchMedia('(orientation:landscape)');
+  const quer=()=>isMobile()&&querMedia.matches;
   const playing=()=>state==='play';
   const menuCompatible=new Set(['play','morph','dead','pause','next','win','over','paywall']);
   const states={left:null,right:null,direction:0,lastTap:null,mode:'',fireVisible:false};
@@ -6627,14 +6629,23 @@ setLang();menuSignature='';updateInterface();
   function leftDown(e){
     if(!isMobile()||!playing()||states.left||e.button>0)return;
     e.preventDefault();
-    states.left={id:e.pointerId,x:e.clientX};
+    states.left={id:e.pointerId,x:e.clientX,anker:e.clientX};
     try{left.setPointerCapture(e.pointerId)}catch(_){/* browser fallback */}
-    direction(dirAt(e.clientX,0));
+    // 4.0-p10 Querformat ohne sichtbare Tasten: Startrichtung nach der Hälfte der Laufzone, danach Wischen dreht um
+    if(quer()){const b=left.getBoundingClientRect();direction(e.clientX<b.left+b.width*.5?-1:1);}
+    else direction(dirAt(e.clientX,0));
     pulse(left,e.clientX,e.clientY);stats.leftInputs++;haptic('move');
   }
   function leftMove(e){
     if(!states.left||states.left.id!==e.pointerId)return;
     e.preventDefault();pulse(left,e.clientX,e.clientY);
+    if(quer()){
+      // der Anker folgt dem Finger in Laufrichtung; 18 px zurückwischen = umdrehen
+      const L=states.left,x=e.clientX;
+      if(states.direction>0){if(x>L.anker)L.anker=x;else if(x<L.anker-18){L.anker=x;direction(-1);}}
+      else{if(x<L.anker)L.anker=x;else if(x>L.anker+18){L.anker=x;direction(1);}}
+      return;
+    }
     direction(dirAt(e.clientX,states.direction));
   }
   function leftEnd(e){if(!states.left||states.left.id!==e.pointerId)return;e.preventDefault();stopLeft();}
@@ -6718,7 +6729,10 @@ setLang();menuSignature='';updateInterface();
 
   // Sicherheitsnetz: kein Finger auf der Laufzone = keine Laufrichtung (nie Weiterlaufen von allein).
   if(typeof upd==='function'){const priorUpd=upd;upd=function(){const r=priorUpd.apply(this,arguments);
-    if(isMobile()&&!states.left&&states.direction!==0)direction(0);return r;};}
+    if(isMobile()&&!states.left&&states.direction!==0)direction(0);
+    // 4.0-p10: im Querformat zeigen sich die Tastenflächen nur in den ersten 3 Sekunden eines Levels als Hinweis
+    const hinweis=quer()&&state==='play'&&typeof lvFrames==='number'&&lvFrames<180;if(document.body.classList.contains('ts-tasten-hinweis')!==hinweis)document.body.classList.toggle('ts-tasten-hinweis',hinweis);
+    return r;};}
   const originalUI=updateInterface;
   updateInterface=function(){
     originalUI();
@@ -11728,7 +11742,7 @@ setLang();menuSignature='';updateInterface();
       return r;
     };
   }
-  window.TRAUMSPRUNG_LICHT = { light: () => light, set: v => { light = v; }, nmFrames: () => nmFrames, dark, vorrat: () => dreamPhase === 2 && warFrei ? light : vorrat };
+  window.TRAUMSPRUNG_LICHT = { light: () => light, set: v => { light = v; }, nmFrames: () => nmFrames, dark, vorrat: () => dreamPhase === 2 && warFrei ? light : vorrat, setVorrat: v => { vorrat = v; }, erzwingen: () => { warFrei = false; } };
 })();
 
 </script><script>/* src/systems/intro-37.js */
@@ -16142,64 +16156,42 @@ setLang();menuSignature='';updateInterface();
 })();
 
 </script><script>/* src/systems/weltwechsel-40.js */
-/* Traumsprung 4.0-p8 – WELTWECHSEL: Traumwelt und Albtraumwelt auf Knopfdruck.
+/* Traumsprung 4.0-p10 – ALBTRAUM AUS DEM BLOCK (Schattenmond).
  *
- * Mit dem Mond-Knopf (Taste E, Doppeltipp oder runder Knopf über dem Sprungknopf) verwandelt sich die ganze Welt sofort
- * in ihre Albtraum-Fassung – und zurück. Die Musik springt dabei an dieselbe Stelle der anderen Fassung.
- *  - Im Albtraum gilt, was die Welt dort ausmacht: Albtraum-Brücken (D) tragen, Albtraum-Felsen erscheinen, Gegner werden
- *    fies, Pegeltüren und Scherben wechseln, Lava brennt, Maschinen laufen schneller …
- *  - SCHATTENPERLEN (rot) gibt es nur im Albtraum: auf Albtraum-Brücken und -Felsen. Jede zählt dreifach.
- *  - Das LICHT ist der Preis: Im freiwilligen Albtraum sinkt es; es füllt sich in der Traumwelt langsam wieder auf
- *    (kein Neustart-Trick durch Hin- und Herschalten). Ist es leer, wirft der Albtraum die Heldin zurück – kein Treffer.
- *  - Gesperrt, solange ein Schattenkristall den Albtraum erzwingt (bis zum Lichtkristall) und in Boss-Arenen.
- * Wer beim Wechsel in einem Block steckt, der gerade fest wird, wird hinausgeschoben.
+ * In manchen ?-Blöcken steckt ein SCHATTENMOND. Wer ihn berührt, stürzt freiwillig in die Albtraumwelt – so lange, bis
+ * sein Licht aufgebraucht ist; dann wirft der Albtraum die Heldin ohne Treffer zurück in die Traumwelt.
+ *  - Im Albtraum gilt, was die Welt dort ausmacht (Albtraum-Brücken tragen, Gegner werden fies, Türen/Scherben wechseln …).
+ *  - SCHATTENPERLEN (rot) gibt es nur im Albtraum; jede Perle zählt im freiwilligen Albtraum doppelt.
+ *  - Monde stecken in ?-Blöcken kurz vor Schattenperlen; in Leveln ohne Schattenperlen einer in der Levelmitte.
+ *    Nie in einem erzwungenen Albtraum (Schatten- bis Lichtkristall) und nie in einer Boss-Arena.
+ *  - Kein Knopf und keine Taste mehr für den Wechsel (Taste E, Doppeltipp und Wischen tun in Hand-Leveln nichts).
+ * Musik: springt an dieselbe Stelle der Albtraum-Fassung (song-30.js). Wer beim Wechsel in einem Block steckt, wird befreit.
  */
 'use strict';
 (function () {
   if (typeof upd !== 'function' || typeof press !== 'function') return;
   const HM = () => level > 0 && !!window.TRAUMSPRUNG_LEVEL_HANDMADE;
-  let freiwillig = false, cd = 0, schieben = 0, dunkleGesehen = new Set(), owner = null, schatten = [];
-
-  const btn = document.createElement('button');
-  btn.type = 'button'; btn.id = 'ts-weltwechsel'; btn.setAttribute('aria-label', 'Welt wechseln: Traum oder Albtraum'); btn.hidden = true;
-  btn.innerHTML = '<svg viewBox="0 0 40 40" width="38" height="38" aria-hidden="true"><circle class="ww-sonne" cx="20" cy="20" r="9"/><path class="ww-mond" d="M24 8a12 12 0 1 0 8 20A10 10 0 0 1 24 8z"/></svg><span class="ww-taste">E</span>';
-  const css = document.createElement('style');
-  css.textContent = `#ts-weltwechsel{position:fixed;z-index:40;right:max(22px,env(safe-area-inset-right));bottom:calc(210px + env(safe-area-inset-bottom));width:74px;height:74px;border-radius:50%;
-    border:3px solid #ffffffaa;background:radial-gradient(circle at 35% 30%,#7a5ad8,#2a1450);color:#fff;display:grid;place-items:center;box-shadow:0 6px 18px #0006;touch-action:none;cursor:pointer;padding:0}
-  #ts-weltwechsel[hidden]{display:none}
-  #ts-weltwechsel .ww-sonne{fill:#ffe08a;opacity:0}#ts-weltwechsel .ww-mond{fill:#ffd0e0}
-  #ts-weltwechsel.ww-albtraum{background:radial-gradient(circle at 35% 30%,#ffcf86,#c86a3a)}#ts-weltwechsel.ww-albtraum .ww-sonne{opacity:1}#ts-weltwechsel.ww-albtraum .ww-mond{opacity:0}
-  #ts-weltwechsel.ww-gesperrt{opacity:.35;filter:grayscale(1)}
-  #ts-weltwechsel .ww-taste{position:absolute;bottom:-4px;right:-2px;font:700 12px system-ui;background:#000a;border-radius:8px;padding:1px 6px}
-  @media (pointer:coarse){#ts-weltwechsel .ww-taste{display:none}}
-  @media (pointer:fine) and (min-width:761px){#ts-weltwechsel{bottom:auto;top:calc(50% - 37px);right:max(18px,env(safe-area-inset-right))}}
-  @media (orientation:landscape) and (max-height:500px){#ts-weltwechsel{bottom:calc(min(112px,32vh) + 40px + env(safe-area-inset-bottom));width:64px;height:64px}}`;
-  document.head.appendChild(css); document.body.appendChild(btn);
-  btn.addEventListener('pointerdown', e => { e.preventDefault(); e.stopPropagation(); wechsel(); });
+  let freiwillig = false, cd = 0, schieben = 0, dunkleGesehen = new Set(), owner = null, schatten = [], monde = [], letzteGems = 0;
 
   // Boss-Arena: die letzten 42 Felder eines Boss-Levels
   const inArena = () => level % 5 === 0 && P && P.x > (goalTile - 42) * T;
   const erzwungen = () => dreamPhase === 2 && !freiwillig;
   const gesperrt = () => !HM() || state !== 'play' || !P || P.dead || erzwungen() || inArena() || cd > 0 || !window.TRAUMSPRUNG_ALBTRAUM;
 
+  // Schattenmond berührt: hinein in den Albtraum mit vollem Licht
   function wechsel() {
-    if (gesperrt()) { if (HM() && state === 'play' && typeof snd === 'function') snd(140, .08, 'square', .03); return false; }
-    const A = window.TRAUMSPRUNG_ALBTRAUM;
-    if (dreamPhase === 2) { freiwillig = false; A.setPhase(0); }
-    else {
-      const L = window.TRAUMSPRUNG_LICHT;
-      if (L && L.vorrat && L.vorrat() < .12) { if (typeof snd === 'function') snd(110, .15, 'triangle', .04); return false; }
-      freiwillig = true; A.setPhase(2);
-    }
-    cd = 24; schieben = 6; window.TRAUMSPRUNG_HAPTIC?.('light');
+    if (gesperrt() || dreamPhase === 2) return false;
+    window.TRAUMSPRUNG_LICHT?.setVorrat?.(1);
+    freiwillig = true; window.TRAUMSPRUNG_ALBTRAUM.setPhase(2);
+    cd = 24; schieben = 6; letzteGems = gemsN; window.TRAUMSPRUNG_HAPTIC?.('light');
     return true;
   }
   function zurueck() { if (dreamPhase === 2 && freiwillig) { freiwillig = false; window.TRAUMSPRUNG_ALBTRAUM?.setPhase(0); cd = 40; } }
 
-  // Taste E / Doppeltipp / Wischen: in Hand-Leveln ist das jetzt der Weltwechsel
+  // Taste E / Doppeltipp / Wischen: in Hand-Leveln kein Wechsel mehr (nur über den Schattenmond)
   const priorPress = press;
   press = function (k, v) {
-    if (k === 'e' && HM()) { if (v) wechsel(); return; }
+    if (k === 'e' && HM()) return;
     return priorPress.apply(this, arguments);
   };
 
@@ -16224,11 +16216,45 @@ setLang();menuSignature='';updateInterface();
     let letzte = -9;
     for (const [x, r] of plaetze) { if (x - letzte < 2 || r - 1 < 3) continue; letzte = x; schatten.push({ x: x * T + 16, y: (r - 1) * T + 16, got: false }); if (schatten.length >= 14) break; }
   }
+  // Monde in ?-Blöcke legen (Belohnung 16): vor jeder Gruppe Schattenperlen, sonst einer in der Levelmitte
+  function setzeMonde() {
+    if (typeof hmRewards === 'undefined') return;
+    const zwang = [];
+    let von = null;
+    for (const c of [...(window.TRAUMSPRUNG_HM_CRYSTALS || [])].sort((a, b) => a.x - b.x)) {
+      if (c.kind === 'dark' && von === null) von = c.x / T;
+      if (c.kind === 'light' && von !== null) { zwang.push([von - 3, c.x / T + 3]); von = null; }
+    }
+    if (von !== null) zwang.push([von - 3, W]);
+    const frei = x => !zwang.some(([a, b]) => x >= a && x <= b) && !(level % 5 === 0 && x > goalTile - 46);
+    const kandidaten = [...hmRewards].filter(([k, v]) => v === 3).map(([k]) => k.split(',').map(Number)).filter(([x]) => frei(x)).sort((a, b) => a[0] - b[0]);
+    if (!kandidaten.length) return;
+    const gewaehlt = [];
+    let letzteGruppe = -99;
+    for (const sp of schatten) {
+      const sx = sp.x / T; if (sx - letzteGruppe < 12) continue; letzteGruppe = sx;
+      const k = kandidaten.filter(([x]) => x >= sx - 30 && x <= sx - 2 && !gewaehlt.includes(x)).pop();
+      if (k) gewaehlt.push(k[0]), hmRewards.set(k[0] + ',' + k[1], 16);
+      if (gewaehlt.length >= 3) break;
+    }
+    if (!gewaehlt.length) { const mitte = W * .45; const k = kandidaten.reduce((b, c) => Math.abs(c[0] - mitte) < Math.abs(b[0] - mitte) ? c : b); hmRewards.set(k[0] + ',' + k[1], 16); }
+  }
+  // Ein Mond steigt aus dem Block
+  const IT = window.TRAUMSPRUNG_ITEMS;
+  if (IT && IT.spawn) {
+    const priorSpawn = IT.spawn;
+    IT.spawn = function (m, tx, ty) {
+      if (m !== 16) return priorSpawn.apply(this, arguments);
+      monde.push({ x: tx * T + 16, y: ty * T + 16, ziel: (ty - 1) * T + 10, got: false });
+      if (typeof snd === 'function') { snd(330, .3, 'sine', .04); snd(247, .4, 'triangle', .03); }
+    };
+  }
   const priorBuild = build;
   build = function () {
     const out = priorBuild.apply(this, arguments);
     freiwillig = false; cd = 0; dunkleGesehen = new Set();
-    if (HM()) baueSchatten(); else schatten = [];
+    monde = [];
+    if (HM()) { baueSchatten(); setzeMonde(); } else schatten = [];
     return out;
   };
 
@@ -16236,9 +16262,11 @@ setLang();menuSignature='';updateInterface();
   upd = function () {
     const r = priorUpd.apply(this, arguments);
     if (cd > 0) cd--;
-    if (!HM()) { if (!btn.hidden) btn.hidden = true; return r; }
+    if (!HM()) return r;
     if (dreamPhase !== 2) freiwillig = false;
-    // ein Schattenkristall macht den freiwilligen Albtraum zum erzwungenen
+    // ein Schattenkristall macht den freiwilligen Albtraum zum erzwungenen (volles Licht, Kristall-Wirkung wie sonst)
+    if (freiwillig && dreamPhase === 2 && state === 'play' && P) for (const c of window.TRAUMSPRUNG_HM_CRYSTALS || [])
+      if (c.kind === 'dark' && !c.used && Math.abs(P.x + 11 - c.x) < 22) { c.used = true; freiwillig = false; window.TRAUMSPRUNG_LICHT?.set?.(1); window.TRAUMSPRUNG_LICHT?.erzwingen?.(); window.TRAUMSPRUNG_ONPHASE?.(2, c); }
     for (const c of window.TRAUMSPRUNG_HM_CRYSTALS || []) if (c.kind === 'dark' && c.used && !dunkleGesehen.has(c)) { dunkleGesehen.add(c); freiwillig = false; }
     if (state === 'play' && P && !P.dead) {
       if (schieben > 0) { schieben--; befreien(); }
@@ -16247,10 +16275,19 @@ setLang();menuSignature='';updateInterface();
         for (let i = 0; i < 10; i++) spark(s.x, s.y, i % 2 ? '#ff4a6a' : '#ffd0e0', 1); if (typeof snd === 'function') { snd(660, .06, 'square', .03); snd(1320, .08, 'triangle', .02); }
       }
     }
-    const zeigen = state === 'play' && !inArena();
-    if (btn.hidden === zeigen) btn.hidden = !zeigen;
-    btn.classList.toggle('ww-albtraum', dreamPhase === 2);
-    btn.classList.toggle('ww-gesperrt', erzwungen() || (window.TRAUMSPRUNG_LICHT?.vorrat?.() ?? 1) < .12 && dreamPhase !== 2);
+    if (state === 'play' && P && !P.dead) {
+      // Schattenmond: steigt aus dem Block, schwebt; Berühren = Albtraum (im erzwungenen Albtraum: Licht auffüllen)
+      for (const m of monde) {
+        if (m.got) continue; if (m.y > m.ziel) m.y = Math.max(m.ziel, m.y - 1.5);
+        if (Math.abs(P.x + 11 - m.x) < 20 && Math.abs(P.y + 14 - m.y) < 24) {
+          m.got = true; for (let i = 0; i < 24; i++) spark(m.x, m.y, i % 2 ? '#ff4a6a' : '#2a0a2e', 1);
+          if (dreamPhase === 2) { const L = window.TRAUMSPRUNG_LICHT; if (L) L.set(1); } else wechsel();
+        }
+      }
+      // im freiwilligen Albtraum zählt jede Perle doppelt
+      if (freiwillig && dreamPhase === 2 && gemsN > letzteGems) { const d = gemsN - letzteGems; for (let i = 0; i < d; i++) gain(); }
+      letzteGems = gemsN;
+    }
     return r;
   };
 
@@ -16261,6 +16298,14 @@ setLang();menuSignature='';updateInterface();
       const r = priorDraw.apply(this, arguments);
       if (!HM()) return r;
       const nm = dreamPhase === 2, vw = VW / sceneZoom;
+      for (const m of monde) {
+        if (m.got) continue; const x = m.x - cam, y = m.y + Math.sin(t / 15) * 3; if (x < -30 || x > vw + 30) continue;
+        cx.save(); const g = cx.createRadialGradient(x, y, 2, x, y, 26); g.addColorStop(0, 'rgba(255,60,100,.55)'); g.addColorStop(1, 'rgba(255,60,100,0)');
+        cx.fillStyle = g; cx.beginPath(); cx.arc(x, y, 26, 0, 7); cx.fill();
+        cx.fillStyle = '#3a0a2e'; cx.beginPath(); cx.arc(x, y, 11, 0, 7); cx.fill();
+        cx.fillStyle = '#ff6a8a'; cx.beginPath(); cx.arc(x - 4, y - 2, 9, -1.2, 1.9); cx.arc(x + 1, y - 4, 8, 1.9, -1.2, true); cx.fill();
+        cx.fillStyle = '#ffe0e8'; cx.fillRect(x + 3, y - 3, 2, 2); cx.restore();
+      }
       for (const s of schatten) {
         if (s.got) continue; const x = s.x - cam, y = s.y + Math.sin(t / 12 + s.x) * 2; if (x < -20 || x > vw + 20) continue;
         cx.save();
@@ -16271,7 +16316,71 @@ setLang();menuSignature='';updateInterface();
       return r;
     };
   }
-  window.TRAUMSPRUNG_WELTWECHSEL = { wechsel, zurueck, freiwillig: () => freiwillig && dreamPhase === 2, gesperrt, schatten: () => schatten, knopf: btn };
+  window.TRAUMSPRUNG_WELTWECHSEL = { wechsel, zurueck, freiwillig: () => freiwillig && dreamPhase === 2, gesperrt, schatten: () => schatten, monde: () => monde };
+})();
+
+</script><script>/* src/systems/stern-40.js */
+/* Traumsprung 4.0-p10 – Sternverwandlung mit großem Auftritt.
+ *
+ * Wer den Stern berührt, verwandelt sich (Spielzustand „morph“). Bisher gab es nur Funken. Jetzt:
+ *  - ein heller Blitz über das ganze Bild, dann drei Regenbogen-Ringe, die sich von der Heldin ausbreiten,
+ *  - Sternschnuppen fliegen nach außen, eine kleine Fanfare erklingt (aufsteigende Töne),
+ *  - solange die Sternkraft hält: eine Regenbogenspur hinter der Heldin und ein sanfter Lichtkranz.
+ *    In den letzten zwei Sekunden blinkt der Kranz – die Kraft lässt nach.
+ */
+'use strict';
+(function () {
+  if (typeof upd !== 'function' || typeof drawDreamObjects !== 'function') return;
+  let auftritt = null, spur = [], warMorph = false;
+  const FARBE = i => 'hsl(' + ((i * 47 + t * 6) % 360) + ',95%,65%)';
+
+  const priorUpd = upd;
+  upd = function () {
+    const r = priorUpd.apply(this, arguments);
+    const morph = state === 'morph';
+    if (morph && !warMorph && P && P.star > 0) {
+      auftritt = { t: 0, x: P.x + 11, y: P.y + 14, schnuppen: Array.from({ length: 16 }, (_, i) => ({ a: i / 16 * Math.PI * 2, v: 3 + (i % 3) })) };
+      if (typeof snd === 'function') [523, 659, 784, 1047, 1319].forEach((f, i) => setTimeout(() => { snd(f, .18, 'square', .035); snd(f * 2, .12, 'triangle', .02); }, i * 70));
+      window.TRAUMSPRUNG_HAPTIC?.('impact');
+    }
+    warMorph = morph;
+    if (auftritt) { auftritt.t++; if (auftritt.t > 80) auftritt = null; }
+    // Regenbogenspur, solange die Sternkraft hält
+    if (P && P.star > 0 && state === 'play') { if (t % 2 === 0) spur.push({ x: P.x + 11, y: P.y + 16, l: 22, i: t }); }
+    for (const s of spur) s.l--;
+    spur = spur.filter(s => s.l > 0);
+    return r;
+  };
+
+  const priorDraw = drawDreamObjects;
+  drawDreamObjects = function () {
+    const r = priorDraw.apply(this, arguments);
+    if (!P) return r;
+    // Spur
+    for (const s of spur) { cx.save(); cx.globalAlpha = s.l / 22 * .7; cx.fillStyle = FARBE(s.i); cx.beginPath(); cx.arc(s.x - cam, s.y, 3 + s.l / 6, 0, 7); cx.fill(); cx.restore(); }
+    // Lichtkranz
+    if (P.star > 0 && (P.star > 120 || (t >> 3) % 2)) {
+      const x = P.x + 11 - cam, y = P.y + 14, g = cx.createRadialGradient(x, y, 6, x, y, 34);
+      g.addColorStop(0, 'rgba(255,250,210,.0)'); g.addColorStop(.6, 'rgba(255,240,170,.28)'); g.addColorStop(1, 'rgba(255,200,255,0)');
+      cx.save(); cx.fillStyle = g; cx.beginPath(); cx.arc(x, y, 34, 0, 7); cx.fill(); cx.restore();
+    }
+    if (auftritt) {
+      const A = auftritt, x = A.x - cam, y = A.y, vw = VW / sceneZoom;
+      cx.save();
+      // Blitz
+      if (A.t < 12) { cx.fillStyle = `rgba(255,252,230,${.55 * (1 - A.t / 12)})`; cx.fillRect(0, 0, vw, H * T); }
+      // Regenbogen-Ringe
+      for (let k = 0; k < 3; k++) { const tt = A.t - k * 10; if (tt <= 0) continue; const rr = tt * 5, al = Math.max(0, 1 - tt / 60);
+        cx.lineWidth = 6; cx.globalAlpha = al; for (let i = 0; i < 6; i++) { cx.strokeStyle = 'hsl(' + (i * 60 + k * 20) + ',95%,65%)'; cx.beginPath(); cx.arc(x, y, rr + i * 4, 0, 7); cx.stroke(); } }
+      // Sternschnuppen
+      cx.globalAlpha = Math.max(0, 1 - A.t / 70);
+      for (const s of A.schnuppen) { const d = A.t * s.v, sx = x + Math.cos(s.a) * d, sy = y + Math.sin(s.a) * d;
+        cx.fillStyle = '#fff6c0'; cx.beginPath(); for (let i = 0; i < 10; i++) { const w = i / 10 * Math.PI * 2 - Math.PI / 2, q = i % 2 ? 2.5 : 6; cx.lineTo(sx + Math.cos(w) * q, sy + Math.sin(w) * q); } cx.fill(); }
+      cx.restore();
+    }
+    return r;
+  };
+  window.TRAUMSPRUNG_STERN = { aktiv: () => !!auftritt, spur: () => spur.length };
 })();
 
 </script><script>/* src/systems/funken-40.js */
@@ -16480,5 +16589,12 @@ setLang();menuSignature='';updateInterface();
 })();
 
 </script>
-
+<style>/* 4.0-p10: Querformat auf dem Handy – keine sichtbaren Lauf-/Sprungtasten (links laufen, rechts tippen = springen); nur Feuer bleibt sichtbar */
+@media (pointer:coarse) and (orientation:landscape), (max-width:900px) and (max-height:500px) and (orientation:landscape){
+  body.mobile-playing .mobile-move-visual,body.mobile-playing .mobile-jump-visual{opacity:0!important;transition:opacity .6s}
+  body.mobile-playing.ts-tasten-hinweis .mobile-move-visual,body.mobile-playing.ts-tasten-hinweis .mobile-jump-visual{opacity:.35!important}
+  body.mobile-playing .mobile-move-zone{width:50%!important;left:0!important}
+  body.mobile-playing .mobile-jump-zone{width:50%!important;right:0!important}
+}
+</style>
 </html>
