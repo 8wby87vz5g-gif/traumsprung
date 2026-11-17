@@ -17080,6 +17080,427 @@ setLang();menuSignature='';updateInterface();
   window.TRAUMSPRUNG_FINALE = { state: () => F && { t: F.t } };
 })();
 
+</script><script>/* src/systems/strecken-40.js */
+/* Traumsprung 4.0-p20 – Mehr Sprungstrecken, mehr Blöcke, mehr Verwandlungssterne.
+ *
+ * Läuft nach dem Aufbau jedes Hand-Levels und ergänzt – immer gleich (kein Zufall), nur an sicheren Stellen:
+ *  1) Sprunglücken: 2–3 Felder breite Gruben in langen, ebenen, leeren Bodenstücken, darüber ein Perlenbogen.
+ *     Nicht am Start, nicht vor dem Ziel, nicht in Boss-Arenen, Wasser-/Lava-/Schwebe-/Wind-/Band-Zonen,
+ *     nicht neben Gegnern, Fahnen, Kristallen, Blasen oder Perlen am Boden.
+ *  2) Blockreihen: „B ? B“ (manchmal „? B ? B“) vier Felder über dem Boden in freien Lufträumen.
+ *  3) Verwandlungssterne: je Level mindestens zwei (lange Level drei) ?-Blöcke mit Stern; dafür werden
+ *     Perlen-Blöcke umgewidmet (Blasen-, Mond- und Sonderblöcke bleiben unberührt).
+ * Abschaltbar: window.TRAUMSPRUNG_STRECKEN_OFF = true
+ */
+'use strict';
+(function () {
+  if (typeof build !== 'function') return;
+  const HM = () => level > 0 && !!window.TRAUMSPRUNG_LEVEL_HANDMADE;
+  let info = { luecken: [], bloecke: [], sterne: 0 };
+
+  const tx = v => (v > W + 4 ? v / T : v);   // Pixel oder Feld → Feld
+  function zonen(mitGegnern = false) {
+    const z = [];
+    let quelle = '';
+    const add = (a, b, m = 3) => z.push([Math.floor(a) - m, Math.ceil(b) + m, quelle]);
+    for (const w of window.TRAUMSPRUNG_HM_W4?.seen || []) add(w.von, w.bis);
+    for (const l of window.TRAUMSPRUNG_HM_W5?.laven || []) add(l.von, l.bis);
+    for (const s of window.TRAUMSPRUNG_HM_W9?.schwebe || []) add(s.von, s.bis);
+    for (const w of window.TRAUMSPRUNG_HM_W6?.winde || []) if (w.von != null) add(tx(w.von), tx(w.bis), 4); else if (w.x != null) add(tx(w.x) - 4, tx(w.x) + (w.w || 8), 4);
+    for (const b of window.TRAUMSPRUNG_HM_W7?.baender || []) if (b.von != null) add(tx(b.von), tx(b.bis), 3); else if (b.x != null) add(tx(b.x), tx(b.x) + (b.w || 6), 3);
+    // alle übrigen Bausteine mit Lage (Stampfer, Laser, Schalter, Wurzeln, Geysire …) großzügig meiden
+    const scan = o => {
+      if (!o || typeof o !== 'object') return;
+      if (Array.isArray(o)) { for (const e of o) if (e && typeof e === 'object') { const x = e.x ?? e.von; if (typeof x === 'number') { const a = tx(x), bb = e.bis != null ? tx(e.bis) : a + (e.w ? (e.w > 20 ? e.w / T : e.w) : 1); add(a, bb, 2); } } return; }
+      for (const k of Object.keys(o)) scan(o[k]);
+    };
+    for (const k of ['TRAUMSPRUNG_HM_W3', 'TRAUMSPRUNG_HM_W4', 'TRAUMSPRUNG_HM_W5', 'TRAUMSPRUNG_HM_W6', 'TRAUMSPRUNG_HM_W7', 'TRAUMSPRUNG_HM_W8', 'TRAUMSPRUNG_HM_W9', 'TRAUMSPRUNG_HM_W10', 'TRAUMSPRUNG_HM_FAM', 'TRAUMSPRUNG_HM_EISGEGNER', 'TRAUMSPRUNG_HM_RESTART', 'TRAUMSPRUNG_HM_NMRESTART', 'TRAUMSPRUNG_HM_NMSPAWN']) { quelle = k; scan(window[k]); }
+    quelle = 'rest';
+    if (window.TRAUMSPRUNG_HM_FAM?.crumble) for (const c of window.TRAUMSPRUNG_HM_FAM.crumble.values()) add(c.x, c.x, 3);
+    for (const c of window.TRAUMSPRUNG_HM_CRYSTALS || []) add(tx(c.x), tx(c.x), 4);
+    for (const b of window.TRAUMSPRUNG_HM_BUBBLES || []) add(tx(b.x), tx(b.x), 3);
+    for (const c of (typeof cpTiles !== 'undefined' ? cpTiles : [])) add(c, c, 4);
+    quelle = 'foes'; if (mitGegnern) for (const f of foes || []) add(tx(f.x), tx(f.x) + 1, 1);
+    // fliegende Gegner und Gegner direkt an der Grube: immer meiden
+    for (const f of foes || []) add(tx(f.x), tx(f.x) + 1, 0);
+    for (const s of (typeof dreamSeals !== 'undefined' ? dreamSeals : [])) add(tx(s.x), tx(s.x), 3);
+    if (window.TRAUMSPRUNG_SCHATTENPFADE) for (const x of window.TRAUMSPRUNG_SCHATTENPFADE.pfade()) add(x, x + 10, 3);
+    if (level % 5 === 0) add(goalTile - 60, W, 0);
+    return z;
+  }
+  const leer = c => c === ' ';
+  // Bodenstück [a,b] eben, Luft darüber frei (Reihen 6–11), keine Perlen tief
+  function bodenFrei(a, b, oben = 6) {
+    for (let x = a; x <= b; x++) {
+      if (grid[12]?.[x] !== '#' || grid[13]?.[x] !== '#') return false;
+      for (let r = oben; r <= 11; r++) if (!leer(grid[r]?.[x])) return false;
+    }
+    if ((gems || []).some(g => !g.got && g.x >= a * T - 8 && g.x <= (b + 1) * T + 8 && g.y >= oben * T)) return false;
+    return true;
+  }
+
+  // Blockreihe in Reihe 8: Boden darunter, Reihen 5–11 frei, keine Perlen in Reihe 5–9
+  function luftFrei(a, b) {
+    for (let x = a; x <= b; x++) {
+      if (grid[12]?.[x] !== '#') return false;
+      for (let r = 6; r <= 11; r++) if (!leer(grid[r]?.[x])) return false;
+    }
+    if ((gems || []).some(g => !g.got && g.x >= a * T - 8 && g.x <= (b + 1) * T + 8 && g.y >= 5 * T && g.y < 10 * T)) return false;
+    return true;
+  }
+  // Grube: Boden a..b durchgehend, über der Grube (±1) Reihen 8–11 frei
+  function grubeFrei(a, b, g0, g1) {
+    for (let x = a; x <= b; x++) if (grid[12]?.[x] !== '#' || grid[13]?.[x] !== '#' || grid[11]?.[x] !== ' ') return false;
+    for (let x = g0; x <= g1; x++) for (let r = 8; r <= 11; r++) if (!leer(grid[r]?.[x])) return false;
+    return true;
+  }
+  function luecken(z) {
+    const sperre = (a, b) => z.some(([p, q]) => b >= p && a <= q);
+    const ziel = Math.min(4, Math.max(1, Math.round(W / 70))), von = 26, bis = Math.min(goalTile - 16, Math.floor(W * .9));
+    let letzte = -99;
+    for (let x = von; x < bis && info.luecken.length < ziel; x++) {
+      if (x - letzte < 22) continue;
+      const breit = 2 + ((x + level) % 2);          // 2 oder 3 Felder, abwechselnd
+      const a = x - 2, b = x + breit + 1;
+      if (sperre(a, b) || !grubeFrei(a, b, x - 1, x + breit)) continue;
+      for (let i = 0; i < breit; i++) { grid[12][x + i] = ' '; grid[13][x + i] = ' '; }
+      // Perlenbogen über der Grube
+      const mitte = (x + breit / 2) * T;
+      for (let k = -1; k <= 1; k++) { const id = `${level}:s${x}:${k}`; gems.push({ x: mitte + k * 26, y: 12 * T - 62 - (k ? 0 : 16), got: +(typeof collectedGems !== 'undefined' && collectedGems.has(id)), id }); }
+      // Gegner in der Nähe laufen nur bis an die Kante (kehren dort um)
+      for (const f of foes || []) {
+        if (f.dead || Math.abs(f.x - x * T) > 16 * T) continue;
+        if (f.minX == null) { f.minX = 0; f.maxX = W * T; }
+        if (f.x < x * T) f.maxX = Math.min(f.maxX, x * T - f.w - 2); else f.minX = Math.max(f.minX, (x + breit) * T + 2);
+      }
+      info.luecken.push([x, breit]); letzte = x; x += breit;
+    }
+  }
+
+  function bloecke(z) {
+    const sperre = (a, b) => z.some(([p, q]) => b >= p && a <= q) || info.luecken.some(([x, w]) => b >= x - 3 && a <= x + w + 3);
+    const ziel = Math.min(4, Math.max(1, Math.round(W / 55))), von = 14, bis = Math.min(goalTile - 10, Math.floor(W * .9));
+    let letzte = -99;
+    for (let x = von; x < bis && info.bloecke.length < ziel; x++) {
+      if (x - letzte < 20) continue;
+      const muster = (info.bloecke.length + level) % 2 ? 'B?B' : '?B?B';
+      const a = x - 1, b = x + muster.length;
+      if (sperre(a, b) || !luftFrei(a, b)) continue;
+      for (let i = 0; i < muster.length; i++) {
+        grid[8][x + i] = muster[i];
+        if (muster[i] === '?') hmRewards.set((x + i) + ',8', 3);
+      }
+      info.bloecke.push([x, muster]); letzte = x; x += muster.length;
+    }
+  }
+
+  // Obere Blockreihe: über vorhandenen Blockgruppen (Reihe 7–8) eine zweite Etage „B?B“ vier Reihen höher
+  function etagen(z) {
+    const sperre = (a, b) => z.some(([p, q]) => b >= p && a <= q);
+    let n = 0; const ziel = Math.max(1, Math.round(W / 90));
+    for (const r of [7, 8]) for (let x = 6; x < Math.min(goalTile - 6, W - 6) && n < ziel; x++) {
+      const istB = c => c === 'B' || c === '?' || c === 'X';
+      if (!istB(grid[r][x]) || istB(grid[r][x - 1])) continue;
+      let e = x; while (istB(grid[r][e + 1])) e++;
+      if (e - x < 2) { x = e; continue; }
+      const m = Math.floor((x + e) / 2) - 1, rr = r - 4;
+      let frei = !sperre(m, m + 2);
+      for (let xx = m - 1; xx <= m + 3 && frei; xx++) for (let q = rr - 2; q <= r - 1; q++) if (!leer(grid[q]?.[xx])) { frei = false; break; }
+      if (frei && (gems || []).some(g => !g.got && g.x >= (m - 1) * T && g.x <= (m + 4) * T && g.y >= (rr - 2) * T && g.y < r * T)) frei = false;
+      if (frei) { grid[rr][m] = 'B'; grid[rr][m + 1] = '?'; grid[rr][m + 2] = 'B'; hmRewards.set((m + 1) + ',' + rr, 3); info.bloecke.push([m, 'B?B', rr]); n++; }
+      x = e + 10;
+    }
+  }
+
+  function sterne() {
+    const ziel = level % 5 === 0 ? 2 : Math.max(3, Math.round(W / 60));
+    let da = 0; const perlen = [];
+    for (const [k, m] of hmRewards) { const [x, y] = k.split(',').map(Number); if (grid[y]?.[x] !== '?') continue; if (m === 0) da++; else if (m === 3) perlen.push([x, y, k]); }
+    perlen.sort((a, b) => a[0] - b[0]);
+    // gleichmäßig über das Level verteilt: je Abschnitt ein Stern, falls dort noch keiner ist
+    const fehlt = ziel - da; info.sterne = 0;
+    if (fehlt <= 0 || !perlen.length) return;
+    const bereiche = []; for (let i = 0; i < ziel; i++) bereiche.push([W * i / ziel, W * (i + 1) / ziel]);
+    const sternX = []; for (const [k, m] of hmRewards) if (m === 0) sternX.push(+k.split(',')[0]);
+    for (const [a, b] of bereiche) {
+      if (info.sterne >= fehlt) break;
+      if (sternX.some(x => x >= a && x < b)) continue;
+      const kand = perlen.find(p => p[0] >= a && p[0] < b && p[0] < goalTile - 8 && !(level % 5 === 0 && p[0] > goalTile - 60));
+      if (!kand) continue;
+      hmRewards.set(kand[2], 0); sternX.push(kand[0]); info.sterne++;
+    }
+  }
+
+  const priorBuild = build;
+  build = function () {
+    const out = priorBuild.apply(this, arguments);
+    info = { luecken: [], bloecke: [], sterne: 0 };
+    if (HM() && !window.TRAUMSPRUNG_STRECKEN_OFF && typeof hmRewards !== 'undefined') {
+      try { const z = zonen(); luecken(z); bloecke(z); etagen(z); sterne(); } catch (e) { console.warn('strecken-40', e); }
+    }
+    return out;
+  };
+  window.TRAUMSPRUNG_STRECKEN = { info: () => info, zonen, luftFrei, grubeFrei };
+})();
+
+</script><script>/* src/systems/bruecken-40.js */
+/* Traumsprung 4.0-p20 – Bröckelbrücken und volle ?-Blöcke nach dem Neustart.
+ *
+ * 1) Neustart nach dem Tod: ?-Blöcke mit Traumblase (15), Schattenmond (16) oder Verwandlungsstern (0)
+ *    sind wieder voll. Vorher blieben sie nach dem Tod leer – die Blase fehlte und die Traumbrücke
+ *    dahinter war nicht mehr erreichbar.
+ * 2) Bröckelbrücken: Traumbrücken (Kachel D) sind jetzt auch wach sichtbar und tragen – aber nur kurz.
+ *    Wer wach darauf landet, hat gut eine halbe Sekunde, dann zerbröckelt das Stück unter den Füßen
+ *    (wie in Giana Sisters: drüberlaufen geht, stehen bleiben nicht). Nach 5 s wächst es nach.
+ *    Im Traum und im Albtraum sind die Brücken wie bisher fest – die Traumblase macht sie stabil.
+ *    Nur waagerechte Brücken: Stücke mit D direkt darüber oder darunter (Wände) und Blitzwolken bleiben,
+ *    wie sie waren.
+ * Technik: Während eines Spielschritts im Wachzustand werden die tragenden Stücke kurz zu 'K' (fest),
+ * danach wieder zu 'D' – Zeichnen und alle anderen Module sehen weiter 'D'.
+ */
+'use strict';
+(function () {
+  if (typeof upd !== 'function' || typeof build !== 'function') return;
+  const HM = () => level > 0 && !!window.TRAUMSPRUNG_LEVEL_HANDMADE;
+  const HALT = 34, ZURUECK = 300;
+  let stuecke = new Map(), getauscht = [], tauschGrid = null;
+
+  // ── 1) Neustart: Blasen-, Mond- und Stern-Blöcke wieder füllen ─────────
+  if (typeof respawn === 'function') {
+    const priorRespawn = respawn;
+    respawn = function () {
+      try {
+        if (HM() && typeof brokenBlocks !== 'undefined' && typeof hmRewards !== 'undefined')
+          for (const k of [...brokenBlocks.keys()]) { const m = hmRewards.get(k); if (m === 15 || m === 16 || m === 0) brokenBlocks.delete(k); }
+      } catch (_) { }
+      return priorRespawn.apply(this, arguments);
+    };
+  }
+
+  // ── 2) Bröckelbrücken ──────────────────────────────────────────────────
+  function sammeln() {
+    stuecke = new Map(); getauscht = [];
+    if (!HM()) return;
+    const blitz = new Set();
+    for (const b of window.TRAUMSPRUNG_HM_W6?.blitzwolken || []) for (let i = 0; i < b.w; i++) blitz.add((b.x + i) + ',' + b.row);
+    for (let r = 2; r < H; r++) for (let x = 0; x < W; x++) {
+      if (grid[r][x] !== 'D') continue;
+      if (grid[r - 1]?.[x] === 'D' || grid[r + 1]?.[x] === 'D') continue;
+      const k = x + ',' + r; if (blitz.has(k)) continue;
+      stuecke.set(k, { x, r, t: 0, weg: false, back: 0 });
+    }
+  }
+  const priorBuild = build;
+  build = function () { const o = priorBuild.apply(this, arguments); sammeln(); return o; };
+
+  const ueberlappt = (s, pad) => P.x - pad < s.x * T + T && P.x + P.w + pad > s.x * T && P.y - pad < s.r * T + T && P.y + P.h + pad > s.r * T;
+  function schritt() {
+    if (dreamPhase !== 0 || !P) return;
+    const fussR = Math.floor((P.y + P.h + .5) / T);
+    for (const s of stuecke.values()) {
+      if (s.weg) {
+        if (t >= s.back && grid[s.r][s.x] === 'D' && !ueberlappt(s, 6) && !(foes || []).some(f => !f.dead && f.x < s.x * T + T && f.x + f.w > s.x * T && f.y < s.r * T + T && f.y + f.h > s.r * T)) {
+          s.weg = false; s.t = 0;
+          for (let i = 0; i < 5; i++) spark(s.x * T + 16, s.r * T + 8, '#cfe8ff', 1);
+        }
+        continue;
+      }
+      const drauf = P.ground && fussR === s.r && P.x + P.w - 3 > s.x * T && P.x + 3 < s.x * T + T;
+      if (drauf && !s.t) { s.t = 1; if (typeof snd === 'function') snd(300, .05, 'triangle', .02); }
+      if (s.t && ++s.t >= HALT) {
+        s.weg = true; s.t = 0; s.back = t + ZURUECK;
+        for (let i = 0; i < 8; i++) spark(s.x * T + 16, s.r * T + 10, i % 2 ? '#9fdcf0' : '#e8d6ff', 1);
+        fallen.push({ x: s.x * T, y: s.r * T, vy: 0, a: 1 });
+        if (typeof snd === 'function') snd(130, .09, 'triangle', .03);
+      }
+    }
+  }
+  let fallen = [];
+
+  const priorUpd = upd;
+  upd = function () {
+    // tragende Stücke für diesen Schritt fest machen (nur wach)
+    if (HM() && dreamPhase === 0 && stuecke.size && state === 'play') {
+      tauschGrid = grid;
+      for (const s of stuecke.values()) if (!s.weg && grid[s.r][s.x] === 'D') { grid[s.r][s.x] = 'K'; getauscht.push(s); }
+    }
+    let r;
+    try { r = priorUpd.apply(this, arguments); }
+    finally {
+      if (tauschGrid) for (const s of getauscht) if (tauschGrid[s.r]?.[s.x] === 'K') tauschGrid[s.r][s.x] = 'D';
+      tauschGrid = null;
+      getauscht = [];
+    }
+    if (HM() && state === 'play') schritt();
+    for (const f of fallen) { f.vy += .35; f.y += f.vy; f.a -= .03; }
+    if (fallen.length) fallen = fallen.filter(f => f.a > 0);
+    return r;
+  };
+
+  // Zeichnen: wach als feste Traumstein-Planke mit Tiefe, Risse beim Zerbröckeln
+  function planke(x, y, links, rechts, wackel, wolke) {
+    x += wackel;
+    if (wolke) {
+      cx.fillStyle = 'rgba(80,90,140,.35)'; cx.beginPath(); cx.ellipse(x + 16, y + 17, 17, 6, 0, 0, 7); cx.fill();
+      const g = cx.createLinearGradient(0, y, 0, y + 16); g.addColorStop(0, '#ffffff'); g.addColorStop(1, '#c9d6f2');
+      cx.fillStyle = g; cx.beginPath(); cx.arc(x + 9, y + 9, 8, 0, 7); cx.arc(x + 20, y + 7, 9, 0, 7); cx.arc(x + 27, y + 11, 6, 0, 7); cx.fill();
+      return;
+    }
+    const r0 = links ? 6 : 0, r1 = rechts ? 6 : 0;
+    // Unterseite (Tiefe)
+    cx.fillStyle = '#4a6a9a';
+    cx.beginPath(); cx.roundRect ? cx.roundRect(x, y + 4, T, 14, [0, 0, r1, r0]) : cx.rect(x, y + 4, T, 14); cx.fill();
+    // Oberseite
+    const g = cx.createLinearGradient(0, y, 0, y + 12); g.addColorStop(0, '#d9fbff'); g.addColorStop(1, '#8fd3e8');
+    cx.fillStyle = g; cx.beginPath(); cx.roundRect ? cx.roundRect(x, y, T, 12, [r0, r1, 0, 0]) : cx.rect(x, y, T, 12); cx.fill();
+    cx.fillStyle = 'rgba(255,255,255,.75)'; cx.fillRect(x + (links ? 4 : 0), y + 1.5, T - (links ? 4 : 0) - (rechts ? 4 : 0), 2);
+    // Fugen
+    cx.strokeStyle = 'rgba(40,70,110,.45)'; cx.lineWidth = 1;
+    cx.beginPath(); cx.moveTo(x + .5, y + 2); cx.lineTo(x + .5, y + 17); cx.stroke();
+  }
+  function risse(x, y, k) {
+    cx.strokeStyle = `rgba(30,40,80,${.4 + .5 * k})`; cx.lineWidth = 1.4;
+    cx.beginPath(); cx.moveTo(x + 7, y + 1); cx.lineTo(x + 12, y + 7); cx.lineTo(x + 9, y + 14);
+    if (k > .4) { cx.moveTo(x + 23, y + 1); cx.lineTo(x + 19, y + 8); cx.lineTo(x + 25, y + 15); }
+    cx.stroke();
+  }
+  if (typeof drawDreamObjects === 'function') {
+    const priorDraw = drawDreamObjects;
+    drawDreamObjects = function () {
+      const out = priorDraw.apply(this, arguments);
+      if (!HM() || !stuecke.size) return out;
+      const vw = VW / sceneZoom, wolke = !!window.TRAUMSPRUNG_SCENE?.wolken;
+      cx.save();
+      if (dreamPhase === 0) for (const s of stuecke.values()) {
+        if (s.weg) continue;
+        const x = s.x * T - cam, y = s.r * T; if (x < -T || x > vw + T) continue;
+        const l = !stuecke.get((s.x - 1) + ',' + s.r) || stuecke.get((s.x - 1) + ',' + s.r).weg;
+        const re = !stuecke.get((s.x + 1) + ',' + s.r) || stuecke.get((s.x + 1) + ',' + s.r).weg;
+        const k = s.t / HALT, w = s.t ? (Math.random() - .5) * 2.4 * k : 0;
+        planke(x, y, l, re, w, wolke);
+        if (s.t && !wolke) risse(x + w, y, k);
+      }
+      for (const f of fallen) {
+        const x = f.x - cam; cx.globalAlpha = Math.max(0, f.a);
+        cx.fillStyle = wolke ? '#e8eeff' : '#8fd3e8';
+        cx.fillRect(x + 2, f.y, 12, 9); cx.fillRect(x + 17, f.y + 3, 12, 8);
+      }
+      cx.restore();
+      return out;
+    };
+  }
+  window.TRAUMSPRUNG_BRUECKEN = { stuecke: () => stuecke, anzahl: () => stuecke.size };
+})();
+
+</script><script>/* src/systems/tiefe-40.js */
+/* Traumsprung 4.0-p20 – Mehr 3D-Optik (2,5D).
+ *
+ *  - Feste Kacheln (Boden, Steine, ?-Blöcke, Holzplanken, Eis …) bekommen eine sichtbare Tiefe: hinter jeder
+ *    Kachel liegt eine schräge Oberseite (Licht von oben) und eine Seitenfläche (Schatten), als wären es echte
+ *    Klötze in einer Kulisse. Die Trefferflächen bleiben exakt gleich – die Tiefe liegt nur hinter dem Bild.
+ *  - Weiche Bodenschatten unter Heldin und Gegnern (zeigen beim Springen, wo man landet).
+ *  - Leichter Tiefen-Dunst über der fernen Kulisse, damit Vorder- und Hintergrund sich klarer trennen.
+ * Nur Darstellung. Auf schwachen Geräten (Sparstufe der lebendigen Welt) bleibt nur die Kacheltiefe.
+ */
+'use strict';
+(function () {
+  const isles = window.TRAUMSPRUNG_ISLES;
+  if (!isles || !isles.drawBackground || typeof levelTheme !== 'function') return;
+  const DX = 7, DY = 6;
+  const FEST = '#B?XKCJI';
+
+  function thema() {
+    let th = levelTheme(level);
+    if (level > 0 && window.TRAUMSPRUNG_SCENE?.ground) th = { ...th, ...window.TRAUMSPRUNG_SCENE.ground };
+    if (dreamPhase) {
+      const SN = dreamPhase === 2 && level > 0 && window.TRAUMSPRUNG_SCENE?.nightmare;
+      th = SN ? { ...th, ...SN } : { ...th, g: ['#b6fff0', '#56cbb7'], d: '#234357' };
+    }
+    return th;
+  }
+  // Farbe abdunkeln/aufhellen (#rgb oder #rrggbb)
+  function mix(hex, f) {
+    if (typeof hex !== 'string' || hex[0] !== '#') return f < 0 ? 'rgba(0,0,0,.35)' : 'rgba(255,255,255,.35)';
+    let h = hex.slice(1); if (h.length === 3) h = h.split('').map(c => c + c).join('');
+    const n = parseInt(h.slice(0, 6), 16); let r = n >> 16 & 255, g = n >> 8 & 255, b = n & 255;
+    const k = Math.abs(f), z = f < 0 ? 0 : 255;
+    r = Math.round(r + (z - r) * k); g = Math.round(g + (z - g) * k); b = Math.round(b + (z - b) * k);
+    return `rgb(${r},${g},${b})`;
+  }
+  const istFest = c => FEST.includes(c);
+  function farben(c, th) {
+    if (c === '#') return { top: th.g?.[0] || '#9be29b', side: mix(th.d || '#3a2a50', -.35) };
+    if (c === 'B') return { top: '#e7a07a', side: '#7a3a3a' };
+    if (c === '?') return { top: '#ffe9a0', side: '#a8742a' };
+    if (c === 'X') return { top: '#c9b6a0', side: '#6a5a4a' };
+    if (c === 'K') return { top: '#fff0c0', side: '#4a2e48' };
+    if (c === 'I') return { top: '#eaffff', side: '#5aa0c0' };
+    return { top: '#e8e0f0', side: '#5a4a70' };
+  }
+  function kachelTiefe() {
+    const th = thema(), x0 = Math.max(0, Math.floor(cam / T) - 1), x1 = Math.min(W - 1, x0 + Math.ceil(VW / sceneZoom / T) + 2);
+    cx.save();
+    for (let ty = 0; ty < H; ty++) for (let tx = x0; tx <= x1; tx++) {
+      const c = grid[ty][tx]; if (!istFest(c)) continue;
+      if (c === '?' && window.TRAUMSPRUNG_LEVEL_HANDMADE && window.TRAUMSPRUNG_HM_HIDDEN?.has?.(tx + ',' + ty)) continue;
+      const x = tx * T - cam, y = ty * T, f = farben(c, th);
+      const dick = c === 'K' ? 16 : T;
+      const obenFrei = ty === 0 || !istFest(grid[ty - 1][tx]);
+      const rechtsFrei = tx === W - 1 || !istFest(grid[ty][tx + 1]);
+      if (rechtsFrei) {
+        // Seitenfläche (Schatten)
+        cx.fillStyle = f.side;
+        cx.beginPath(); cx.moveTo(x + T, y); cx.lineTo(x + T + DX, y - DY); cx.lineTo(x + T + DX, y + dick - DY); cx.lineTo(x + T, y + dick); cx.closePath(); cx.fill();
+      }
+      if (obenFrei) {
+        // Oberseite (Licht)
+        const g = cx.createLinearGradient(0, y - DY, 0, y);
+        g.addColorStop(0, mix(f.top, .25)); g.addColorStop(1, f.top);
+        cx.fillStyle = g;
+        cx.beginPath(); cx.moveTo(x, y); cx.lineTo(x + DX, y - DY); cx.lineTo(x + T + DX, y - DY); cx.lineTo(x + T, y); cx.closePath(); cx.fill();
+        cx.strokeStyle = 'rgba(255,255,255,.35)'; cx.lineWidth = 1;
+        cx.beginPath(); cx.moveTo(x + DX, y - DY + .5); cx.lineTo(x + T + DX, y - DY + .5); cx.stroke();
+      }
+    }
+    cx.restore();
+  }
+  // Bodenschatten: senkrecht unter der Figur die erste feste Oberkante suchen
+  function schatten(xm, yFuss, breite) {
+    const col = Math.floor(xm / T); let r = Math.max(0, Math.floor(yFuss / T));
+    for (; r < H; r++) { const c = grid[r]?.[col]; if (istFest(c) || (c === 'P') || (c === 'D' && dreamPhase >= 1)) break; }
+    if (r >= H) return;
+    const yb = r * T, d = Math.max(0, yb - yFuss), k = Math.max(.25, 1 - d / 220);
+    cx.fillStyle = `rgba(20,10,40,${.28 * k})`;
+    cx.beginPath(); cx.ellipse(xm - cam + DX * .5, yb - DY * .5, breite * (.55 + .45 * k), 4 * k + 1, 0, 0, 7); cx.fill();
+  }
+  function figurenSchatten() {
+    if (!P || state === 'title') return;
+    cx.save();
+    if (!P.dead) schatten(P.x + P.w / 2, P.y + P.h, 13);
+    for (const f of foes || []) if (!f.dead && Math.abs(f.x - P.x) < VW) schatten(f.x + f.w / 2, f.y + f.h, f.w * .5);
+    cx.restore();
+  }
+  const sparen = () => window.TRAUMSPRUNG_LEBEN?.stufe?.() === 'sparsam';
+
+  const prior = isles.drawBackground;
+  isles.drawBackground = function (ctx) {
+    const r = prior.apply(this, arguments);
+    if (level > 0 && grid && state !== 'title') {
+      try {
+        if (!sparen()) { // leichter Tiefen-Dunst über der Kulisse
+          const vw = VW / sceneZoom, g = cx.createLinearGradient(0, 0, 0, H * T);
+          g.addColorStop(0, 'rgba(255,255,255,0)'); g.addColorStop(.7, dreamPhase === 2 ? 'rgba(40,0,20,.10)' : 'rgba(255,240,250,.08)'); g.addColorStop(1, 'rgba(255,255,255,0)');
+          cx.fillStyle = g; cx.fillRect(0, 0, vw, H * T);
+        }
+        kachelTiefe();
+        figurenSchatten();
+      } catch (_) { }
+    }
+    return r;
+  };
+  window.TRAUMSPRUNG_TIEFE = { DX, DY };
+})();
+
 </script>
 <style>/* 4.0-p10: Querformat auf dem Handy – keine sichtbaren Lauf-/Sprungtasten (links laufen, rechts tippen = springen); nur Feuer bleibt sichtbar */
 @media (pointer:coarse) and (orientation:landscape), (max-width:900px) and (max-height:500px) and (orientation:landscape){
