@@ -16624,6 +16624,90 @@ setLang();menuSignature='';updateInterface();
   window.TRAUMSPRUNG_KAUF = { modus: aktiv.modus, produkt: PRODUKT_ID, preisTest: PREIS_TEST, testZuruecksetzen: () => { schreib(false); if (typeof full !== 'undefined') full = false; }, pruefen };
 })();
 
+</script><script>/* src/systems/bewegung-40.js */
+/* Traumsprung 4.0-p16 – Bewegungsgefühl der Heldin und weiche Levelübergänge.
+ *
+ *  - Strecken und Stauchen (Squash & Stretch): beim Absprung kurz in die Länge, bei der Landung kurz platt (stärker, je
+ *    tiefer der Fall), beim Laufen ein leichtes Wippen. Der Fußpunkt bleibt fest – die Trefferfläche ändert sich nicht.
+ *  - Staub: kleine Wolken beim Absprung, bei der Landung und alle paar Schritte beim Laufen (nicht im Wasser).
+ *  - Levelübergang: Beim Start eines Levels öffnet sich das Bild aus einem Kreis um die Heldin (Iris, 0,6 s).
+ * Nur Darstellung – Spielphysik und Kollision bleiben unverändert.
+ */
+'use strict';
+(function () {
+  if (typeof drawP !== 'function' || typeof upd !== 'function') return;
+  let sx = 1, sy = 1, warBoden = true, letzteVy = 0, schritt = 0, staub = [], iris = 0, irisLevel = -1;
+
+  function puff(x, y, n, stark) {
+    for (let i = 0; i < n; i++) staub.push({ x: x + (Math.random() - .5) * 14, y: y - 2, vx: (Math.random() - .5) * (stark ? 2.4 : 1.2), vy: -Math.random() * (stark ? 1.2 : .6), r: 2 + Math.random() * (stark ? 4 : 2.5), l: 22 + Math.random() * 10 });
+  }
+
+  const priorUpd = upd;
+  upd = function () {
+    const r = priorUpd.apply(this, arguments);
+    if (!P || state !== 'play') { if (state === 'morph') { sx = 1; sy = 1; } return r; }
+    const boden = !!P.ground, wasser = !!P.sw, fx = P.x + 11, fy = P.y + P.h;
+    if (!boden && warBoden && P.vy < -3) { sx = .84; sy = 1.18; if (!wasser) puff(fx, fy, 5, false); }
+    if (boden && !warBoden) { const k = Math.min(1, Math.max(0, (letzteVy - 2) / 9)); sx = 1 + .26 * k; sy = 1 - .22 * k; if (!wasser && letzteVy > 3) puff(fx, fy, 4 + Math.round(6 * k), letzteVy > 7); }
+    if (boden && !wasser && Math.abs(P.vx) > 1.5) { schritt += Math.abs(P.vx); if (schritt > 38) { schritt = 0; puff(fx - Math.sign(P.vx) * 6, fy, 1, false); } }
+    // zurückfedern
+    sx += (1 - sx) * .22; sy += (1 - sy) * .22;
+    warBoden = boden; letzteVy = P.vy;
+    for (const s of staub) { s.x += s.vx; s.y += s.vy; s.vx *= .92; s.vy *= .9; s.l--; }
+    if (staub.length) staub = staub.filter(s => s.l > 0);
+    if (iris < 1) iris = Math.min(1, iris + 1 / 36);
+    return r;
+  };
+  const priorBuild = build;
+  build = function () {
+    const out = priorBuild.apply(this, arguments);
+    const neu = !(typeof RESP !== 'undefined' && RESP);
+    if (neu && level !== irisLevel) { iris = 0; irisLevel = level; }
+    staub = []; sx = sy = 1;
+    return out;
+  };
+
+  const priorDrawP = drawP;
+  drawP = function (x, y) {
+    // nur die Heldin im Spiel (nicht Menü-Vorschau): Fußpunkt fest, um ihn herum skalieren
+    const imSpiel = state === 'play' && P && Math.abs(x - (P.x - cam)) < 4;
+    const lauf = imSpiel && P.ground && Math.abs(P.vx) > .8 ? Math.abs(Math.sin(t / 3.2)) * .035 : 0;
+    if (!imSpiel || (Math.abs(sx - 1) < .005 && Math.abs(sy - 1) < .005 && !lauf)) return priorDrawP.apply(this, arguments);
+    cx.save(); cx.translate(x + 11, y + 28); cx.scale(sx - lauf * .5, sy + lauf); cx.translate(-(x + 11), -(y + 28));
+    const r = priorDrawP.apply(this, arguments);
+    cx.restore(); return r;
+  };
+
+  if (typeof drawDreamObjects === 'function') {
+    const priorDraw = drawDreamObjects;
+    drawDreamObjects = function () {
+      const r = priorDraw.apply(this, arguments);
+      if (staub.length) {
+        cx.save(); const nm = dreamPhase === 2;
+        for (const s of staub) { cx.globalAlpha = Math.min(1, s.l / 20) * .55; cx.fillStyle = nm ? '#5a2a3a' : '#f4ecff'; cx.beginPath(); cx.arc(s.x - cam, s.y, s.r * (1.4 - s.l / 40), 0, 7); cx.fill(); }
+        cx.restore();
+      }
+      return r;
+    };
+  }
+  // Iris über dem ganzen Bild (Bildschirmraum, nach allem anderen)
+  if (typeof draw === 'function') {
+    const priorDrawAll = draw;
+    draw = function () {
+      const r = priorDrawAll.apply(this, arguments);
+      if (iris < 1 && P && level > 0 && (state === 'play' || state === 'morph')) {
+        const k = iris * iris * (3 - 2 * iris), w = VW, h = VH;
+        const px = Math.max(0, Math.min(w, (P.x + 11 - cam) * sceneZoom)), py = Math.max(0, Math.min(h, (P.y + 14) * sceneZoom + sceneY));
+        const rad = 8 + k * Math.hypot(w, h);
+        cx.save(); cx.setTransform(RENDER_SCALE, 0, 0, RENDER_SCALE, 0, 0); cx.fillStyle = '#0c0718';
+        cx.beginPath(); cx.rect(0, 0, w, h); cx.moveTo(px + rad, py); cx.arc(px, py, rad, 0, Math.PI * 2, true); cx.closePath(); cx.fill('evenodd'); cx.restore();
+      }
+      return r;
+    };
+  }
+  window.TRAUMSPRUNG_BEWEGUNG = { skala: () => [sx, sy], staub: () => staub.length, iris: () => iris };
+})();
+
 </script><script>/* src/systems/funken-40.js */
 /* Traumsprung 4.0 – Die Funkenkette (ersetzt Traumkugeln und Urkunde).
  *
