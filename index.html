@@ -16169,6 +16169,70 @@ setLang();menuSignature='';updateInterface();
   window.TRAUMSPRUNG_OUTRO = { play, active: () => !!overlay };
 })();
 
+</script><script>/* src/systems/schattenpfade-40.js */
+/* Traumsprung 4.0-p17 – Schattenpfade: ein Albtraum-Weg in jedem Level.
+ *
+ * Levels, in denen noch keine Albtraum-Brücken (Kachel D) oder -Felsen stehen, bekommen einen kurzen Schattenpfad:
+ * eine Treppe aus drei Albtraum-Brücken (Reihen 9, 7, 5) über einem freien, ebenen Stück Boden. Darauf liegen rote
+ * Schattenperlen (weltwechsel-40.js); der Schattenmond im ?-Block davor öffnet den Weg.
+ * Regeln, damit nichts kaputtgeht:
+ *  - nur über durchgehendem Boden (Reihe 12) und in einem Luftraum ohne Kacheln, Perlen, Blasen, Kristalle, Gegner (Reihe 3–11),
+ *  - nicht in Boss-Arenen, nicht in Wasser-/Lava-/Schwebezonen (im erzwungenen Albtraum erlaubt: dort ohne Mond sammelbar),
+ *  - im mittleren Teil des Levels; höchstens ein Pfad je Level (zwei in langen Leveln ab 220 Feldern).
+ */
+'use strict';
+(function () {
+  if (typeof build !== 'function') return;
+  const HM = () => level > 0 && !!window.TRAUMSPRUNG_LEVEL_HANDMADE;
+  const BREITE = 10;
+  let pfade = [];
+
+  // gesperrt: Wasserbecken, Lava, Schwebezonen, Boss-Arena (im erzwungenen Albtraum ist ein Pfad erlaubt – dort gibt es die Perlen ohne Mond)
+  function zonen() {
+    const z = [];
+    for (const w of window.TRAUMSPRUNG_HM_W4?.seen || []) z.push([w.von - 2, w.bis + 2]);
+    for (const l of window.TRAUMSPRUNG_HM_W5?.laven || []) z.push([l.von - 3, l.bis + 3]);
+    for (const s of window.TRAUMSPRUNG_HM_W9?.schwebe || []) z.push([s.von - 2, s.bis + 2]);
+    if (level % 5 === 0) z.push([goalTile - 50, W]);
+    return z;
+  }
+  const TREPPE = [[1, 9, 2], [4, 7, 2], [7, 5, 3]];
+  function frei(x0) {
+    // Boden unter dem Aufstieg (die ersten 5 Felder), Luftraum um jede Stufe frei (eine Reihe darüber und daneben)
+    for (let x = x0; x < x0 + 5; x++) if (grid[12]?.[x] !== '#') return false;
+    const zellen = [];
+    for (const [dx, r, n] of TREPPE) for (let i = 0; i < n; i++) zellen.push([x0 + dx + i, r]);
+    for (const [x, r] of zellen) for (let rr = r - 2; rr <= r + 1; rr++) for (let xx = x - 1; xx <= x + 1; xx++) if (grid[rr]?.[xx] !== ' ') return false;
+    const nah = (px, py) => zellen.some(([x, r]) => Math.abs(px - (x * T + 16)) < 22 && Math.abs(py - (r * T + 16)) < 30);
+    if ((gems || []).some(g => !g.got && nah(g.x, g.y))) return false;
+    if ((typeof dreamSeals !== 'undefined' ? dreamSeals : []).some(q => nah(q.x, q.y))) return false;
+    if ((foes || []).some(f => f.k === 3 && Math.abs(f.x - (x0 + 6) * T) < 8 * T)) return false;
+    return true;
+  }
+  function setze() {
+    pfade = [];
+    // schon Albtraum-Inhalt im Level? Dann nichts hinzufügen
+    let hatD = false;
+    for (let r = 2; r < H && !hatD; r++) for (let x = 0; x < W; x++) if (grid[r][x] === 'D') { hatD = true; break; }
+    if (hatD || (window.TRAUMSPRUNG_HM_NMISLES && window.TRAUMSPRUNG_HM_NMISLES.size)) return;
+    const z = zonen(), sperre = x => z.some(([a, b]) => x + BREITE >= a && x <= b);
+    const ziel = W >= 220 ? 2 : 1, start = Math.floor(W * .15), ende = Math.floor(W * .85);
+    for (let x = start; x < ende && pfade.length < ziel; x++) {
+      if (sperre(x) || !frei(x)) continue;
+      // Treppe: Reihe 9 (2 breit), Reihe 7 (2 breit), Reihe 5 (3 breit) – je 3 Felder versetzt
+      for (const [dx, r, n] of TREPPE) for (let i = 0; i < n; i++) grid[r][x + dx + i] = 'D';
+      pfade.push(x); x += 40;
+    }
+  }
+  const priorBuild = build;
+  build = function () {
+    const out = priorBuild.apply(this, arguments);
+    if (HM()) setze(); else pfade = [];
+    return out;
+  };
+  window.TRAUMSPRUNG_SCHATTENPFADE = { pfade: () => pfade.slice() };
+})();
+
 </script><script>/* src/systems/weltwechsel-40.js */
 /* Traumsprung 4.0-p10 – ALBTRAUM AUS DEM BLOCK (Schattenmond).
  *
@@ -16591,10 +16655,28 @@ setLang();menuSignature='';updateInterface();
     });
   }
 
+  // Eltern-Tor vor jedem Kauf (Familienspiel; Pflicht in Apples Kinder-Kategorie): eine Rechenaufgabe für Erwachsene
+  function elternTor() {
+    return new Promise(resolve => {
+      const a = 6 + Math.floor(Math.random() * 4), b = 6 + Math.floor(Math.random() * 4), r = a * b;
+      const opts = [r, r + a, r - b].sort(() => Math.random() - .5);
+      const o = document.createElement('div');
+      o.setAttribute('role', 'dialog'); o.setAttribute('aria-label', 'Frage für Erwachsene');
+      o.style.cssText = 'position:fixed;inset:0;z-index:2147483100;background:#07040fcc;display:grid;place-items:center;padding:16px;font:16px system-ui';
+      o.innerHTML = `<div style="max-width:380px;width:100%;background:#fff9f0;color:#3a2a50;border-radius:22px;padding:22px 20px;text-align:center;box-shadow:0 20px 60px #0008">
+        <div style="font:800 20px system-ui;margin-bottom:6px">Frage für Erwachsene</div>
+        <p style="margin:0 0 14px;font-size:15px">Bitte gib das Gerät einem Erwachsenen. Wie viel ist <b>${a} × ${b}</b>?</p>
+        <div style="display:flex;gap:8px;justify-content:center">${opts.map(v => `<button data-v="${v}" style="flex:1;font:800 20px system-ui;padding:12px 0;border-radius:14px;border:2px solid #8562a5;background:#fff;color:#5b3877">${v}</button>`).join('')}</div>
+        <button data-v="x" style="margin-top:12px;font:600 14px system-ui;border:0;background:none;color:#7a6a8a">Abbrechen</button></div>`;
+      o.addEventListener('click', e => { const v = e.target?.dataset?.v; if (!v) return; o.remove(); resolve(v !== 'x' && +v === r); });
+      document.body.appendChild(o);
+    });
+  }
   const Test = {
     modus: 'test', price: PREIS_TEST + ' (Test)',
     async buyFull() {
       if (lies()) return { produkt: PRODUKT_ID, test: true, schonGekauft: true };   // keine Doppelbelastung
+      if (!await elternTor()) throw new Error('eltern');
       const w = await testDialog();
       if (w === 'abbruch') throw new Error('abgebrochen');
       if (w === 'fehler') throw new Error('fehlgeschlagen');
@@ -16608,7 +16690,7 @@ setLang();menuSignature='';updateInterface();
   const Echt = {
     modus: 'echt', price: 'Preis im Store',
     async init() { const p = RC(); try { const o = await p.getOfferings(); const pkg = o?.current?.availablePackages?.find(x => x.product?.identifier === PRODUKT_ID) || o?.current?.availablePackages?.[0]; if (pkg) { this.pkg = pkg; this.price = pkg.product?.priceString || this.price; } } catch (_) { } },
-    async buyFull() { const p = RC(); if (await this.freigeschaltet()) return { produkt: PRODUKT_ID, schonGekauft: true }; const r = await p.purchasePackage({ aPackage: this.pkg }); return { produkt: PRODUKT_ID, info: r?.customerInfo }; },
+    async buyFull() { const p = RC(); if (await this.freigeschaltet()) return { produkt: PRODUKT_ID, schonGekauft: true }; if (!await elternTor()) throw new Error('eltern'); const r = await p.purchasePackage({ aPackage: this.pkg }); return { produkt: PRODUKT_ID, info: r?.customerInfo }; },
     async verifyFull(r) { const info = r?.info || (await RC().getCustomerInfo())?.customerInfo; return !!info?.entitlements?.active?.[ENTITLEMENT]; },
     async restore() { const r = await RC().restorePurchases(); return !!r?.customerInfo?.entitlements?.active?.[ENTITLEMENT]; },
     async freigeschaltet() { try { const r = await RC().getCustomerInfo(); return !!r?.customerInfo?.entitlements?.active?.[ENTITLEMENT]; } catch (_) { return false; } }
