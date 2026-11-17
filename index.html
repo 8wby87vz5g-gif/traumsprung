@@ -7854,7 +7854,7 @@ setLang();menuSignature='';updateInterface();
     return;
   }
   window.__traumsprungDreamGateInstalled=true;
-  const VERSION='1.0 (Build 64)';
+  const VERSION='1.0 (Build 65)';
   const KEY_TIME='traumsprung-playtime-v1';
   const KEY_NAME='traumsprung-menu-nickname-v1';
   const KEY_DREAM='traumsprung-menu-realm-v1';
@@ -10336,6 +10336,29 @@ setLang();menuSignature='';updateInterface();
     // dunkle Haut
     cx.fillStyle = f.nm ? 'rgba(25,0,20,.78)' : 'rgba(40,0,30,.6)';
     cx.beginPath(); cx.ellipse(x + 13, cy, 14, 11, 0, 0, 7); cx.fill();
+    // 4.0-p26: verschiedene Albtraum-Wesen statt immer gleicher Gesichter
+    if (f.nmv === undefined) f.nmv = (Math.floor((f.x0 || f.x) / T) * 7 + (f.k | 0) * 3) % 3;
+    if (k === 3) {   // Schattenfledermaus
+      const fl2 = Math.sin(t / 3) * 6; cx.fillStyle = 'rgba(30,0,22,.85)';
+      for (const s2 of [-1, 1]) { cx.beginPath(); cx.moveTo(x + 13 + s2 * 6, cy - 2); cx.quadraticCurveTo(x + 13 + s2 * 18, cy - 12 - fl2, x + 13 + s2 * 26, cy - 2 + fl2 * .3); cx.lineTo(x + 13 + s2 * 20, cy + 1); cx.lineTo(x + 13 + s2 * 15, cy - 2); cx.lineTo(x + 13 + s2 * 10, cy + 2); cx.closePath(); cx.fill(); }
+    } else if (f.nmv === 2) {   // Schattenspinne: Beine und vier kleine Augen
+      cx.strokeStyle = 'rgba(30,0,22,.9)'; cx.lineWidth = 2;
+      for (let i = 0; i < 4; i++) for (const s2 of [-1, 1]) { const b = Math.sin(t / 4 + i * 1.3) * 2; cx.beginPath(); cx.moveTo(x + 13 + s2 * 6, cy + 2); cx.quadraticCurveTo(x + 13 + s2 * (12 + i * 2), cy - 6 + i * 2, x + 13 + s2 * (15 + i * 2.5), cy + 10 + b); cx.stroke(); }
+    }
+    if (f.nmv === 1 && k !== 3) {   // Zyklop mit Stachelkrone
+      cx.fillStyle = '#3a0a1e';
+      for (let i = -2; i <= 2; i++) { cx.beginPath(); cx.moveTo(x + 13 + i * 4 - 2.5, cy - 8); cx.lineTo(x + 13 + i * 4, cy - 8 - (f.nm ? 10 : 6) + Math.abs(i) * 2); cx.lineTo(x + 13 + i * 4 + 2.5, cy - 8); cx.fill(); }
+      cx.shadowColor = '#ff2040'; cx.shadowBlur = 10; cx.fillStyle = '#ff2a3a'; cx.beginPath(); cx.ellipse(x + 13 + dir, cy - 2, 5.5, 4.2, 0, 0, 7); cx.fill();
+      cx.shadowBlur = 0; cx.fillStyle = '#120008'; cx.beginPath(); cx.ellipse(x + 13 + dir * 1.6, cy - 2, 1.4, 3.4, 0, 0, 7); cx.fill();
+      cx.fillStyle = '#120008'; cx.beginPath(); cx.ellipse(x + 13, cy + 5, 6, 2.6, 0, 0, 7); cx.fill();
+      cx.restore(); return;
+    }
+    if (f.nmv === 2 && k !== 3) {
+      cx.shadowColor = '#ff2040'; cx.shadowBlur = 6; cx.fillStyle = '#ff2a3a';
+      for (const [ex, ey] of [[8, -4], [11, -6], [15, -6], [18, -4]]) { cx.beginPath(); cx.arc(x + ex + dir, cy + ey, 1.7, 0, 7); cx.fill(); }
+      cx.shadowBlur = 0; cx.fillStyle = '#fff4f0'; for (const s2 of [-1, 1]) { cx.beginPath(); cx.moveTo(x + 13 + s2 * 3, cy + 2); cx.lineTo(x + 13 + s2 * 2, cy + 7); cx.lineTo(x + 13 + s2 * 1, cy + 2); cx.fill(); }
+      cx.restore(); return;
+    }
     // Hörner (Albtraum-Gegner größer)
     const hh = f.nm ? 11 : 6; cx.fillStyle = '#3a0a1e';
     for (const s of [-1, 1]) { cx.beginPath(); cx.moveTo(x + 13 + s * 6, cy - 7); cx.lineTo(x + 13 + s * 11, cy - 7 - hh); cx.lineTo(x + 13 + s * 2, cy - 9); cx.closePath(); cx.fill(); }
@@ -16424,7 +16447,7 @@ setLang();menuSignature='';updateInterface();
     for (const k of window.TRAUMSPRUNG_HM_NMISLES || []) { const [x, r] = k.split(',').map(Number); plaetze.push([x, r]); }
     plaetze.sort((a, b) => a[0] - b[0]);
     let letzte = -9;
-    for (const [x, r] of plaetze) { if (x - letzte < 2 || r - 1 < 3) continue; letzte = x; schatten.push({ x: x * T + 16, y: (r - 1) * T + 16, got: false }); if (schatten.length >= 14) break; }
+    for (const [x, r] of plaetze) { if (x - letzte < 1 || r - 1 < 3) continue; letzte = x; schatten.push({ x: x * T + 16, y: (r - 1) * T + 16, got: false }); if (schatten.length >= 30) break; }   /* 4.0-p26: mehr (vorher jede 2. Kachel, max. 14) */
   }
   // Monde in ?-Blöcke legen (Belohnung 16): vor jeder Gruppe Schattenperlen, sonst einer in der Levelmitte
   function setzeMonde() {
@@ -17370,6 +17393,285 @@ setLang();menuSignature='';updateInterface();
     return out;
   };
   window.TRAUMSPRUNG_STRECKEN = { info: () => info, zonen, luftFrei, grubeFrei };
+})();
+
+</script><script>/* src/systems/albtraum-schatz-40.js */
+/* Traumsprung 4.0-p26 – Der Albtraum lohnt sich mehr – und ist gefährlicher (Wunsch).
+ *
+ * Belohnung (nur im Albtraum sichtbar und sammelbar):
+ *  - Schattenperlen-Reihen: alle ~25 Felder schweben drei rote Perlen über dem Boden (je 3 Perlen wert, wie alle
+ *    Schattenperlen). Dazu liegen auf jeder Albtraum-Brückenkachel Perlen (weltwechsel-40.js, bis 30 statt 14).
+ *  - Schattenkugel: eine große rote Kugel je Level an der höchsten Albtraum-Stelle – 15 Perlen auf einmal.
+ * Fallen (nur im Albtraum, immer angekündigt):
+ *  - Schattendornen: brechen in festem Takt aus dem Boden. Vorher glühen Risse rot (½ s Warnung).
+ *  - Schattentropfen: fallen von oben vor die Heldin. Ein roter Kreis am Boden zeigt ¾ s vorher, wo.
+ * Nicht in Boss-Leveln. Abschaltbar: window.TRAUMSPRUNG_SCHATZ_OFF = true
+ */
+'use strict';
+(function () {
+  if (typeof build !== 'function' || typeof upd !== 'function' || typeof drawDreamObjects !== 'function') return;
+  const HM = () => level > 0 && !!window.TRAUMSPRUNG_LEVEL_HANDMADE && !window.TRAUMSPRUNG_SCHATZ_OFF && level % 5 !== 0;
+  const NM = () => dreamPhase === 2;
+  let dornen = [], tropfen = [], kugel = null, info = { reihen: 0, dornen: 0, kugel: 0 };
+  const fest = c => '#BX?KPCJI'.includes(c);
+
+  function zonenFrei(x) {
+    for (const w of window.TRAUMSPRUNG_HM_W4?.seen || []) if (x >= w.von - 3 && x <= w.bis + 3) return false;
+    for (const l of window.TRAUMSPRUNG_HM_W5?.laven || []) if (x >= l.von - 3 && x <= l.bis + 3) return false;
+    for (const s of window.TRAUMSPRUNG_HM_W9?.schwebe || []) if (x >= s.von - 3 && x <= s.bis + 3) return false;
+    for (const c of (typeof cpTiles !== 'undefined' ? cpTiles : [])) if (Math.abs(c - x) < 5) return false;
+    for (const b of window.TRAUMSPRUNG_HM_BUBBLES || []) if (Math.abs(b.x / T - x) < 4) return false;
+    for (const c of window.TRAUMSPRUNG_HM_CRYSTALS || []) if (Math.abs(c.x / T - x) < 4) return false;
+    return x > 16 && x < goalTile - 10;
+  }
+  const flach = (a, b) => { for (let x = a; x <= b; x++) { if (grid[12]?.[x] !== '#') return false; for (let r = 8; r <= 11; r++) if (fest(grid[r]?.[x]) || grid[r]?.[x] === 'D') return false; } return true; };
+
+  function aufbauen() {
+    dornen = []; tropfen = []; kugel = null; info = { reihen: 0, dornen: 0, kugel: 0 };
+    if (!HM()) return;
+    const WW = window.TRAUMSPRUNG_WELTWECHSEL, sch = WW?.schatten?.();
+    // 1) Schattenperlen-Reihen über dem Boden
+    if (sch) {
+      let letzte = -99;
+      for (let x = 20; x < goalTile - 12; x++) {
+        if (x - letzte < 25 || !zonenFrei(x) || !flach(x - 1, x + 3)) continue;
+        if (sch.some(s => Math.abs(s.x / T - x) < 4)) continue;
+        for (let i = 0; i < 3; i++) sch.push({ x: (x + i) * T + 16, y: 10 * T + 4 - (i === 1 ? 10 : 0), got: false, reihe: 1 });
+        letzte = x; info.reihen++;
+      }
+      // 2) Schattenkugel an der höchsten Albtraum-Stelle (oder über der Mitte des Levels)
+      const hoch = sch.filter(s => !s.reihe).sort((a, b) => a.y - b.y)[0];
+      if (hoch) kugel = { x: hoch.x, y: hoch.y - 22, got: false };
+      else { for (let x = Math.floor(goalTile * .55); x < goalTile - 12; x++) if (zonenFrei(x) && flach(x - 1, x + 1)) { kugel = { x: x * T + 16, y: 8 * T + 16, got: false }; break; } }
+      if (kugel) info.kugel = 1;
+    }
+    // 3) Schattendornen
+    let letzte = -99; const ziel = Math.max(2, Math.round(W / 32));
+    for (let x = 24; x < goalTile - 12 && dornen.length < ziel; x++) {
+      if (x - letzte < 18 || !zonenFrei(x) || !flach(x - 2, x + 3)) continue;
+      if ((foes || []).some(f => Math.abs(f.x / T - x) < 3)) continue;
+      dornen.push({ x, ph: (x * 37) % 160 }); letzte = x;
+    }
+    info.dornen = dornen.length;
+  }
+  const priorBuild = build;
+  build = function () { const o = priorBuild.apply(this, arguments); try { aufbauen(); } catch (e) { console.warn('albtraum-schatz', e); } return o; };
+
+  // Dornen-Zustand: 0 = unten, 1 = Warnung, 2 = oben
+  const PERIODE = 160;
+  const zustand = d => { const p = (t + d.ph) % PERIODE; return p < 70 ? 0 : p < 100 ? 1 : 2; };
+  const trifft = (x0, x1, y0, y1) => P.x + 4 < x1 && P.x + P.w - 4 > x0 && P.y + 4 < y1 && P.y + P.h > y0;
+  const verletzen = () => { if (typeof hurt === 'function') hurt(); };
+  let tropfUhr = 0;
+
+  const priorUpd = upd;
+  upd = function () {
+    const r = priorUpd.apply(this, arguments);
+    if (!HM() || state !== 'play' || !P || P.dead) return r;
+    if (!NM()) { tropfen = []; tropfUhr = 120; return r; }
+    // Dornen
+    for (const d of dornen) if (zustand(d) === 2 && trifft(d.x * T, d.x * T + T * 2, 12 * T - 22, 12 * T)) verletzen();
+    // Tropfen: alle ~4 s einer vor die Heldin (nicht über Gruben)
+    if (!window.TRAUMSPRUNG_TROPFEN_OFF && --tropfUhr <= 0) {
+      tropfUhr = 230 + ((t * 13) % 60);
+      const zx = Math.floor((P.x + 11 + P.vx * 40 + (((t * 7) % 5) - 2) * 20) / T);
+      let boden = -1; for (let rr = 3; rr < H; rr++) if (fest(grid[rr]?.[zx]) || (grid[rr]?.[zx] === 'D')) { boden = rr; break; }
+      if (boden > 4) tropfen.push({ x: zx * T + 16, y: -40, boden: boden * T, warn: 45, vy: 0 });
+    }
+    for (const q of tropfen) {
+      if (q.warn > 0) { q.warn--; q.y = Math.max(-40, cam * 0 - 40); continue; }
+      q.vy = Math.min(9, q.vy + .45); q.y += q.vy;
+      if (!q.weg && trifft(q.x - 7, q.x + 7, q.y - 9, q.y + 9)) { verletzen(); q.weg = 1; }
+      if (q.y >= q.boden - 6) { q.weg = 1; for (let i = 0; i < 6; i++) spark(q.x, q.boden - 4, '#7a1030', 1); }
+    }
+    tropfen = tropfen.filter(q => !q.weg);
+    // Schattenkugel
+    if (kugel && !kugel.got && Math.abs(P.x + 11 - kugel.x) < 24 && Math.abs(P.y + 14 - kugel.y) < 26) {
+      kugel.got = true; for (let i = 0; i < 15; i++) gain(); if (typeof award === 'function') award('pearls', 500, kugel.x, kugel.y);
+      for (let i = 0; i < 30; i++) spark(kugel.x, kugel.y, i % 3 ? '#ff4a6a' : '#ffe0e8', 1);
+      pops.push({ x: kugel.x, y: kugel.y - 12, vy: -.8, life: 70, s: '+15' });
+      if (typeof snd === 'function') { snd(523, .12, 'triangle', .05); snd(784, .16, 'triangle', .05); snd(1046, .25, 'sine', .05); }
+      if (typeof tell === 'function') tell('Schattenkugel! 15 Perlen auf einmal.', 150);
+    }
+    return r;
+  };
+
+  // Zeichnen
+  const priorDraw = drawDreamObjects;
+  drawDreamObjects = function () {
+    const r = priorDraw.apply(this, arguments);
+    if (!HM()) return r;
+    const vw = VW / sceneZoom;
+    cx.save();
+    // Kugel: im Wachzustand als zarter Umriss (Neugier wecken), im Albtraum leuchtend
+    if (kugel && !kugel.got) {
+      const x = kugel.x - cam, y = kugel.y + Math.sin(t / 14) * 4;
+      if (x > -40 && x < vw + 40) {
+        if (NM()) {
+          const g = cx.createRadialGradient(x, y, 3, x, y, 34); g.addColorStop(0, 'rgba(255,60,100,.6)'); g.addColorStop(1, 'rgba(0,0,0,0)');
+          cx.fillStyle = g; cx.beginPath(); cx.arc(x, y, 34, 0, 7); cx.fill();
+          const k = cx.createRadialGradient(x - 4, y - 5, 1, x, y, 13); k.addColorStop(0, '#ffd0dc'); k.addColorStop(.5, '#ff3b5c'); k.addColorStop(1, '#5a0a24');
+          cx.fillStyle = k; cx.beginPath(); cx.arc(x, y, 13, 0, 7); cx.fill();
+          cx.strokeStyle = '#ffe0e8'; cx.lineWidth = 1.5; cx.beginPath(); cx.arc(x, y, 13, 0, 7); cx.stroke();
+          cx.fillStyle = '#fff'; cx.beginPath(); cx.ellipse(x - 5, y - 6, 3, 1.8, -.6, 0, 7); cx.fill();
+        } else {
+          cx.globalAlpha = .35 + .15 * Math.sin(t / 10); cx.strokeStyle = '#ff6a8a'; cx.lineWidth = 1.5; cx.setLineDash([3, 3]);
+          cx.beginPath(); cx.arc(x, y, 13, 0, 7); cx.stroke(); cx.setLineDash([]); cx.globalAlpha = 1;
+        }
+      }
+    }
+    if (NM()) {
+      // Dornen
+      for (const d of dornen) {
+        const x = d.x * T - cam; if (x < -80 || x > vw + 40) continue;
+        const z = zustand(d), y = 12 * T, w = T * 2;
+        if (z === 1) {   // Warnung: glühende Risse
+          cx.strokeStyle = `rgba(255,50,80,${.5 + .5 * Math.sin(t / 2)})`; cx.lineWidth = 2;
+          cx.beginPath(); for (let i = 0; i < 4; i++) { cx.moveTo(x + 6 + i * 15, y); cx.lineTo(x + 10 + i * 15, y + 5); } cx.stroke();
+        } else if (z === 2) {
+          const p = Math.min(1, ((t + d.ph) % PERIODE - 100) / 6), hh = 22 * p;
+          cx.fillStyle = '#2a0618';
+          for (let i = 0; i < 5; i++) { const bx = x + 4 + i * 12.5; cx.beginPath(); cx.moveTo(bx - 5, y); cx.lineTo(bx, y - hh); cx.lineTo(bx + 5, y); cx.closePath(); cx.fill(); }
+          cx.strokeStyle = '#ff3b5c'; cx.lineWidth = 1.2;
+          for (let i = 0; i < 5; i++) { const bx = x + 4 + i * 12.5; cx.beginPath(); cx.moveTo(bx - 5, y); cx.lineTo(bx, y - hh); cx.lineTo(bx + 5, y); cx.stroke(); }
+        }
+      }
+      // Tropfen + Warnkreis
+      for (const q of tropfen) {
+        const x = q.x - cam;
+        cx.strokeStyle = `rgba(255,50,80,${q.warn > 0 ? .5 + .4 * Math.sin(t / 2) : .7})`; cx.lineWidth = 2;
+        cx.beginPath(); cx.ellipse(x, q.boden - 2, 12, 4, 0, 0, 7); cx.stroke();
+        if (q.warn <= 0) {
+          cx.fillStyle = '#3a0820'; cx.beginPath(); cx.moveTo(x, q.y - 12); cx.quadraticCurveTo(x + 9, q.y + 2, x, q.y + 9); cx.quadraticCurveTo(x - 9, q.y + 2, x, q.y - 12); cx.fill();
+          cx.strokeStyle = '#ff3b5c'; cx.lineWidth = 1.2; cx.stroke();
+        }
+      }
+    }
+    cx.restore();
+    return r;
+  };
+  window.TRAUMSPRUNG_SCHATZ = { info: () => info, dornen: () => dornen, kugel: () => kugel, tropfen: () => tropfen };
+})();
+
+</script><script>/* src/systems/wesen-40.js */
+/* Traumsprung 4.0-p26 – Mehr unterschiedliche Gegner (Wunsch: „andere Wesen“).
+ *
+ * Bisher zeigte jedes Level für jede Rolle genau ein Tier (z. B. nur Pilzchen). Jetzt mischen sich in jedem Level
+ * neue Wesen darunter – in den Farben der jeweiligen Welt:
+ *   Traumhase   (Läufer)  hüpft alle paar Sekunden ein Stück hoch – erst beobachten, dann drüber
+ *   Schleimling (Läufer)  wabbelt langsam, quetscht sich beim Laufen
+ *   Schwebequalle (Flieger) schwebt pulsierend, Fäden wehen nach
+ * Trefferflächen und Draufspringen bleiben wie bei den anderen Läufern/Fliegern. Sonder-Gegner der Welten
+ * (Eis, Lava, Uhrwerk usw.) und Bosse bleiben unverändert. Abschaltbar: window.TRAUMSPRUNG_WESEN_OFF = true
+ */
+'use strict';
+(function () {
+  if (typeof build !== 'function' || typeof upd !== 'function') return;
+  const HM = () => level > 0 && !!window.TRAUMSPRUNG_LEVEL_HANDMADE && !window.TRAUMSPRUNG_WESEN_OFF;
+  const welt = () => Math.ceil(level / 5);
+  // Grundfarben je Welt: [Körper, Schatten, Akzent]
+  const FARBE = {
+    1: ['#fff0f8', '#e8b8d8', '#ff8fb8'], 2: ['#d8e8f0', '#8aa8c0', '#a9fff0'], 3: ['#eef8ff', '#a8d0f0', '#9ae6ff'],
+    4: ['#d8fff4', '#7ad8c8', '#40c0a0'], 5: ['#ffe0c8', '#e0906a', '#ff7a3a'], 6: ['#ffffff', '#c8d8ff', '#ffd6f0'],
+    7: ['#f0e0c0', '#c8a060', '#e6b86a'], 8: ['#e8e4ff', '#a8a0d0', '#c9c4ff'], 9: ['#f4e8ff', '#c0a0e8', '#d9a6ff'],
+    10: ['#fff6d8', '#e8c870', '#ffd27a']
+  };
+  const ERLAUBT = new Set(['x', 'y', 'by', 'x0', 'w', 'h', 'vx', 'vy', 'ground', 'dead', 't', 'k', 'minX', 'maxX', 'nm', 'shotClock', 'waechter', 'id', 'seed', 'nmv', 'variation', 'wesen']);
+  const schlicht = f => Object.keys(f).every(k => ERLAUBT.has(k));
+  const hash = n => ((n * 2654435761) >>> 0) % 1000;
+
+  function verteilen() {
+    if (!HM() || !foes) return;
+    for (const f of foes) {
+      if (f.wesen !== undefined) continue;
+      f.wesen = '';
+      if (!schlicht(f)) continue;
+      const h = hash(Math.floor((f.x0 || f.x) / T) + level * 131);
+      if ((f.k | 0) === 0) f.wesen = h % 6 < 2 ? 'hase' : h % 6 === 2 ? 'schleim' : '';
+      else if ((f.k | 0) === 3) f.wesen = h % 3 === 0 ? 'qualle' : '';
+      f.seed = h;
+    }
+  }
+  const priorBuild = build;
+  build = function () { const o = priorBuild.apply(this, arguments); try { verteilen(); } catch (_) { } return o; };
+
+  // Verhalten: Hase hüpft, Schleimling ist etwas langsamer
+  const priorUpd = upd;
+  upd = function () {
+    const alt = new Map();
+    if (HM() && state === 'play') for (const f of foes || []) if (f.wesen === 'schleim' && !f.dead) alt.set(f, f.x);
+    const r = priorUpd.apply(this, arguments);
+    if (!HM() || state !== 'play') return r;
+    verteilen();   // nachträglich erschienene Gegner (Albtraum, Wellen)
+    for (const [f, x0] of alt) if (!f.dead) f.x = x0 + (f.x - x0) * .75;
+    for (const f of foes || []) {
+      if (f.dead || f.wesen !== 'hase') continue;
+      if (f.ground && (t + (f.seed || 0)) % 100 === 0 && Math.abs(f.x - P.x) < 12 * T) { f.vy = -5.2; f.ground = false; }
+    }
+    return r;
+  };
+
+  // Zeichnen
+  const E = (x, y, rx, ry, col, rot = 0) => { cx.fillStyle = col; cx.beginPath(); cx.ellipse(x, y, rx, ry, rot, 0, 7); cx.fill(); };
+  const OL = '#2a0f3a';
+  function augen(x, y, d, s = 1) {
+    for (const ex of [-4, 4]) { E(x + ex * s, y, 3 * s, 3.6 * s, '#fff'); E(x + ex * s + d * .9, y + .6, 1.7 * s, 2.1 * s, OL); E(x + ex * s + d * .9 - .6, y - .5, .7 * s, .7 * s, '#fff'); }
+  }
+  function verlauf(y0, y1, a, b) { const g = cx.createLinearGradient(0, y0, 0, y1); g.addColorStop(0, a); g.addColorStop(1, b); return g; }
+  const ZEICHNE = {
+    hase(f, x, d, F) {
+      const luft = !f.ground, y = f.y, sq = luft ? .9 : 1 + Math.sin(t / 5 + f.x) * .03;
+      // Ohren
+      for (const s of [-1, 1]) { cx.save(); cx.translate(x + 13 + s * 4, y + 6); cx.rotate(s * .25 + (luft ? -s * .3 : Math.sin(t / 9 + s) * .08));
+        E(0, -9, 3.6, 9, F[0]); cx.strokeStyle = OL; cx.lineWidth = 1.3; cx.stroke(); E(0, -8, 1.6, 6, F[2]); cx.restore(); }
+      // Körper
+      cx.fillStyle = verlauf(y + 2, y + 22, F[0], F[1]); cx.beginPath(); cx.ellipse(x + 13, y + 13, 12, 10 * sq, 0, 0, 7); cx.fill(); cx.strokeStyle = OL; cx.lineWidth = 1.5; cx.stroke();
+      E(x + 13 - d * 6, y + 15, 3.5, 3, '#ffffff');   // Puschelschwanz
+      if (!luft) { const s = Math.floor(t / 7) % 2 ? 1.5 : 0; E(x + 7, y + 21 + s / 2, 4.2, 2.4, F[1]); E(x + 19, y + 21 - s / 2, 4.2, 2.4, F[1]); }
+      augen(x + 13 + d, y + 11, d, .85);
+      E(x + 13 + d * 1.6, y + 15.5, 1.4, 1, F[2]);   // Näschen
+      E(x + 7, y + 15, 2, 1.2, 'rgba(255,120,160,.45)'); E(x + 19, y + 15, 2, 1.2, 'rgba(255,120,160,.45)');
+    },
+    schleim(f, x, d, F) {
+      const y = f.y, p = Math.sin(t / 6 + f.x), w = 13 + p * 1.6, hh = 10 - p * 1.4;
+      cx.save(); cx.globalAlpha = .92;
+      cx.fillStyle = verlauf(y + 4, y + 22, F[2], F[1]);
+      cx.beginPath(); cx.moveTo(x + 13 - w, y + 21); cx.quadraticCurveTo(x + 13 - w, y + 21 - hh * 2, x + 13, y + 21 - hh * 2.1); cx.quadraticCurveTo(x + 13 + w, y + 21 - hh * 2, x + 13 + w, y + 21); cx.closePath(); cx.fill();
+      cx.strokeStyle = OL; cx.lineWidth = 1.4; cx.stroke(); cx.restore();
+      E(x + 8, y + 6 + p, 3.5, 2, 'rgba(255,255,255,.7)', -.5);   // Glanz
+      E(x + 18, y + 18, 2, 1.5, 'rgba(255,255,255,.45)');           // Bläschen
+      augen(x + 13 + d * .6, y + 12 - p * .6, d, .75);
+      cx.strokeStyle = OL; cx.lineWidth = 1; cx.beginPath(); cx.arc(x + 13 + d, y + 16, 2.4, .2, Math.PI - .2); cx.stroke();
+    },
+    qualle(f, x, d, F) {
+      const y = f.y, p = Math.sin(t / 8 + f.x);
+      // Fäden
+      cx.strokeStyle = F[2]; cx.lineWidth = 1.4; cx.globalAlpha = .8;
+      for (let i = 0; i < 4; i++) { const bx = x + 6 + i * 4.6; cx.beginPath(); cx.moveTo(bx, y + 12); cx.quadraticCurveTo(bx + Math.sin(t / 7 + i) * 4, y + 19, bx - d * 2 + Math.sin(t / 6 + i) * 3, y + 26 + p * 2); cx.stroke(); }
+      cx.globalAlpha = 1;
+      // Schirm
+      cx.fillStyle = verlauf(y - 2, y + 14, '#ffffff', F[2]); cx.globalAlpha = .9;
+      cx.beginPath(); cx.moveTo(x + 1 - p, y + 12); cx.quadraticCurveTo(x + 13, y - 6 - p * 2, x + 25 + p, y + 12); cx.quadraticCurveTo(x + 13, y + 8, x + 1 - p, y + 12); cx.fill();
+      cx.globalAlpha = 1; cx.strokeStyle = OL; cx.lineWidth = 1.3; cx.stroke();
+      E(x + 8, y + 3, 3, 1.6, 'rgba(255,255,255,.8)', -.4);
+      augen(x + 13 + d * .5, y + 6, d, .6);
+    }
+  };
+  const priorSkin = window.TRAUMSPRUNG_FOESKIN;
+  window.TRAUMSPRUNG_FOESKIN = (f, x) => {
+    if (HM() && f.wesen && ZEICHNE[f.wesen]) {
+      const F = FARBE[welt()] || FARBE[1], d = f.vx > 0 ? 1.6 : -1.6;
+      if (f.dead) { E(x + 13, f.y + f.h - 3, 13, 3.5, F[1]); return true; }
+      cx.save();
+      if (f.wesen !== 'qualle') { E(x + 13, f.y + f.h + 1, 11, 3, 'rgba(0,0,0,.2)'); }
+      ZEICHNE[f.wesen](f, x, d, F);
+      if (window.TRAUMSPRUNG_FREEZE > 0) { E(x + 13, f.y + 10, 16, 14, 'rgba(190,235,255,.55)'); }
+      cx.restore();
+      return true;
+    }
+    return priorSkin ? priorSkin(f, x) : false;
+  };
+  window.TRAUMSPRUNG_WESEN = { zaehlen: () => { const z = {}; for (const f of foes || []) if (f.wesen) z[f.wesen] = (z[f.wesen] || 0) + 1; return z; } };
 })();
 
 </script><script>/* src/systems/menue-40.js */
