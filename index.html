@@ -17485,6 +17485,13 @@ setLang();menuSignature='';updateInterface();
       const c = grid[ty][tx]; if (!istFest(c)) continue;
       if (c === '?' && window.TRAUMSPRUNG_LEVEL_HANDMADE && window.TRAUMSPRUNG_HM_HIDDEN?.has?.(tx + ',' + ty)) continue;
       const x = tx * T - cam, y = ty * T, f = farben(c, th);
+      // 4.0-p23: Blöcke (Stein, ?-Block, leerer Block, Eis) sind abgerundet und kleiner als ihr Feld – eine flache
+      // Oberseite wirkte dort wie ein schwebender Balken. Sie bekommen stattdessen einen weichen Schlagschatten.
+      if (c === 'B' || c === '?' || c === 'X' || c === 'I' || c === 'C' || c === 'J') {
+        cx.fillStyle = 'rgba(20,10,45,.30)';
+        cx.beginPath(); cx.roundRect ? cx.roundRect(x + 5, y + 6, T - 4, T - 4, 7) : cx.rect(x + 5, y + 6, T - 4, T - 4); cx.fill();
+        continue;
+      }
       const dick = c === 'K' ? 16 : T;
       const obenFrei = ty === 0 || !istFest(grid[ty - 1][tx]);
       const rechtsFrei = tx === W - 1 || !istFest(grid[ty][tx + 1]);
