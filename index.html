@@ -682,7 +682,10 @@ body.mobile-playing .touch-control.mobile-pressed{box-shadow:0 0 16px #ffe3a377,
  #menu.ts8-menu *,#menu.ts8-menu *::before,#menu.ts8-menu *::after{animation:none!important;transition:none!important}
 }
 
-</style><style>/* 4.0-p19: Levelverlauf-Balken im Querformat ganz oben am Rand statt quer durchs Bild */
+</style><style>/* 4.0-p21: Querformat – Feuerknopf an den rechten Rand (über der Daumen-Ruhezone zum Springen), nicht mitten ins Bild */
+@media (pointer:coarse) and (orientation:landscape), (max-width:900px) and (max-height:500px) and (orientation:landscape){
+ body.mobile-playing .game-shell.game-active #mobile-fire.fire-available{right:calc(max(12px,env(safe-area-inset-right,0px)) + 4px)!important;bottom:auto!important;top:max(84px,30vh)!important;opacity:.85}
+}</style><style>/* 4.0-p19: Levelverlauf-Balken im Querformat ganz oben am Rand statt quer durchs Bild */
 @media (orientation:landscape) and (max-height:600px){
  #hud .route{top:env(safe-area-inset-top,0px);bottom:auto;height:3px;opacity:.85}
 }</style>
@@ -5458,7 +5461,7 @@ function renderMenu(){
     html='<p>Entdecke verborgene Höhen, wechsle die Traumwelt und rette ihr verschwundenes Licht.</p><div class="worlds">'+WELTEN.map((_,i)=>`<i class="world-dot ${cleared[i*5+5]?'on':''}"></i>`).join('')+'</div>';
     html+=button(tut?'Traumreise fortsetzen':'Reise beginnen',tut?'continue':'tutorial','primary')+button('Level auswählen','levels','secondary');
     html+='<p class="small">'+L('Traumfunken','Dream sparks')+' '+(window.TRAUMSPRUNG_FUNKEN?.gespeichert?.()||0)+' · '+L('Erinnerungen','Memories')+' '+((window.TRAUMSPRUNG_FUNKEN?.bilder?.()||[]).length)+'/10</p>';   // 4.0-p3b: Funkenkette statt Traumkugeln
-    html+='<p class="small">Der Traumwald (Level 1–10) ist kostenlos.<br>Ab Level 11 Freischaltung erforderlich · noch kein Kauf eingerichtet.</p>';
+    html+='<p class="small">Der Traumwald (Level 1–10) ist kostenlos.<br>Ab Level 11 mit der Vollversion (einmaliger Kauf, kein Abo).</p>';
     html+=button('Üben','tutorial','text-button')+button('Bestzeiten','records','text-button')+button('Bestenliste','leaderboard','text-button')+button('Einstellungen','settings','text-button')+button('Vollbild','fullscreen','text-button');
     if(certificateEligible())html+=button('Deine Urkunde','certificate-view','text-button');
   }else if(state==='settings'){
@@ -5473,8 +5476,11 @@ function renderMenu(){
     const welten=WELTEN.slice(2).map(w=>`<span class="pw-welt" style="--wf:${w.farbe}">${esc(w.name)}</span>`).join('');
     html=`<style>.pw-welten{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;margin:10px 0 12px}.pw-welt{font-size:12px;font-weight:700;padding:4px 9px;border-radius:12px;background:color-mix(in srgb,var(--wf) 22%,transparent);border:1px solid var(--wf);color:#fff}
       .pw-liste{text-align:left;margin:8px auto;max-width:420px;padding:0;list-style:none}.pw-liste li{margin:5px 0;padding-left:22px;position:relative}.pw-liste li:before{content:'✦';position:absolute;left:0;color:#ffd27a}
-      .pw-preis{font-size:28px;font-weight:800;color:#ffe9a8;margin:8px 0 2px}.pw-klein{font-size:13px;opacity:.85;margin:0 0 10px}.pw-test{display:inline-block;background:#ffe08a;color:#5a3a10;font-weight:800;font-size:11px;letter-spacing:.06em;border-radius:12px;padding:3px 9px;margin-bottom:6px}</style>`;
+      .pw-preis{font-size:28px;font-weight:800;color:#ffe9a8;margin:8px 0 2px}.pw-klein{font-size:13px;opacity:.85;margin:0 0 10px}.pw-test{display:inline-block;background:#ffe08a;color:#5a3a10;font-weight:800;font-size:11px;letter-spacing:.06em;border-radius:12px;padding:3px 9px;margin-bottom:6px}
+      @media (orientation:landscape) and (max-height:500px){.pw-welten{display:none}.pw-liste{columns:2;column-gap:18px;font-size:13px;max-width:none;margin:4px auto}.pw-liste li{margin:2px 0;break-inside:avoid}.pw-preis{font-size:22px;margin:4px 0 0}.pw-klein{font-size:12px;margin:0 0 6px}.pw-oben{display:block!important;margin:0 0 6px}}.pw-oben{display:none}</style>`;
     html+='<p>Level 1–10 sind kostenlos. Mit der Vollversion spielst du die ganze Geschichte:</p><div class="pw-welten">'+welten+'</div>';
+    // 4.0-p21: kleine Handys quer – Kaufknopf zusätzlich oben, ohne Scrollen sichtbar
+    if(PW?.buyFull&&PW?.verifyFull)html+='<div class="pw-oben">'+button('Vollversion freischalten · '+esc(PW.price||''),'buy','primary')+'</div>';
     html+='<ul class="pw-liste"><li>40 weitere Level (11–50) mit acht neuen Welten</li><li>8 Bosse, die Rettung aller fünf Traumfunken und das Ende der Geschichte</li><li>Abspann und deine persönliche Traumwächter-Urkunde</li><li>Dein bisheriger Fortschritt bleibt vollständig erhalten</li></ul>';
     if(test)html+='<div class="pw-test">TESTMODUS · KEIN ECHTES GELD</div>';
     html+='<div class="pw-preis">'+esc(PW?.price||'Preis im Store')+'</div><p class="pw-klein">Einmaliger Kauf · kein Abo · keine Werbung · keine kaufbaren Vorteile</p>';
@@ -5769,7 +5775,7 @@ updateInterface=function(){baseUI();if(lang==='en'){walk(menu);walk(hud);walk(no
 const baseSetLang=setLang;
 setLang=function(){baseSetLang();applyStatic()};
 // Sprache beim ersten Start vom Gerät übernehmen (nur wenn noch kein Spielstand existiert)
-try{if(!localStorage.getItem(SAVE_KEY)&&!String(navigator.language||'de').toLowerCase().startsWith('de')){lang='en'}}catch(e){}
+/* 4.0-p21: Version 1.0 erscheint auf Deutsch – die englische Übersetzung deckt die neuen Welten 3–10 noch nicht ab (sonst Sprachmix). Englisch bleibt in den Einstellungen wählbar. */
 setLang();menuSignature='';updateInterface();
 }catch(err){try{console.warn('Erweiterungen nicht geladen:',err)}catch(_){}}
 })();
@@ -6598,6 +6604,8 @@ setLang();menuSignature='';updateInterface();
   const querMedia=matchMedia('(orientation:landscape)');
   const quer=()=>isMobile()&&querMedia.matches;
   const playing=()=>state==='play';
+  // 4.0-p21: Während der Stern-Verwandlung (state 'morph') bleibt der Daumen „gültig“ – danach läuft sie sofort weiter
+  const halten=()=>state==='play'||state==='morph';
   const menuCompatible=new Set(['play','morph','dead','pause','next','win','over','paywall']);
   const states={left:null,right:null,direction:0,lastTap:null,mode:'',fireVisible:false};
   const stats={leftInputs:0,rightJumps:0,dreamDoubleTaps:0,shootInputs:0,releaseAll:0,interruptions:0};
@@ -6642,7 +6650,7 @@ setLang();menuSignature='';updateInterface();
   function padCenter(){const b=(pad||left).getBoundingClientRect();return b.width>0?b.left+b.width*.5:left.getBoundingClientRect().width*.25;}
   function dirAt(x,cur){const c=padCenter(),dead=12;if(x<c-dead)return -1;if(x>c+dead)return 1;return cur||(x<c?-1:1);}
   function leftDown(e){
-    if(!isMobile()||!playing()||states.left||e.button>0)return;
+    if(!isMobile()||!halten()||states.left||e.button>0)return;
     e.preventDefault();
     states.left={id:e.pointerId,x:e.clientX,anker:e.clientX};
     try{left.setPointerCapture(e.pointerId)}catch(_){/* browser fallback */}
@@ -6757,7 +6765,7 @@ setLang();menuSignature='';updateInterface();
     const next=isMobile()&&menuCompatible.has(state)?'mobile':'normal';
     if(states.mode!==next){states.mode=next;document.body.classList.toggle('mobile-playing',next==='mobile');
       if(next==='normal')releaseAll();nativeImmersive(next==='mobile');}
-    if(!playing()&&(states.left||states.right))releaseAll();
+    if(!halten()&&(states.left||states.right))releaseAll();
     const visible=isMobile()&&canFire();
     if(visible!==states.fireVisible){states.fireVisible=visible;
       fire.classList.toggle('fire-available',visible);fire.hidden=!visible;}
@@ -7949,7 +7957,9 @@ setLang();menuSignature='';updateInterface();
   heroStyle.textContent='.ts8-hero-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;margin:14px 0 18px}'+
     '.ts8-hero-card{display:flex;flex-direction:column;align-items:center;gap:4px;padding:14px 10px;border-radius:18px;border:2px solid #ffffff40;background:#ffffff14;color:inherit;cursor:pointer}'+
     '.ts8-hero-card canvas{width:120px;height:120px;max-width:100%}.ts8-hero-card b{font-size:17px}.ts8-hero-card small{opacity:.8}'+
-    '.ts8-hero-card--on{border-color:#ffe29a;background:#ffe29a22;box-shadow:0 0 22px #ffe29a55}.ts8-hero-card:hover{border-color:#fff}';
+    '.ts8-hero-card--on{border-color:#ffe29a;background:#ffe29a22;box-shadow:0 0 22px #ffe29a55}.ts8-hero-card:hover{border-color:#fff}'+
+    /* 4.0-p21: Handy quer – Karten kompakt, damit beide ganz sichtbar sind */
+    '@media (orientation:landscape) and (max-height:500px){#menu .ts8-hero-grid{margin:8px 0 10px!important;gap:10px!important}#menu .ts8-hero-card{display:grid!important;grid-template-columns:64px 1fr;grid-template-rows:auto auto;align-items:center;column-gap:10px;padding:8px 12px!important;text-align:left}#menu .ts8-hero-card canvas{width:64px!important;height:64px!important;grid-row:1/3}#menu .ts8-hero-card b{font-size:15px}}';
   document.head.appendChild(heroStyle);
   const KEY_INTRO='traumsprung-geschichte-gesehen';
   function launch(act){
@@ -16644,12 +16654,12 @@ setLang();menuSignature='';updateInterface();
     return new Promise(resolve => {
       const o = document.createElement('div');
       o.setAttribute('role', 'dialog'); o.setAttribute('aria-label', 'Testkauf');
-      o.style.cssText = 'position:fixed;inset:0;z-index:2147483100;background:#07040fcc;display:grid;place-items:center;padding:16px;font:16px system-ui';
-      o.innerHTML = `<div style="max-width:420px;width:100%;background:#fff9f0;color:#3a2a50;border-radius:22px;padding:22px 20px;text-align:center;box-shadow:0 20px 60px #0008">
+      o.style.cssText = 'position:fixed;inset:0;z-index:2147483100;background:#07040fcc;display:grid;place-items:safe center;overflow-y:auto;padding:12px;font:16px system-ui';
+      o.innerHTML = `<div style="max-width:420px;width:100%;background:#fff9f0;color:#3a2a50;border-radius:22px;padding:16px 18px;text-align:center;box-shadow:0 20px 60px #0008">
         <div style="display:inline-block;background:#ffe08a;color:#5a3a10;font:800 12px system-ui;letter-spacing:.08em;border-radius:20px;padding:4px 10px">TESTKAUF · KEIN ECHTES GELD</div>
-        <div style="font:800 22px system-ui;margin:12px 0 4px">Traumsprung Vollversion</div>
-        <div style="font:700 28px system-ui;color:#8562a5;margin:6px 0">${PREIS_TEST}</div>
-        <p style="margin:6px 0 14px;font-size:14px;opacity:.85">Einmaliger Kauf · Level 11–50 · kein Abo, keine Werbung</p>
+        <div style="font:800 20px system-ui;margin:8px 0 2px">Traumsprung Vollversion</div>
+        <div style="font:700 26px system-ui;color:#8562a5;margin:2px 0">${PREIS_TEST}</div>
+        <p style="margin:4px 0 10px;font-size:14px;opacity:.85">Einmaliger Kauf · Level 11–50 · kein Abo, keine Werbung</p>
         <button data-w="ok" style="width:100%;font:700 17px system-ui;padding:13px;border-radius:14px;border:0;background:#8562a5;color:#fff;margin:4px 0">Testkauf bestätigen</button>
         <button data-w="abbruch" style="width:100%;font:700 15px system-ui;padding:11px;border-radius:14px;border:2px solid #8562a5;background:#fff;color:#5b3877;margin:4px 0">Abbrechen</button>
         <button data-w="fehler" style="width:100%;font:600 13px system-ui;padding:8px;border:0;background:none;color:#a04a5a;margin-top:2px">Fehlschlag simulieren</button></div>`;
@@ -16665,7 +16675,7 @@ setLang();menuSignature='';updateInterface();
       const opts = [r, r + a, r - b].sort(() => Math.random() - .5);
       const o = document.createElement('div');
       o.setAttribute('role', 'dialog'); o.setAttribute('aria-label', 'Frage für Erwachsene');
-      o.style.cssText = 'position:fixed;inset:0;z-index:2147483100;background:#07040fcc;display:grid;place-items:center;padding:16px;font:16px system-ui';
+      o.style.cssText = 'position:fixed;inset:0;z-index:2147483100;background:#07040fcc;display:grid;place-items:safe center;overflow-y:auto;padding:12px;font:16px system-ui';
       o.innerHTML = `<div style="max-width:380px;width:100%;background:#fff9f0;color:#3a2a50;border-radius:22px;padding:22px 20px;text-align:center;box-shadow:0 20px 60px #0008">
         <div style="font:800 20px system-ui;margin-bottom:6px">Frage für Erwachsene</div>
         <p style="margin:0 0 14px;font-size:15px">Bitte gib das Gerät einem Erwachsenen. Wie viel ist <b>${a} × ${b}</b>?</p>
@@ -17499,6 +17509,67 @@ setLang();menuSignature='';updateInterface();
     return r;
   };
   window.TRAUMSPRUNG_TIEFE = { DX, DY };
+})();
+
+</script><script>/* src/systems/leistung-40.js */
+/* Traumsprung 4.0-p21 – Automatische Leistungsanpassung für ältere Handys.
+ *
+ * Misst während des Spielens die echte Bildrate (eigene Bild-Uhr, unabhängig von der Spiel-Physik).
+ * Liegt sie über 2 s im Mittel unter ~45 Bildern/s, wird in Stufen gespart – nie wieder hochgeschaltet
+ * (kein Flackern):
+ *   Stufe 1: lebendige Welt sparsam (halbe Teilchen, kein Tiefen-Dunst)
+ *   Stufe 2: Bildauflösung auf 1,5-fach (statt 2-fach) – größter Gewinn auf Handys mit sehr dichtem Display
+ *   Stufe 3: Bildauflösung 1-fach
+ * Außerdem: Ton auf iPhone/iPad nach jeder Berührung sicher freischalten (siehe unten).
+ * Spielregeln und Steuerung bleiben gleich. Abschaltbar: window.TRAUMSPRUNG_LEISTUNG_OFF = true
+ */
+'use strict';
+(function () {
+  if (typeof configureView !== 'function') return;
+  const mobil = () => matchMedia('(pointer:coarse), (max-width:760px)').matches;
+  let stufe = 0, fenster = [], letzte = 0, ruhe = 0;
+  const GRENZE = 22, FENSTER = 60;
+
+  function sparen() {
+    stufe++;
+    if (stufe === 1) { try { window.TRAUMSPRUNG_LEBEN?.setStufe?.('sparsam'); } catch (_) { } }
+    else if (stufe === 2) { window.TRAUMSPRUNG_RENDER_CAP = 1.5; configureView(); }
+    else if (stufe === 3) { window.TRAUMSPRUNG_RENDER_CAP = 1; configureView(); }
+    fenster = []; ruhe = 20;   // nach jedem Schritt kurz warten, bis die neue Messung gilt
+  }
+  function bild(ts) {
+    requestAnimationFrame(bild);
+    if (window.TRAUMSPRUNG_LEISTUNG_OFF || window.QA_STEP_MODE || !mobil() || document.hidden || state !== 'play') { letzte = 0; return; }
+    if (letzte) {
+      const dt = ts - letzte;
+      if (dt < 250) {   // Pausen und Tab-Wechsel nicht zählen
+        if (ruhe > 0) ruhe--;
+        else {
+          fenster.push(dt); if (fenster.length > FENSTER) fenster.shift();
+          if (fenster.length === FENSTER && stufe < 3) {
+            const s = [...fenster].sort((a, b) => a - b), median = s[FENSTER >> 1];
+            if (median > GRENZE) sparen();
+          }
+        }
+      }
+    }
+    letzte = ts;
+  }
+  requestAnimationFrame(bild);
+  // Ton sicher freischalten (iPhone/iPad): Audio darf nur nach einer Berührung starten. Bei jeder Berührung
+  // ein angehaltenes Audio wieder anwerfen (auch nach Anruf, Sperrbildschirm oder App-Wechsel) und beim
+  // allerersten Mal einen stillen Ton abspielen – danach klingen Musik und Effekte zuverlässig.
+  let freigeschaltet = false;
+  function tonFrei() {
+    try {
+      if (typeof ac === 'undefined') return;
+      if (!ac) { const A = window.AudioContext || window.webkitAudioContext; if (!A) return; ac = new A(); }
+      if (ac.state !== 'running') ac.resume?.();
+      if (!freigeschaltet) { const b = ac.createBuffer(1, 1, 22050), q = ac.createBufferSource(); q.buffer = b; q.connect(ac.destination); q.start(0); freigeschaltet = true; }
+    } catch (_) { }
+  }
+  for (const ev of ['pointerdown', 'touchend', 'keydown']) addEventListener(ev, tonFrei, { capture: true, passive: true });
+  window.TRAUMSPRUNG_LEISTUNG = { stufe: () => stufe, setStufe: n => { while (stufe < n) sparen(); } };
 })();
 
 </script>
