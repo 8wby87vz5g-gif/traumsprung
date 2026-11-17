@@ -16790,6 +16790,88 @@ setLang();menuSignature='';updateInterface();
   window.TRAUMSPRUNG_BEWEGUNG = { skala: () => [sx, sy], staub: () => staub.length, iris: () => iris };
 })();
 
+</script><script>/* src/systems/feedback-40.js */
+/* Traumsprung 4.0-p18 – Treffer- und Sammel-Gefühl („Juice“), nur Darstellung und Klang.
+ *
+ *  - Perlen: ein heller Ring springt auf; schnell nacheinander gesammelte Perlen klingen jedes Mal einen Ton höher
+ *    (Perlenkette, bis 8 Stufen, setzt nach 1 s zurück).
+ *  - Gegner besiegt: Sternen-Stoß mit „Pow“-Stern an der Stelle, kurzer Bildruck (2 Bilder Stillstand) – fühlt sich fester an.
+ *  - Selbst getroffen: roter Rand blitzt kurz auf, kleines Wackeln, die Heldin blinkt wie bisher.
+ *  - Leben dazu: goldener Herzring um die Heldin.
+ * Keine Änderung an Spielregeln, Trefferflächen oder Punkten.
+ */
+'use strict';
+(function () {
+  if (typeof upd !== 'function' || typeof drawDreamObjects !== 'function') return;
+  let ringe = [], sterne = [], kette = 0, ketteT = 0, letzteGems = null, letzteLeben = null, letzteInv = 0, rotBlitz = 0, halt = 0;
+  const totBekannt = new WeakSet();
+  const TON = [988, 1047, 1175, 1319, 1397, 1568, 1760, 1976];
+
+  const priorUpd = upd;
+  upd = function () {
+    if (halt > 0 && state === 'play') { halt--; return; }
+    const r = priorUpd.apply(this, arguments);
+    if (!P || level <= 0) return r;
+    if (letzteGems === null || state !== 'play') { letzteGems = gemsN; letzteLeben = lives; letzteInv = P.inv || 0; }
+    // Perlen
+    if (gemsN > letzteGems && state === 'play') {
+      ringe.push({ x: P.x + 11, y: P.y + 10, t: 0, farbe: '#a9fff0', max: 26 });
+      if (ketteT > 0) kette = Math.min(TON.length - 1, kette + 1); else kette = 0;
+      ketteT = 60;
+      if (typeof snd === 'function') snd(TON[kette], .07, 'triangle', .025);
+    }
+    if (ketteT > 0) ketteT--;
+    letzteGems = gemsN;
+    // Gegner besiegt (nur einmal je Gegner)
+    for (const f of foes) if (f.dead && !totBekannt.has(f)) {
+      totBekannt.add(f);
+      if (Math.abs(f.x - P.x) < 12 * T) {
+        sterne.push({ x: f.x + 13, y: f.y + 6, t: 0 });
+        for (let i = 0; i < 8; i++) ringe.push({ x: f.x + 13, y: f.y + 6, t: 0, farbe: '#fff2b0', max: 18, punkt: i });
+        halt = 2;
+      }
+    }
+    // selbst getroffen
+    if ((P.inv || 0) > letzteInv + 20 && state === 'play') { rotBlitz = 18; if (typeof shake !== 'undefined') shake = Math.max(shake || 0, 5); }
+    letzteInv = P.inv || 0;
+    // Leben dazu
+    if (lives > letzteLeben && state === 'play') ringe.push({ x: P.x + 11, y: P.y + 14, t: 0, farbe: '#ffd27a', max: 40, herz: 1 });
+    letzteLeben = lives;
+    for (const g of ringe) g.t++;
+    if (ringe.length) ringe = ringe.filter(g => g.t < g.max);
+    for (const s of sterne) s.t++;
+    if (sterne.length) sterne = sterne.filter(s => s.t < 22);
+    if (rotBlitz > 0) rotBlitz--;
+    return r;
+  };
+
+  const priorDraw = drawDreamObjects;
+  drawDreamObjects = function () {
+    const r = priorDraw.apply(this, arguments);
+    if (!ringe.length && !sterne.length && !rotBlitz) return r;
+    cx.save();
+    for (const g of ringe) {
+      const k = g.t / g.max, x = g.x - cam;
+      cx.globalAlpha = 1 - k;
+      if (g.punkt !== undefined) { const a = g.punkt / 8 * Math.PI * 2, d = 6 + k * 26; cx.fillStyle = g.farbe; cx.beginPath(); cx.arc(x + Math.cos(a) * d, g.y + Math.sin(a) * d, 3 * (1 - k) + 1, 0, 7); cx.fill(); }
+      else { cx.strokeStyle = g.farbe; cx.lineWidth = g.herz ? 4 : 2.5; cx.beginPath(); cx.arc(x, g.y, 6 + k * (g.herz ? 46 : 22), 0, 7); cx.stroke(); }
+    }
+    for (const s of sterne) {
+      const k = s.t / 22, x = s.x - cam, rr = 8 + 10 * Math.sin(Math.min(1, k * 2) * Math.PI / 2);
+      cx.globalAlpha = 1 - k; cx.fillStyle = '#ffffff'; cx.strokeStyle = '#ffb347'; cx.lineWidth = 2;
+      cx.beginPath(); for (let i = 0; i < 10; i++) { const a = i / 10 * Math.PI * 2 - Math.PI / 2, q = i % 2 ? rr * .45 : rr; cx.lineTo(x + Math.cos(a) * q, s.y + Math.sin(a) * q); } cx.closePath(); cx.fill(); cx.stroke();
+    }
+    cx.restore();
+    if (rotBlitz) {
+      const vw = VW / sceneZoom, k = rotBlitz / 18;
+      cx.save(); const g = cx.createRadialGradient(cam + vw / 2 - cam, H * T / 2, H * T * .3, vw / 2, H * T / 2, H * T * .8);
+      g.addColorStop(0, 'rgba(255,40,70,0)'); g.addColorStop(1, `rgba(255,40,70,${.45 * k})`); cx.fillStyle = g; cx.fillRect(0, 0, vw, H * T); cx.restore();
+    }
+    return r;
+  };
+  window.TRAUMSPRUNG_FEEDBACK = { kette: () => kette, ringe: () => ringe.length, sterne: () => sterne.length };
+})();
+
 </script><script>/* src/systems/funken-40.js */
 /* Traumsprung 4.0 – Die Funkenkette (ersetzt Traumkugeln und Urkunde).
  *
@@ -17013,4 +17095,3 @@ setLang();menuSignature='';updateInterface();
   body.mobile-playing.ts-tasten-hinweis .mobile-move-zone.is-active .mobile-move-visual,body.mobile-playing.ts-tasten-hinweis .mobile-jump-zone.is-active .mobile-jump-visual{opacity:.35!important}
 }
 </style>
-</html>
