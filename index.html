@@ -6633,7 +6633,8 @@ setLang();menuSignature='';updateInterface();
     states.left={id:e.pointerId,x:e.clientX,anker:e.clientX};
     try{left.setPointerCapture(e.pointerId)}catch(_){/* browser fallback */}
     // 4.0-p10 Querformat ohne sichtbare Tasten: Startrichtung nach der Hälfte der Laufzone, danach Wischen dreht um
-    if(quer()){const b=left.getBoundingClientRect();direction(e.clientX<b.left+b.width*.5?-1:1);}
+    // 4.0-p13: Daumen aufsetzen = sofort nach rechts (die Hauptrichtung); nach links: kurz nach links wischen
+    if(quer())direction(1);
     else direction(dirAt(e.clientX,0));
     pulse(left,e.clientX,e.clientY);stats.leftInputs++;haptic('move');
   }
@@ -6641,11 +6642,11 @@ setLang();menuSignature='';updateInterface();
     if(!states.left||states.left.id!==e.pointerId)return;
     e.preventDefault();pulse(left,e.clientX,e.clientY);
     if(quer()){
-      // 4.0-p12: fester Ankerpunkt (wo der Daumen aufgesetzt hat) – erst 28 px daneben wechselt die Richtung.
-      // Kleines Zittern des Daumens dreht die Figur nicht mehr hin und her.
-      const L=states.left,dx=e.clientX-L.anker;
-      if(dx>28&&states.direction!==1)direction(1);
-      else if(dx<-28&&states.direction!==-1)direction(-1);
+      // 4.0-p13: der Ankerpunkt wandert mit dem Daumen in Laufrichtung mit; 22 px Gegenbewegung = umdrehen.
+      // So dreht man schnell um, aber kleines Zittern (unter 22 px) dreht nie.
+      const L=states.left,x=e.clientX;
+      if(states.direction>=0){if(x>L.anker)L.anker=x;else if(x<L.anker-22){L.anker=x;direction(-1);}}
+      else{if(x<L.anker)L.anker=x;else if(x>L.anker+22){L.anker=x;direction(1);}}
       return;
     }
     direction(dirAt(e.clientX,states.direction));
