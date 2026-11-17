@@ -5464,9 +5464,19 @@ function renderMenu(){
   }else if(state==='pause'){
     eye=level?weltName(level):'DEINE ERSTEN SPRÜNGE';heading='Eine kleine Pause';html=button('Weiterspielen','resume','primary')+'<br>'+button('Einstellungen','settings')+button('Vollbild','fullscreen')+button('Levelauswahl','levels')+button('Ergebnis teilen','share','text-button')+button('Hauptmenü','home','text-button');
   }else if(state==='paywall'){
-    eye='ERSTER TRAUMFUNKE GERETTET';heading='Hinter den Gärten<br>geht die Reise weiter.';
-    html='<p>Die ersten beiden Welten (Level 1–10) sind kostenlos. Die einmalige Vollversion schaltet Level 11 bis 50 mit acht weiteren Welten frei.</p><div class="note-box"><p class="small">Keine Werbung, keine kaufbaren Spielvorteile. Der Preis wird im Store angezeigt.</p></div>';
-    html+=window.Purchases?.buyFull&&window.Purchases?.verifyFull?button('Vollversion · '+esc(window.Purchases.price||'Preis im Store'),'buy','primary'):fullPreview?button('Private Testfassung: weiter','preview','primary'):'<p class="hint">Kaufabwicklung auf dieser Plattform nicht verfügbar. Level 1–10 bleiben kostenlos spielbar.</p>';html+=window.Purchases?.restore?button('Kauf wiederherstellen','restore-purchase','secondary'):'';html+=button('Kostenlose Level spielen','home','text-button');
+    // 4.0-p15: Freischaltbildschirm – was man bekommt, was es kostet, einmalig, Fortschritt bleibt
+    const PW=window.Purchases,test=PW&&PW.modus==='test';
+    eye='DIE ERSTEN ZWEI WELTEN GESCHAFFT';heading='Die Reise geht weiter –<br>acht Welten warten.';
+    const welten=WELTEN.slice(2).map(w=>`<span class="pw-welt" style="--wf:${w.farbe}">${esc(w.name)}</span>`).join('');
+    html=`<style>.pw-welten{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;margin:10px 0 12px}.pw-welt{font-size:12px;font-weight:700;padding:4px 9px;border-radius:12px;background:color-mix(in srgb,var(--wf) 22%,transparent);border:1px solid var(--wf);color:#fff}
+      .pw-liste{text-align:left;margin:8px auto;max-width:420px;padding:0;list-style:none}.pw-liste li{margin:5px 0;padding-left:22px;position:relative}.pw-liste li:before{content:'✦';position:absolute;left:0;color:#ffd27a}
+      .pw-preis{font-size:28px;font-weight:800;color:#ffe9a8;margin:8px 0 2px}.pw-klein{font-size:13px;opacity:.85;margin:0 0 10px}.pw-test{display:inline-block;background:#ffe08a;color:#5a3a10;font-weight:800;font-size:11px;letter-spacing:.06em;border-radius:12px;padding:3px 9px;margin-bottom:6px}</style>`;
+    html+='<p>Level 1–10 sind kostenlos. Mit der Vollversion spielst du die ganze Geschichte:</p><div class="pw-welten">'+welten+'</div>';
+    html+='<ul class="pw-liste"><li>40 weitere Level (11–50) mit acht neuen Welten</li><li>8 Bosse, die Rettung aller fünf Traumfunken und das Ende der Geschichte</li><li>Abspann und deine persönliche Traumwächter-Urkunde</li><li>Dein bisheriger Fortschritt bleibt vollständig erhalten</li></ul>';
+    if(test)html+='<div class="pw-test">TESTMODUS · KEIN ECHTES GELD</div>';
+    html+='<div class="pw-preis">'+esc(PW?.price||'Preis im Store')+'</div><p class="pw-klein">Einmaliger Kauf · kein Abo · keine Werbung · keine kaufbaren Vorteile</p>';
+    html+=PW?.buyFull&&PW?.verifyFull?button('Vollversion freischalten','buy','primary'):fullPreview?button('Private Testfassung: weiter','preview','primary'):'<p class="hint">Kaufabwicklung auf dieser Plattform nicht verfügbar. Level 1–10 bleiben kostenlos spielbar.</p>';
+    html+=PW?.restore?button('Kauf wiederherstellen','restore-purchase','secondary'):'';html+=button('Kostenlose Level weiterspielen','home','text-button');
   }else if(state==='next'||state==='win'){
     if(level===0){eye='BEREIT FÜR DEIN ABENTEUER';heading='Die ersten Sprünge sitzen!';html='<p>Die Traumgärten warten. Du startest mit drei frischen Leben.</p>'+button('In die Traumgärten','next','primary');}
     else{
@@ -5547,7 +5557,7 @@ menu.addEventListener('click',e=>{
   else if(a==='fullscreen'){press('u',1);}
   else if(a==='preview'&&window.TRAUMSPRUNG_DEV_PREVIEW){fullPreview=true;state='next';level=FREE;startGame();}
   else if(a==='buy'){buy();}
-  else if(a==='restore-purchase'){restore();}
+  else if(a==='restore-purchase'){restore().then(()=>{tell(full?'Vollversion wiederhergestellt – viel Spaß!':'Kein früherer Kauf gefunden.');if(full&&state==='paywall'){state='next';level=FREE;startGame();}});}
   else if(a==='share'){shareScore();}
   else if(a==='leader-entry'&&lastRes){menuView='leader-entry';}
   else if(a==='leader-save'&&lastRes){
@@ -16385,6 +16395,233 @@ setLang();menuSignature='';updateInterface();
     return r;
   };
   window.TRAUMSPRUNG_STERN = { aktiv: () => !!auftritt, spur: () => spur.length };
+})();
+
+</script><script>/* src/systems/lebendige-welt-40.js */
+/* Traumsprung 4.0-p15 – LEBENDIGE WELT (2,5D-Tiefe ohne neue Engine).
+ *
+ * Legt über die bestehenden Kulissen jeder Welt eine leise, lebendige Schicht – passend zur Welt, nie über dem Spielgeschehen:
+ *  - ziehende Wolken in zwei Tiefenebenen (Parallaxe 0,04 / 0,10) – nur in Welten mit offenem Himmel,
+ *  - Lichtstrahlen, die schräg durch die Bäume fallen und langsam atmen (Wald, Herz),
+ *  - Teilchen in drei Tiefen (vorne größer und schneller = räumliche Tiefe):
+ *      Blätter (Welt 1–2), Schneeglitzer (3), Schwebeteilchen/Luftblasen (4), Glut und Asche (5), Windfäden (6),
+ *      Messingstaub (7), Mondstaub (8), Scherbenfunkeln (9), Goldflocken (10),
+ *  - Gräser am Boden, die sich im Wind wiegen und sich wegducken, wenn die Heldin hindurchläuft (Welt 1, 2, 6, 10),
+ *  - im Albtraum werden Teilchen rot/dunkel und fallen schneller.
+ * Leistung: feste Teilchenzahl je Qualitätsstufe, keine Speicher-Anlage pro Bild. Stufe „sparsam“ halbiert alles;
+ *   automatisch, wenn das Spiel länger als 2 s unter 45 Bildern/s läuft. Abschaltbar: window.TRAUMSPRUNG_LEBEN_OFF = true.
+ */
+'use strict';
+(function () {
+  if (typeof drawDreamObjects !== 'function' || typeof upd !== 'function') return;
+  const HM = () => level > 0 && !!window.TRAUMSPRUNG_LEVEL_HANDMADE && !window.TRAUMSPRUNG_LEBEN_OFF;
+  const welt = () => Math.min(10, Math.max(1, Math.ceil(level / 5)));
+  // je Welt: Himmel offen? Lichtstrahlen? Gras? Teilchenart
+  const ART = {
+    1: { wolken: 1, strahlen: 1, gras: 1, teil: 'blatt', farben: ['#ffb3d9', '#ffd6a8', '#b8f0a8'] },
+    2: { wolken: 0, strahlen: 1, gras: 1, teil: 'blatt', farben: ['#7ad08a', '#a9fff0', '#3a8a5a'] },
+    3: { wolken: 1, strahlen: 0, gras: 0, teil: 'schnee', farben: ['#ffffff', '#d8f4ff', '#9ae6ff'] },
+    4: { wolken: 0, strahlen: 1, gras: 0, teil: 'blase', farben: ['#bff4ff', '#8ae0e0', '#ffffff'] },
+    5: { wolken: 0, strahlen: 0, gras: 0, teil: 'glut', farben: ['#ffb347', '#ff7a3a', '#ffe08a'] },
+    6: { wolken: 1, strahlen: 1, gras: 1, teil: 'wind', farben: ['#ffffff', '#e8f0ff', '#cfe2ff'] },
+    7: { wolken: 0, strahlen: 0, gras: 0, teil: 'staub', farben: ['#e6b86a', '#c8a060', '#fff0c8'] },
+    8: { wolken: 1, strahlen: 0, gras: 0, teil: 'mond', farben: ['#e8e8ff', '#c9c4ff', '#ffffff'] },
+    9: { wolken: 0, strahlen: 0, gras: 0, teil: 'scherbe', farben: ['#d9a6ff', '#ffffff', '#a8c8ff'] },
+    10: { wolken: 1, strahlen: 1, gras: 1, teil: 'gold', farben: ['#ffe08a', '#ffd27a', '#fff6c8'] }
+  };
+  let stufe = 'hoch', teile = [], wolken = [], gras = null, grasLevel = -1, langsam = 0, letzteZeit = 0;
+  const anzahl = () => (stufe === 'hoch' ? 34 : 16);
+
+  function neu(i) {
+    const tiefe = i % 3;   // 0 hinten, 1 Mitte, 2 vorne
+    return { x: Math.random() * 900, y: Math.random() * H * T, tiefe, ph: Math.random() * 6.3, f: i % 3, s: .6 + tiefe * .45 };
+  }
+  function aufbauen() {
+    teile = Array.from({ length: anzahl() }, (_, i) => neu(i));
+    wolken = Array.from({ length: stufe === 'hoch' ? 7 : 4 }, (_, i) => ({ x: i * 240 + Math.random() * 120, y: 40 + (i % 3) * 38 + Math.random() * 20, w: 90 + Math.random() * 90, ebene: i % 2 }));
+  }
+  // Gräser: an den Oberkanten von Boden-Kacheln, jedes dritte Feld (nur einmal je Level berechnet)
+  function grasBauen() {
+    gras = [];
+    for (let x = 0; x < W; x++) for (let r = 4; r <= 12; r++) if (grid[r]?.[x] === '#' && grid[r - 1]?.[x] === ' ') { if ((x * 7 + r) % 3 === 0) gras.push({ x: x * T + 6 + (x * 13) % 18, y: r * T, h: 7 + (x * 5) % 6, b: 0 }); break; }
+    grasLevel = level;
+  }
+
+  const priorUpd = upd;
+  upd = function () {
+    const r = priorUpd.apply(this, arguments);
+    if (!HM()) return r;
+    if (!teile.length || teile.length !== anzahl()) aufbauen();
+    if (grasLevel !== level || !gras) grasBauen();
+    // automatische Qualitätsstufe
+    const jetzt = performance.now();
+    if (letzteZeit && state === 'play') { const dt = jetzt - letzteZeit; if (dt > 22 && dt < 200) langsam++; else langsam = Math.max(0, langsam - 1); if (langsam > 120 && stufe === 'hoch') { stufe = 'sparsam'; aufbauen(); } }
+    letzteZeit = jetzt;
+    // Gras duckt sich, wenn die Heldin hindurchläuft
+    if (gras && P && ART[welt()].gras) for (const g of gras) { const dx = g.x - (P.x + 11); if (Math.abs(dx) < 18 && Math.abs(P.y + P.h - g.y) < 8) g.b = Math.sign(dx || 1) * 1; else g.b *= .92; }
+    return r;
+  };
+
+  function zeichneStrahlen(ctx, vw) {
+    const nm = dreamPhase === 2; if (nm) return;
+    ctx.save();
+    for (let i = 0; i < 4; i++) {
+      const x = ((i * 290 + 120 - cam * .06) % (vw + 400) + vw + 400) % (vw + 400) - 200, a = .05 + .035 * Math.sin(t / 90 + i * 1.7);
+      const g = ctx.createLinearGradient(x, 0, x + 140, H * T); g.addColorStop(0, `rgba(255,244,210,${a})`); g.addColorStop(1, 'rgba(255,244,210,0)');
+      ctx.fillStyle = g; ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x + 70, 0); ctx.lineTo(x + 260, H * T); ctx.lineTo(x + 130, H * T); ctx.closePath(); ctx.fill();
+    }
+    ctx.restore();
+  }
+  function zeichneWolken(ctx, vw) {
+    const nm = dreamPhase === 2;
+    ctx.save();
+    for (const w of wolken) {
+      const par = w.ebene ? .10 : .04, drift = t * (w.ebene ? .12 : .06);
+      const x = ((w.x + drift - cam * par) % (vw + 400) + vw + 400) % (vw + 400) - 200, y = w.y;
+      ctx.globalAlpha = w.ebene ? .5 : .32; ctx.fillStyle = nm ? '#3a1a2e' : '#ffffff';
+      ctx.beginPath(); ctx.ellipse(x, y, w.w * .5, w.w * .16, 0, 0, 7); ctx.ellipse(x - w.w * .22, y + 4, w.w * .26, w.w * .13, 0, 0, 7); ctx.ellipse(x + w.w * .2, y - 6, w.w * .3, w.w * .18, 0, 0, 7); ctx.fill();
+    }
+    ctx.restore();
+  }
+  function zeichneTeile(nurTiefe) {
+    const A = ART[welt()], nm = dreamPhase === 2, vw = VW / sceneZoom, hoch = H * T;
+    for (const p of teile) {
+      if (nurTiefe !== undefined && (p.tiefe === 2) !== nurTiefe) continue;
+      const k = p.s, par = .15 + p.tiefe * .35;
+      let x = p.x, y = p.y, fall = 0, quer = 0;
+      // Bewegung je Art (zeitbasiert, ohne Speicher-Anlage)
+      if (A.teil === 'blatt') { fall = .35 * k; quer = Math.sin(t / 40 + p.ph) * 18 * k; }
+      else if (A.teil === 'schnee') { fall = .25 * k; quer = Math.sin(t / 60 + p.ph) * 10; }
+      else if (A.teil === 'blase' || A.teil === 'glut' || A.teil === 'gold') { fall = -(.3 + .2 * p.f) * k; quer = Math.sin(t / 50 + p.ph) * 8; }
+      else if (A.teil === 'wind') { quer = t * 2.2 * k; fall = Math.sin(t / 30 + p.ph) * .1; }
+      else { fall = Math.sin(t / 70 + p.ph) * .15; quer = Math.cos(t / 90 + p.ph) * 12; }
+      if (nm) fall = Math.abs(fall) * 1.6 + .2;
+      const sx = ((x + quer - cam * par) % (vw + 60) + vw + 60) % (vw + 60) - 30;
+      const sy = ((y + t * fall * (A.teil === 'wind' ? 0 : 1)) % hoch + hoch) % hoch;
+      const farbe = nm ? (p.f ? '#ff4a6a' : '#5a1a2e') : A.farben[p.f];
+      cx.globalAlpha = (.35 + p.tiefe * .2) * (A.teil === 'wind' ? .6 : 1);
+      cx.fillStyle = farbe; cx.strokeStyle = farbe;
+      const g = 1.4 + p.tiefe * 1.3;
+      if (A.teil === 'blatt') { cx.save(); cx.translate(sx, sy); cx.rotate(t / 30 + p.ph); cx.beginPath(); cx.ellipse(0, 0, g * 1.8, g * .8, 0, 0, 7); cx.fill(); cx.restore(); }
+      else if (A.teil === 'wind') { cx.lineWidth = 1; cx.beginPath(); cx.moveTo(sx, sy); cx.lineTo(sx - 26 - p.tiefe * 14, sy); cx.stroke(); }
+      else if (A.teil === 'scherbe') { cx.save(); cx.translate(sx, sy); cx.rotate(t / 50 + p.ph); cx.fillRect(-g, -g * .5, g * 2, g); cx.restore(); }
+      else if (A.teil === 'blase') { cx.lineWidth = 1; cx.beginPath(); cx.arc(sx, sy, g * 1.3, 0, 7); cx.stroke(); }
+      else { cx.beginPath(); cx.arc(sx, sy, g * (A.teil === 'glut' ? .9 : .7), 0, 7); cx.fill(); }
+    }
+    cx.globalAlpha = 1;
+  }
+  function zeichneGras() {
+    if (!gras || !ART[welt()].gras) return;
+    const vw = VW / sceneZoom, nm = dreamPhase === 2;
+    cx.save(); cx.lineWidth = 2; cx.lineCap = 'round';
+    for (const g of gras) {
+      const x = g.x - cam; if (x < -10 || x > vw + 10) continue;
+      const wind = Math.sin(t / 28 + g.x * .05) * 2.5 + g.b * 6;
+      cx.strokeStyle = nm ? '#5a2a3a' : '#5fbf8a';
+      cx.beginPath(); cx.moveTo(x, g.y); cx.quadraticCurveTo(x + wind * .4, g.y - g.h * .6, x + wind, g.y - g.h); cx.stroke();
+      cx.beginPath(); cx.moveTo(x + 4, g.y); cx.quadraticCurveTo(x + 4 + wind * .3, g.y - g.h * .5, x + 4 + wind * .8, g.y - g.h * .75); cx.stroke();
+    }
+    cx.restore();
+  }
+
+  // Hintergrund: Lichtstrahlen und Wolken hinter dem Spielfeld
+  const isles = window.TRAUMSPRUNG_ISLES;
+  if (isles && isles.drawBackground) {
+    const prior = isles.drawBackground;
+    isles.drawBackground = function (ctx) {
+      const r = prior.apply(this, arguments);
+      if (!HM()) return r;
+      const A = ART[welt()], vw = VW / sceneZoom;
+      if (A.wolken) zeichneWolken(ctx, vw);
+      if (A.strahlen) zeichneStrahlen(ctx, vw);
+      return r;
+    };
+  }
+  // Vordergrund-Leben: hintere Teilchen und Gras vor der Kulisse, vordere Teilchen ganz vorn
+  const priorDraw = drawDreamObjects;
+  drawDreamObjects = function () {
+    if (HM()) { zeichneTeile(false); zeichneGras(); }
+    const r = priorDraw.apply(this, arguments);
+    if (HM()) zeichneTeile(true);
+    return r;
+  };
+  window.TRAUMSPRUNG_LEBEN = { stufe: () => stufe, setStufe: s => { stufe = s; aufbauen(); }, teile: () => teile.length, gras: () => gras ? gras.length : 0 };
+})();
+
+</script><script>/* src/systems/kauf-40.js */
+/* Traumsprung 4.0-p15 – Kaufsystem „Vollversion“ (einmaliger Kauf), vorbereitet für App Store und Google Play.
+ *
+ * Modell: Level 1–10 (Welt 1 und 2, erster Boss und Hüter) kostenlos. Ein einmaliger Kauf schaltet Level 11–50 dauerhaft frei.
+ * Keine Werbung, keine kaufbaren Spielvorteile, kein Abo. Fortschritt bleibt erhalten.
+ *
+ * Zwei Betriebsarten hinter derselben Schnittstelle window.Purchases (die campaign.js schon nutzt):
+ *  1) ECHT  – über RevenueCat (Capacitor-Plugin „@revenuecat/purchases-capacitor“), Produkt-ID unten. Bleibt AUS, bis
+ *             ECHT_FREIGEGEBEN = true gesetzt wird (Freigabe durch den Inhaber). Kein selbstgebautes Bezahlen.
+ *  2) TEST  – simulierte Käufe im Browser/Testbuild: eigenes Bestätigungsfenster, nichts wird abgebucht.
+ *             Fälle: bestätigen, abbrechen, Fehlschlag, „schon gekauft“ (keine Doppelbelastung), Wiederherstellen.
+ * Die Freischaltung wird beim Start immer aus der Berechtigung (Store bzw. Testspeicher) gelesen – nie aus dem Spielstand.
+ */
+'use strict';
+(function () {
+  const ECHT_FREIGEGEBEN = false;
+  const PRODUKT_ID = 'traumsprung_vollversion';
+  const ENTITLEMENT = 'vollversion';
+  const PREIS_TEST = '4,99 €';
+  const TEST_KEY = 'traumsprung-test-vollversion';
+  const RC = () => window.Capacitor?.isNativePlatform?.() && window.Capacitor?.Plugins?.Purchases;
+  const lies = () => { try { return localStorage.getItem(TEST_KEY) === '1'; } catch (_) { return false; } };
+  const schreib = v => { try { v ? localStorage.setItem(TEST_KEY, '1') : localStorage.removeItem(TEST_KEY); } catch (_) { } };
+
+  // ── Testfenster (eigene Oberfläche, kein alert/confirm) ────────────────
+  function testDialog() {
+    return new Promise(resolve => {
+      const o = document.createElement('div');
+      o.setAttribute('role', 'dialog'); o.setAttribute('aria-label', 'Testkauf');
+      o.style.cssText = 'position:fixed;inset:0;z-index:2147483100;background:#07040fcc;display:grid;place-items:center;padding:16px;font:16px system-ui';
+      o.innerHTML = `<div style="max-width:420px;width:100%;background:#fff9f0;color:#3a2a50;border-radius:22px;padding:22px 20px;text-align:center;box-shadow:0 20px 60px #0008">
+        <div style="display:inline-block;background:#ffe08a;color:#5a3a10;font:800 12px system-ui;letter-spacing:.08em;border-radius:20px;padding:4px 10px">TESTKAUF · KEIN ECHTES GELD</div>
+        <div style="font:800 22px system-ui;margin:12px 0 4px">Traumsprung Vollversion</div>
+        <div style="font:700 28px system-ui;color:#8562a5;margin:6px 0">${PREIS_TEST}</div>
+        <p style="margin:6px 0 14px;font-size:14px;opacity:.85">Einmaliger Kauf · Level 11–50 · kein Abo, keine Werbung</p>
+        <button data-w="ok" style="width:100%;font:700 17px system-ui;padding:13px;border-radius:14px;border:0;background:#8562a5;color:#fff;margin:4px 0">Testkauf bestätigen</button>
+        <button data-w="abbruch" style="width:100%;font:700 15px system-ui;padding:11px;border-radius:14px;border:2px solid #8562a5;background:#fff;color:#5b3877;margin:4px 0">Abbrechen</button>
+        <button data-w="fehler" style="width:100%;font:600 13px system-ui;padding:8px;border:0;background:none;color:#a04a5a;margin-top:2px">Fehlschlag simulieren</button></div>`;
+      o.addEventListener('click', e => { const w = e.target?.dataset?.w; if (!w) return; o.remove(); resolve(w); });
+      document.body.appendChild(o);
+    });
+  }
+
+  const Test = {
+    modus: 'test', price: PREIS_TEST + ' (Test)',
+    async buyFull() {
+      if (lies()) return { produkt: PRODUKT_ID, test: true, schonGekauft: true };   // keine Doppelbelastung
+      const w = await testDialog();
+      if (w === 'abbruch') throw new Error('abgebrochen');
+      if (w === 'fehler') throw new Error('fehlgeschlagen');
+      schreib(true); return { produkt: PRODUKT_ID, test: true };
+    },
+    async verifyFull(r) { return !!(r && r.produkt === PRODUKT_ID && r.test && lies()); },
+    async restore() { return lies(); },
+    async freigeschaltet() { return lies(); }
+  };
+  // RevenueCat (nur nach Freigabe aktiv; Methodennamen laut Plugin-Doku vor der Aktivierung erneut prüfen)
+  const Echt = {
+    modus: 'echt', price: 'Preis im Store',
+    async init() { const p = RC(); try { const o = await p.getOfferings(); const pkg = o?.current?.availablePackages?.find(x => x.product?.identifier === PRODUKT_ID) || o?.current?.availablePackages?.[0]; if (pkg) { this.pkg = pkg; this.price = pkg.product?.priceString || this.price; } } catch (_) { } },
+    async buyFull() { const p = RC(); if (await this.freigeschaltet()) return { produkt: PRODUKT_ID, schonGekauft: true }; const r = await p.purchasePackage({ aPackage: this.pkg }); return { produkt: PRODUKT_ID, info: r?.customerInfo }; },
+    async verifyFull(r) { const info = r?.info || (await RC().getCustomerInfo())?.customerInfo; return !!info?.entitlements?.active?.[ENTITLEMENT]; },
+    async restore() { const r = await RC().restorePurchases(); return !!r?.customerInfo?.entitlements?.active?.[ENTITLEMENT]; },
+    async freigeschaltet() { try { const r = await RC().getCustomerInfo(); return !!r?.customerInfo?.entitlements?.active?.[ENTITLEMENT]; } catch (_) { return false; } }
+  };
+
+  const aktiv = ECHT_FREIGEGEBEN && RC() ? Echt : Test;
+  window.Purchases = aktiv;
+  // Beim Start: Berechtigung lesen und die Vollversion setzen (nach dem Laden des Spielstands)
+  async function pruefen() {
+    try { if (aktiv.init) await aktiv.init(); if (await aktiv.freigeschaltet() && typeof full !== 'undefined') { full = true; if (typeof updateInterface === 'function') updateInterface(); } } catch (_) { }
+  }
+  if (document.readyState === 'complete') setTimeout(pruefen, 50); else addEventListener('load', () => setTimeout(pruefen, 50));
+  window.TRAUMSPRUNG_KAUF = { modus: aktiv.modus, produkt: PRODUKT_ID, preisTest: PREIS_TEST, testZuruecksetzen: () => { schreib(false); if (typeof full !== 'undefined') full = false; }, pruefen };
 })();
 
 </script><script>/* src/systems/funken-40.js */
