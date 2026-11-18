@@ -7856,7 +7856,7 @@ setLang();menuSignature='';updateInterface();
     return;
   }
   window.__traumsprungDreamGateInstalled=true;
-  const VERSION='1.0 (Build 68)';
+  const VERSION='1.0 (Build 69)';
   const KEY_TIME='traumsprung-playtime-v1';
   const KEY_NAME='traumsprung-menu-nickname-v1';
   const KEY_DREAM='traumsprung-menu-realm-v1';
@@ -17482,6 +17482,200 @@ setLang();menuSignature='';updateInterface();
     return prior.apply(this, arguments);
   };
   window.TRAUMSPRUNG_GRAFIK = { erde, funkeln, aufrufe: () => letztesBild };
+})();
+
+</script><script>/* src/systems/wechsel-40.js */
+/* Traumsprung 4.0-p30 – Der Weltwechsel als Herzstück („Ein Sprung – zwei Welten“).
+ *
+ * 1) Verwandlungswelle: Bei jedem Wechsel (wach ↔ Traum ↔ Albtraum) breitet sich von der Heldin ein leuchtender
+ *    Kreis aus. Innen ist schon die neue Welt, außen noch die alte – man sieht die Welt sich verwandeln.
+ *    Gegner verwandeln sich mit einem Rauchstoß, ein Klangbogen zieht durch.
+ * 2) Mondkraft: Wer einen Schattenmond eingesammelt hat, kann ab dann selbst wechseln – Mond-Knopf (Handy) oder
+ *    Taste E –, auch mitten im Sprung. Das Licht im Albtraum ist der Vorrat: es sinkt im Albtraum und füllt sich
+ *    im Wachzustand langsam wieder auf. Im erzwungenen Albtraum und in Boss-Arenen gesperrt.
+ * 3) Wechselsprünge: über geeigneten Gruben schwebt eine Albtraum-Insel (nur im Albtraum fest) mit Schattenperlen
+ *    darüber. Man springt, wechselt in der Luft, landet auf der Insel. Immer freiwillig – der Weg geht auch ohne.
+ * Abschaltbar: window.TRAUMSPRUNG_WECHSEL_OFF = true
+ */
+'use strict';
+(function () {
+  if (typeof draw !== 'function' || typeof upd !== 'function' || typeof build !== 'function') return;
+  const HM = () => level > 0 && !!window.TRAUMSPRUNG_LEVEL_HANDMADE && !window.TRAUMSPRUNG_WECHSEL_OFF;
+  const WW = () => window.TRAUMSPRUNG_WELTWECHSEL, L = () => window.TRAUMSPRUNG_LICHT;
+
+  // ── 1) Verwandlungswelle ────────────────────────────────────────────────
+  const puffer = document.createElement('canvas'); const pc = puffer.getContext('2d');
+  let gezeichnetePhase = null, welle = null;
+  const DAUER = 560;
+  const priorDraw = draw;
+  draw = function () {
+    const neu = dreamPhase;
+    if (gezeichnetePhase !== null && neu !== gezeichnetePhase && HM() && state === 'play' && P) {
+      // Leinwand zeigt noch das letzte Bild der alten Welt – festhalten
+      if (puffer.width !== cv.width || puffer.height !== cv.height) { puffer.width = cv.width; puffer.height = cv.height; }
+      pc.clearRect(0, 0, puffer.width, puffer.height); pc.drawImage(cv, 0, 0);
+      welle = { start: performance.now(), von: gezeichnetePhase, zu: neu };
+    }
+    gezeichnetePhase = neu;
+    const r = priorDraw.apply(this, arguments);
+    if (welle && P) {
+      const k = Math.min(1, (performance.now() - welle.start) / (window.TRAUMSPRUNG_WELLE_DAUER || DAUER));
+      if (k >= 1 || window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) { welle = null; return r; }
+      const s = RENDER_SCALE * sceneZoom, px = (P.x + 11 - cam) * s, py = (P.y + 14) * s + RENDER_SCALE * sceneY;
+      const maxR = Math.hypot(Math.max(px, cv.width - px), Math.max(py, cv.height - py)) + 20;
+      const e = 1 - Math.pow(1 - k, 3), rad = 8 + maxR * e;
+      cx.save(); cx.setTransform(1, 0, 0, 1, 0, 0);
+      // außerhalb des Kreises: alte Welt
+      cx.save(); cx.beginPath(); cx.rect(0, 0, cv.width, cv.height); cx.arc(px, py, rad, 0, Math.PI * 2, true); cx.clip('evenodd');
+      cx.drawImage(puffer, 0, 0); cx.restore();
+      // leuchtender Rand
+      const farbe = welle.zu === 2 ? [255, 60, 100] : welle.zu === 1 ? [169, 255, 240] : [255, 236, 170];
+      const breite = 26 * s * (1 - k * .5);
+      const g = cx.createRadialGradient(px, py, Math.max(1, rad - breite), px, py, rad + 4);
+      g.addColorStop(0, `rgba(${farbe},0)`); g.addColorStop(.75, `rgba(${farbe},${.55 * (1 - k)})`); g.addColorStop(1, `rgba(255,255,255,${.85 * (1 - k)})`);
+      cx.fillStyle = g; cx.beginPath(); cx.arc(px, py, rad + 4, 0, 7); cx.fill();
+      // Funken auf dem Rand
+      cx.fillStyle = `rgba(255,255,255,${1 - k})`;
+      for (let i = 0; i < 18; i++) { const a = i / 18 * Math.PI * 2 + k * 2; cx.beginPath(); cx.arc(px + Math.cos(a) * rad, py + Math.sin(a) * rad, 2.2 * s * (1 - k * .6), 0, 7); cx.fill(); }
+      cx.restore();
+    }
+    return r;
+  };
+
+  // Gegner verwandeln sich sichtbar, Klangbogen
+  let letztePhase = 0;
+  function verwandlung(von, zu) {
+    for (const f of foes || []) {
+      if (f.dead || Math.abs(f.x - P.x) > VW / sceneZoom) continue;
+      for (let i = 0; i < 10; i++) spark(f.x + 13, f.y + 10, zu === 2 ? (i % 2 ? '#2a0a22' : '#ff3b5c') : (i % 2 ? '#ffffff' : '#a9fff0'), 1);
+    }
+    if (typeof snd === 'function') {
+      if (zu === 2) { snd(392, .12, 'sawtooth', .025); snd(196, .3, 'triangle', .04); }
+      else { snd(523, .1, 'sine', .035); snd(784, .18, 'triangle', .03); snd(1046, .25, 'sine', .025); }
+    }
+    window.TRAUMSPRUNG_HAPTIC?.('medium');
+    if (typeof shake !== 'undefined') shake = Math.max(shake || 0, 2.5);
+  }
+
+  // ── 2) Mondkraft ────────────────────────────────────────────────────────
+  let mondkraft = false, hinweisGezeigt = false, letzteMonde = 0;
+  try { hinweisGezeigt = localStorage.getItem('traumsprung-mondkraft-hinweis') === '1'; } catch (_) { }
+  function kannWechseln() {
+    const W2 = WW(); if (!HM() || !W2 || !mondkraft || state !== 'play' || !P || P.dead) return false;
+    if (dreamPhase === 2) return W2.freiwillig();
+    if (dreamPhase === 1) return false;   // während der Traumblase kein Albtraum
+    return !W2.gesperrt() && (L()?.vorrat?.() ?? 1) > .12;
+  }
+  function umschalten() {
+    if (!kannWechseln()) { if (mondkraft && typeof snd === 'function') snd(160, .06, 'square', .02); return false; }
+    const W2 = WW();
+    if (dreamPhase === 2) { W2.zurueck(); return true; }
+    const v = L()?.vorrat?.() ?? 1;
+    if (W2.wechsel()) { L()?.set?.(v); L()?.setVorrat?.(v); return true; }   // kein volles Licht geschenkt
+    return false;
+  }
+  const priorPress = press;
+  press = function (k, v) {
+    if (k === 'e' && HM()) { if (v) umschalten(); return; }
+    return priorPress.apply(this, arguments);
+  };
+
+  // Knopf (Handy): erscheint nur mit Mondkraft
+  const knopf = document.createElement('button');
+  knopf.type = 'button'; knopf.id = 'mond-knopf'; knopf.hidden = true; knopf.setAttribute('aria-label', 'Welt wechseln');
+  knopf.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15.5 3.5a8.5 8.5 0 1 0 5 15.4A9.5 9.5 0 0 1 15.5 3.5z" fill="currentColor"/></svg><span>WECHSEL</span>';
+  const stil = document.createElement('style');
+  stil.textContent = `#mond-knopf{position:fixed;z-index:40;display:none;width:62px;height:62px;border-radius:50%;border:2px solid #ffffffaa;
+    color:#fff;background:radial-gradient(circle at 35% 30%,#ff7a9a,#8a1a4a 70%);box-shadow:0 6px 18px #0007,0 0 0 4px rgba(255,255,255,.08);
+    flex-direction:column;align-items:center;justify-content:center;gap:1px;padding:0;touch-action:none;-webkit-user-select:none;user-select:none}
+    #mond-knopf svg{width:26px;height:26px}#mond-knopf span{font:900 8px system-ui;letter-spacing:.06em}
+    #mond-knopf.traum{background:radial-gradient(circle at 35% 30%,#fff6c8,#e0a020 70%);color:#5a3a10}
+    #mond-knopf.leer{filter:grayscale(.8) brightness(.7)}
+    #mond-knopf.zeige{display:flex}
+    body:not(.mobile-playing) #mond-knopf.zeige{right:24px;bottom:24px}
+    body.mobile-playing #mond-knopf.zeige{right:calc(max(12px,env(safe-area-inset-right,0px)) + 4px);bottom:calc(max(16px,env(safe-area-inset-bottom,0px)) + 96px)}
+    @media (orientation:landscape) and (max-height:600px){body.mobile-playing #mond-knopf.zeige{bottom:auto;top:calc(max(84px,30vh) + 72px)}}
+    #mond-knopf .ring{position:absolute;inset:-6px;border-radius:50%;pointer-events:none}`;
+  document.head.appendChild(stil);
+  const ring = document.createElement('i'); ring.className = 'ring'; knopf.appendChild(ring);
+  (document.getElementById('shell') || document.body).appendChild(knopf);
+  knopf.addEventListener('pointerdown', e => { e.preventDefault(); e.stopPropagation(); umschalten(); knopf.blur(); }, { passive: false });
+  knopf.addEventListener('contextmenu', e => e.preventDefault());
+
+  // ── 3) Wechselsprünge ──────────────────────────────────────────────────
+  let sprungInseln = [];
+  function wechselSpruenge() {
+    sprungInseln = [];
+    if (!HM() || level % 5 === 0 || !WW()?.schatten) return;
+    const sch = WW().schatten();
+    const mondX = []; if (typeof hmRewards !== 'undefined') for (const [k, m] of hmRewards) if (m === 16) mondX.push(+k.split(',')[0]);
+    if (!mondX.length) return;
+    const fest = c => '#BX?KPCJIDR'.includes(c);
+    let letzte = -99;
+    for (let x = 10; x < goalTile - 10 && sprungInseln.length < 2; x++) {
+      if (grid[12][x] === '#' || grid[12][x - 1] !== '#') continue;
+      let e = x; while (e < W && grid[12][e] !== '#' && grid[13]?.[e] !== '#') e++;
+      const breit = e - x;
+      if (breit < 4 || breit > 9 || grid[12][e] !== '#' || x - letzte < 30 || !mondX.some(m => m < x - 3)) { x = e; continue; }
+      const m = x + Math.floor(breit / 2) - 1;
+      let frei = true;
+      for (let xx = m - 1; xx <= m + 2 && frei; xx++) for (let r = 6; r <= 11; r++) if (fest(grid[r]?.[xx])) frei = false;
+      if (!frei || (window.TRAUMSPRUNG_HM_W4?.seen || []).some(w => x >= w.von - 2 && x <= w.bis + 2) || (window.TRAUMSPRUNG_HM_W5?.laven || []).some(l => x >= l.von - 2 && x <= l.bis + 2)) { x = e; continue; }
+      for (const xx of [m, m + 1]) window.TRAUMSPRUNG_HM_NMISLES.add(xx + ',10');
+      for (let i = -1; i <= 2; i++) sch.push({ x: (m + i) * T + 16, y: (i === 0 || i === 1 ? 7 : 8) * T + 16, got: false, wechsel: 1 });
+      sprungInseln.push({ x: m, row: 10 }); letzte = x; x = e;
+    }
+  }
+  const priorBuild = build;
+  build = function () {
+    const o = priorBuild.apply(this, arguments);
+    mondkraft = false; letzteMonde = 0; letztePhase = dreamPhase;
+    try { wechselSpruenge(); } catch (e) { console.warn('wechsel-40', e); }
+    return o;
+  };
+
+  const priorUpd = upd;
+  upd = function () {
+    const r = priorUpd.apply(this, arguments);
+    if (!HM()) { knopf.classList.remove('zeige'); return r; }
+    // Mondkraft erhalten, sobald ein Mond eingesammelt wurde
+    const monde = WW()?.monde?.() || [];
+    const geholt = monde.filter(m => m.got).length;
+    if (geholt > letzteMonde) {
+      letzteMonde = geholt;
+      if (!mondkraft) { mondkraft = true;
+        if (!hinweisGezeigt && typeof tell === 'function') { tell('Mondkraft! Tippe auf den Mond (oder E), um die Welt zu wechseln – auch mitten im Sprung.', 360); hinweisGezeigt = true; try { localStorage.setItem('traumsprung-mondkraft-hinweis', '1'); } catch (_) { } }
+      }
+    }
+    if (dreamPhase !== letztePhase && state === 'play' && P) { verwandlung(letztePhase, dreamPhase); letztePhase = dreamPhase; }
+    // Knopf zeigen
+    const zeigen = mondkraft && state === 'play' && !(WW()?.gesperrt?.() && dreamPhase !== 2) && !(dreamPhase === 2 && !WW()?.freiwillig?.());
+    if (knopf.classList.contains('zeige') !== zeigen) knopf.classList.toggle('zeige', zeigen);
+    if (zeigen) {
+      const v = Math.max(0, Math.min(1, L()?.vorrat?.() ?? 1));
+      knopf.classList.toggle('traum', dreamPhase === 2); knopf.classList.toggle('leer', !kannWechseln());
+      const grad = `conic-gradient(${dreamPhase === 2 ? '#ff3b5c' : '#ffe9a8'} ${Math.round(v * 360)}deg, rgba(255,255,255,.12) 0)`;
+      if (ring.style.background !== grad) { ring.style.background = grad; ring.style.webkitMask = ring.style.mask = 'radial-gradient(circle, transparent 33px, #000 34px)'; }
+    }
+    return r;
+  };
+
+  // Wach: Umriss der Albtraum-Inseln andeuten (Neugier wecken)
+  if (typeof drawDreamObjects === 'function') {
+    const pd = drawDreamObjects;
+    drawDreamObjects = function () {
+      const r = pd.apply(this, arguments);
+      if (!HM() || dreamPhase === 2 || !sprungInseln.length) return r;
+      cx.save(); cx.setLineDash([4, 4]); cx.lineWidth = 1.5;
+      for (const s of sprungInseln) {
+        const x = s.x * T - cam, y = s.row * T; if (x < -80 || x > VW / sceneZoom + 40) continue;
+        cx.strokeStyle = `rgba(255,90,130,${.35 + .2 * Math.sin(t / 10)})`; cx.strokeRect(x + 2, y + 2, T * 2 - 4, 12);
+      }
+      cx.restore();
+      return r;
+    };
+  }
+  window.TRAUMSPRUNG_WECHSEL = { umschalten, kannWechseln, mondkraft: () => mondkraft, setMondkraft: v => { mondkraft = !!v; }, inseln: () => sprungInseln.slice(), welle: () => !!welle };
 })();
 
 </script><script>/* src/systems/boden-40.js */
