@@ -7857,7 +7857,7 @@ setLang();menuSignature='';updateInterface();
     return;
   }
   window.__traumsprungDreamGateInstalled=true;
-  const VERSION='1.0 (Build 72)';
+  const VERSION='1.0 (Build 73)';
   const KEY_TIME='traumsprung-playtime-v1';
   const KEY_NAME='traumsprung-menu-nickname-v1';
   const KEY_DREAM='traumsprung-menu-realm-v1';
@@ -19118,6 +19118,201 @@ window.TRAUMSPRUNG_ZIEL = function (fx, fy) {
   }
   for (const ev of ['pointerdown', 'touchend', 'keydown']) addEventListener(ev, tonFrei, { capture: true, passive: true });
   window.TRAUMSPRUNG_LEISTUNG = { stufe: () => stufe, setStufe: n => { while (stufe < n) sparen(); } };
+})();
+
+</script><script>/* src/systems/bauwerke-40.js */
+/* Traumsprung 4.0-p34 – Block-Bauwerke wie in klassischen Jump'n'Runs.
+ *
+ * Nach dem Aufbau jedes Hand-Levels (als letztes Modul, damit alles andere schon steht) setzt es – immer gleich,
+ * kein Zufall, nur auf ebenem, freiem Boden ohne Gegner, Gruben, Sonderzonen, Perlen oder Gegenstände:
+ *  1) Blockbrücke mit Treppe: zwei Stufen, dann eine lange Brücke „B??B?B“ in Reihe 8 (oben Perlen),
+ *     darüber eine zweite Etage „?B?“ in Reihe 4 – nur von der Brücke aus mit dem Kopf erreichbar.
+ *  2) Pyramide: Stufen 1-2-3-2-1 aus Steinblöcken, Perlenbogen darüber, und über der Spitze ein
+ *     unsichtbarer Geheimblock (erscheint beim Kopfstoß, 5 Perlen).
+ *  3) ?-Reihe: „?B?B?B?“ in Reihe 8 – vom Boden aus mit dem Kopf zu treffen.
+ * Anzahl je nach Levellänge 2–5. Steinblöcke zerbrechen wie gewohnt beim Kopfstoß (Giana-Prinzip).
+ * Abschaltbar: window.TRAUMSPRUNG_BAUWERKE_OFF = true
+ */
+'use strict';
+(function () {
+  if (typeof build !== 'function' || typeof upd !== 'function') return;
+  const HM = () => level > 0 && !!window.TRAUMSPRUNG_LEVEL_HANDMADE && !window.TRAUMSPRUNG_BAUWERKE_OFF;
+  let info = { bauten: [], geheim: [] };
+  const leer = c => c === ' ';
+  const hatGem = (a, b, r0, r1) => (gems || []).some(g => g.x >= a * T - 10 && g.x <= (b + 1) * T + 10 && g.y >= r0 * T - 10 && g.y <= (r1 + 1) * T + 10);
+  // Gegenstände, Traumfunken, Traumkugeln und das Relikt nie überbauen
+  const hatItem = (a, b, nurNah) => {
+    const nah = x => x >= a * T - 24 && x <= (b + 1) * T + 24;
+    if ((items || []).some(i => nah(i.x))) return true;
+    if ((typeof dreamSeals !== 'undefined' ? dreamSeals : []).some(s => nah(s.x))) return true;
+    if ((typeof levelDreamOrbs !== 'undefined' ? levelDreamOrbs : []).some(o => nah(o.x))) return true;
+    // alle übrigen Objekte der Hand-Level (Glut-Lichter, Markierungen, Schalter …), Lage in Pixeln oder Feldern
+    const tx = v => (v > W + 4 ? v / T : v);
+    let treffer = false;
+    const scan = (o, d) => {
+      if (treffer || !o || typeof o !== 'object' || d > 3) return;
+      if (Array.isArray(o)) { for (const e of o) if (e && typeof e === 'object') { if (typeof e.x === 'number') { const q = tx(e.x); if (q >= a - 1 && q <= b + 1) { treffer = true; return; } } else scan(e, d + 1); } return; }
+      if (o instanceof Map) { for (const e of o.values()) scan([e], d + 1); return; }
+      for (const k of Object.keys(o)) scan(o[k], d + 1);
+    };
+    if (!nurNah) for (const k of Object.keys(window)) if (k.startsWith('TRAUMSPRUNG_HM_') && k !== 'TRAUMSPRUNG_HM_RELIC') { try { scan(window[k], 0); } catch (_) { } if (treffer) return true; }
+    const rel = window.TRAUMSPRUNG_HM_RELIC; if (typeof rel === 'number' && b >= rel - 8 && a <= rel + 4) return true;
+    return false;
+  };
+  const hatGegner = (a, b) => (foes || []).some(f => !f.dead && f.x + (f.w || 24) >= (a - 2) * T && f.x <= (b + 3) * T);
+  // Bodenhöhe einer Spalte: Oberkante des durchgehenden Bodens von unten (schwebende Blöcke zählen nicht), sonst -1
+  function boden(x) {
+    if (grid[13]?.[x] !== '#') return -1;
+    let r = 13; while (r > 0 && grid[r - 1][x] === '#') r--;
+    return r >= 8 && r <= 12 ? r : -1;
+  }
+  const luftLeer = (x, r0, r1) => { for (let r = Math.max(0, r0); r <= r1; r++) if (!leer(grid[r]?.[x])) return false; return true; };
+
+  // Fläche a..b auf gleicher Bodenhöhe G, Luft bis G-hoch frei; Bodenbauten (Treppe, Pyramide) brauchen Rand und keine Gegner
+  function frei(a, b, hoch, amBoden, gegnerBis) {
+    const r0 = amBoden ? a - 1 : a, r1 = amBoden ? b + 1 : b, G = boden(a);
+    if (G < 0 || G - hoch < 1) return -1;
+    for (let x = r0; x <= r1; x++) if (boden(x) !== G || !luftLeer(x, G - hoch, G - 1)) return -1;
+    // auch die Luft daneben frei lassen, damit Bauwerke nicht an andere Blöcke stoßen
+    for (const x of [a - 1, b + 1]) for (let r = G - hoch; r <= G - 3; r++) if (grid[r]?.[x] !== undefined && !leer(grid[r][x])) return -1;
+    if (amBoden ? hatGem(a - 1, b + 1, G - hoch - 1, G - 3) : hatGem(a, b, G - 5, G - 3)) return -1;
+    if (hatItem(a - 1, b + 1, !amBoden)) return -1;   // schwebende Reihen dürfen über Bodenobjekten hängen
+    return !amBoden || !hatGegner(a, gegnerBis ?? b) ? G : -1;
+  }
+  function perle(x, y, tag) {
+    const id = `${level}:bw${tag}`;
+    gems.push({ x, y, got: +(typeof collectedGems !== 'undefined' && collectedGems.has(id)), id });
+  }
+  function setze(x, y, c, lohn) { grid[y][x] = c; if (c === '?') hmRewards.set(x + ',' + y, lohn ?? 3); }
+
+  // Alle Höhen relativ zur Bodenreihe G (G = 12 im flachen Gelände: Brücke in Reihe 8, zweite Etage in Reihe 4)
+  const BAU = {
+    bruecke: { breit: 9, hoch: 6, boden: true, setze(x, G) {
+      setze(x, G - 1, 'B'); setze(x + 1, G - 2, 'B'); setze(x + 1, G - 1, 'B');
+      const m = 'B??B?B'; for (let i = 0; i < 6; i++) setze(x + 3 + i, G - 4, m[i]);
+      // zweite Etage nur, wenn darüber Platz ist
+      let oben = G - 10 >= 1; for (let i = 3; i <= 7 && oben; i++) if (!luftLeer(x + i, G - 10, G - 6)) oben = false;
+      if (oben && !hatGem(x + 3, x + 7, G - 10, G - 6)) for (let i = 0; i < 3; i++) setze(x + 4 + i, G - 8, '?B?'[i]);
+      for (const i of [0, 2, 5]) perle((x + 3 + i) * T + 16, (G - 5) * T + 14, `${x}b${i}`);
+    } },
+    pyramide: { breit: 5, hoch: 7, boden: true, setze(x, G) {
+      const h = [1, 2, 3, 2, 1];
+      for (let i = 0; i < 5; i++) for (let k = 0; k < h[i]; k++) setze(x + i, G - 1 - k, 'B');
+      for (let i = 0; i < 5; i++) perle((x + i) * T + 16, (G - h[i]) * T - 34 - (i === 2 ? 10 : 0), `${x}p${i}`);   // Bogen dicht über den Stufen, nie im Feld des Geheimblocks
+      info.geheim.push({ x: x + 2, y: G - 7 });
+    } },
+    reihe: { breit: 7, hoch: 6, boden: false, setze(x, G) { const m = '?B?B?B?'; for (let i = 0; i < 7; i++) setze(x + i, G - 4, m[i]); } }
+  };
+  const FOLGE = ['bruecke', 'pyramide', 'reihe'];
+
+  function bauen() {
+    // Sonderzonen ohne die Gegner-Einträge (Gegner prüft frei() je nach Bauwerk selbst)
+    const z = (window.TRAUMSPRUNG_STRECKEN?.zonen?.(false) || []).filter(q => q[2] !== 'foes');
+    const sperre = (a, b) => z.some(([p, q]) => b >= p && a <= q);
+    const ziel = Math.max(2, Math.min(5, Math.round(W / 55)));
+    const von = 16, bis = Math.min(goalTile - 12, Math.floor(W * .92));
+    let k = level % 3;
+    // Von links nach rechts: an jeder Stelle zuerst das nächste Bauwerk der Reihe versuchen, sonst die anderen
+    for (let x = von; x < bis && info.bauten.length < ziel; x++) {
+      for (let j = 0; j < 3; j++) {
+        const art = FOLGE[(k + j) % 3], B = BAU[art], b = x + B.breit - 1;
+        if (b >= bis || sperre(x - 1, b + 1)) continue;
+        const G = frei(x, b, B.hoch, B.boden, art === 'bruecke' ? x + 2 : b); if (G < 0) continue;   // unter der Brücke dürfen Gegner laufen
+        B.setze(x, G); info.bauten.push([art, x, G]);
+        // Perlen, die jetzt in Blöcken stecken würden, auf das Bauwerk heben
+        for (const g of gems) { const gx = Math.floor(g.x / T); let gy = Math.floor(g.y / T); if (gx < x || gx > b) continue; while (gy > 0 && grid[gy]?.[gx] && !leer(grid[gy][gx])) gy--; if (gy !== Math.floor(g.y / T)) g.y = gy * T + 14; } k = (k + j + 1) % 3; x = b + 12; break;
+      }
+    }
+  }
+
+  // Kurze Blockgruppen (B?B) zu langen Reihen verlängern: B?B → B?B?B?B (nur über festem, ebenem Boden, frei, ohne Perlen)
+  function verlaengern() {
+    const z = (window.TRAUMSPRUNG_STRECKEN?.zonen?.(false) || []).filter(q => q[2] !== 'foes');
+    const sperre = (a, b) => z.some(([p, q]) => b >= p && a <= q);
+    const istB = c => c === 'B' || c === '?';
+    let n = 0; const max = Math.max(2, Math.round(W / 60));
+    for (let x = 12; x < Math.min(goalTile - 8, W - 4) && n < max; x++) {
+      const G = boden(x); if (G < 0) continue;
+      const r = G - 4; if (r < 2 || !istB(grid[r][x]) || istB(grid[r][x - 1])) continue;
+      let e = x; while (istB(grid[r][e + 1])) e++;
+      if (e - x + 1 > 5) { x = e; continue; }
+      let ok = !sperre(x - 3, e + 3);
+      for (const xx of [x - 3, x - 2, x - 1, e + 1, e + 2, e + 3]) {
+        if (!ok) break;
+        if (boden(xx) !== G) ok = false;
+        for (let q = r - 2; q <= r + 1 && ok; q++) if (grid[q]?.[xx] === undefined || !leer(grid[q][xx])) ok = false;
+      }
+      if (ok && (hatGem(x - 3, e + 3, r - 2, r + 1) || hatItem(x - 3, e + 3, true))) ok = false;
+      if (ok) { setze(x - 2, r, 'B'); setze(x - 1, r, '?'); setze(e + 1, r, '?'); setze(e + 2, r, 'B'); info.bauten.push(['laenger', x - 2, G]); n++; }
+      x = e + 6;
+    }
+  }
+
+  // Geheimblöcke auf normaler Blockhöhe (4 über dem Boden): unsichtbar, vom Boden aus mit dem Kopf zu finden
+  function geheimVerteilen() {
+    const z = (window.TRAUMSPRUNG_STRECKEN?.zonen?.(false) || []).filter(q => q[2] !== 'foes');
+    const sperre = (a, b) => z.some(([p, q]) => b >= p && a <= q);
+    const max = W > 200 ? 2 : 1; let n = info.geheim.length, letzte = -99;
+    const start = 20 + (level * 7) % 30;   // je Level an anderer Stelle anfangen (fest, kein Zufall)
+    for (let i = 0; i < W && n < max + (info.geheim.length ? 1 : 0); i++) {
+      const x = 20 + (start - 20 + i) % Math.max(1, goalTile - 34);
+      if (Math.abs(x - letzte) < 40 || info.geheim.some(h => Math.abs(h.x - x) < 30) || sperre(x - 2, x + 2)) continue;
+      const G = boden(x); if (G < 0) continue;
+      let ok = true;
+      for (let xx = x - 2; xx <= x + 2 && ok; xx++) if (boden(xx) !== G || !luftLeer(xx, G - 8, G - 1)) ok = false;
+      if (!ok || hatGem(x - 2, x + 2, G - 8, G - 2) || hatItem(x - 1, x + 1)) continue;
+      info.geheim.push({ x, y: G - 4 }); letzte = x; n++;
+    }
+  }
+
+  const priorBuild = build;
+  build = function () {
+    const out = priorBuild.apply(this, arguments);
+    info = { bauten: [], geheim: [] };
+    if (HM() && typeof hmRewards !== 'undefined') { try { bauen(); verlaengern(); geheimVerteilen(); } catch (e) { console.warn('bauwerke-40', e); } }
+    return out;
+  };
+
+  // Geheimblock: unsichtbar, erscheint beim Kopfstoß von unten
+  let gefunden = 0;
+  const priorUpd = upd;
+  upd = function () {
+    const vorY = P ? P.y : 0, vorVy = P ? P.vy : 0;
+    const r = priorUpd.apply(this, arguments);
+    if (!HM() || state !== 'play' || !P || vorVy >= 0) return r;
+    for (const h of info.geheim) {
+      if (grid[h.y]?.[h.x] !== ' ') continue;
+      const unten = (h.y + 1) * T;
+      if (P.x + P.w > h.x * T + 3 && P.x < (h.x + 1) * T - 3 && vorY >= unten - 2 && P.y < unten + 1) {
+        grid[h.y][h.x] = 'X'; if (typeof rememberBlock === 'function') rememberBlock(h.x, h.y, 'X');
+        P.y = unten; P.vy = 1.5;
+        for (let i = 0; i < 5; i++) { gain(); pops.push({ x: h.x * T + 16 + (i - 2) * 9, y: h.y * T, vx: 0, vy: -6 - i * .4, life: 34, g: 1 }); }
+        if (typeof award === 'function') award('pearls', 250, h.x * T + 16, h.y * T);
+        for (let i = 0; i < 24; i++) spark(h.x * T + 16, h.y * T + 16, i % 2 ? '#ffe27a' : '#a9fff0', 1);
+        if (typeof snd === 'function') { snd(1046, .08, 'triangle', .05); snd(1318, .12, 'triangle', .05); snd(1568, .25, 'sine', .05); }
+        if (!gefunden++ && typeof tell === 'function') tell('Ein Geheimblock! Über manchen Pyramiden versteckt sich einer – spring mit dem Kopf dagegen.', 280);
+      }
+    }
+    return r;
+  };
+  // ganz leiser Hinweis: alle paar Sekunden ein Funkeln an der Stelle, wenn die Heldin in der Nähe ist
+  if (typeof drawDreamObjects === 'function') {
+    const priorDDO = drawDreamObjects;
+    drawDreamObjects = function () {
+      const r = priorDDO.apply(this, arguments);
+      if (!HM() || !P) return r;
+      for (const h of info.geheim) {
+        if (grid[h.y]?.[h.x] !== ' ' || Math.abs(P.x - h.x * T) > 7 * T) continue;
+        const k = (t % 200) / 40; if (k > 1) continue;
+        cx.save(); cx.globalAlpha = Math.sin(k * Math.PI) * .7; cx.fillStyle = '#fff6c8';
+        const x = h.x * T + 16 - cam, y = h.y * T + 16, q = 3 + k * 3;
+        cx.beginPath(); cx.moveTo(x, y - q); cx.lineTo(x + q * .3, y - q * .3); cx.lineTo(x + q, y); cx.lineTo(x + q * .3, y + q * .3); cx.lineTo(x, y + q); cx.lineTo(x - q * .3, y + q * .3); cx.lineTo(x - q, y); cx.lineTo(x - q * .3, y - q * .3); cx.fill();
+        cx.restore();
+      }
+      return r;
+    };
+  }
+  window.TRAUMSPRUNG_BAUWERKE = { info: () => info };
 })();
 
 </script>
