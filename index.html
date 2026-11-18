@@ -1449,8 +1449,9 @@ function draw(){
       if(q){cx.font='16px "Press Start 2P",monospace';cx.textAlign='center';cx.fillStyle='#8a5a00';cx.fillText('?',x+17,y+24);cx.fillStyle='#fff6c0';cx.fillText('?',x+16,y+23)}}
   }
   const fx=goalTile*T-cam,fy=5*T;
+  if(!window.TRAUMSPRUNG_ZIEL?.(fx,fy)){   /* 4.0-p29: schöneres Ziel (boden-40.js) */
   cx.fillStyle='#e8e0f0';cx.fillRect(fx,fy,4,7*T);cx.fillStyle='#ffd34a';cx.beginPath();cx.arc(fx+2,fy-3,6,0,7);cx.fill();
-  cx.fillStyle='#ff4fa0';cx.beginPath();cx.moveTo(fx+4,fy+2);for(let i=0;i<=8;i++)cx.lineTo(fx+4+i*5,fy+2+i*1.5+Math.sin(t/8+i*.8)*3);for(let i=8;i>=0;i--)cx.lineTo(fx+4+i*5,fy+26-i*1.5+Math.sin(t/8+i*.8)*3);cx.fill();
+  cx.fillStyle='#ff4fa0';cx.beginPath();cx.moveTo(fx+4,fy+2);for(let i=0;i<=8;i++)cx.lineTo(fx+4+i*5,fy+2+i*1.5+Math.sin(t/8+i*.8)*3);for(let i=8;i>=0;i--)cx.lineTo(fx+4+i*5,fy+26-i*1.5+Math.sin(t/8+i*.8)*3);cx.fill();}
   for(const sg of signs){const x=sg.x*T-cam;if(x<-60||x>VW+60)continue;cx.fillStyle='#8a5a2a';cx.fillRect(x+12,12*T-26,5,26);cx.fillStyle='#c48a4a';rr(x-2,12*T-46,34,22,4);cx.fill();cx.fillStyle='#6a3a1a';cx.fillRect(x+4,12*T-38,22,2);cx.fillRect(x+4,12*T-32,16,2)}
   if(!(level>0&&window.TRAUMSPRUNG_LEVEL_HANDMADE)){const kx=cpX-cam,ky=12*T;cx.fillStyle='#e8e0f0';cx.fillRect(kx,ky-56,3,56);cx.fillStyle=cpReached?'#4ad66d':'#9a8aa8';cx.beginPath();cx.moveTo(kx+3,ky-56);cx.lineTo(kx+27+(cpReached?Math.sin(t/6)*2:0),ky-46);cx.lineTo(kx+3,ky-36);cx.fill()}
   // Everyday pickups are glowing Dream Pearls; the seven larger Dream Orbs
@@ -7855,7 +7856,7 @@ setLang();menuSignature='';updateInterface();
     return;
   }
   window.__traumsprungDreamGateInstalled=true;
-  const VERSION='1.0 (Build 67)';
+  const VERSION='1.0 (Build 68)';
   const KEY_TIME='traumsprung-playtime-v1';
   const KEY_NAME='traumsprung-menu-nickname-v1';
   const KEY_DREAM='traumsprung-menu-realm-v1';
@@ -17589,6 +17590,68 @@ setLang();menuSignature='';updateInterface();
         cx.strokeStyle = `rgba(255,220,140,${.35 + .2 * Math.sin(t / 6)})`; cx.lineWidth = 1.5; cx.beginPath();
         for (let x = x0; x <= x1; x += 6) cx.lineTo(x, y + 1 + Math.sin(x / 9 + t / 8) * 1.4); cx.stroke();
       }
+    }
+    cx.restore();
+    return r;
+  };
+})();
+
+// Ziel: goldener Fahnenmast mit leuchtendem Stern, wehende Traumfahne mit Stern-Wappen, Lichtsäule und Funken
+window.TRAUMSPRUNG_ZIEL = function (fx, fy) {
+  if (window.TRAUMSPRUNG_BODEN_OFF || !(level > 0)) return false;
+  const boden = 12 * T, vw = VW / sceneZoom; if (fx < -80 || fx > vw + 80) return true;
+  cx.save();
+  // Lichtsäule
+  let g = cx.createLinearGradient(fx - 30, 0, fx + 34, 0);
+  g.addColorStop(0, 'rgba(255,240,200,0)'); g.addColorStop(.5, `rgba(255,236,190,${.16 + .06 * Math.sin(t / 14)})`); g.addColorStop(1, 'rgba(255,240,200,0)');
+  cx.fillStyle = g; cx.fillRect(fx - 30, fy - 60, 64, boden - fy + 60);
+  // Sockel
+  cx.fillStyle = '#5a4a7a'; cx.beginPath(); cx.moveTo(fx - 10, boden); cx.lineTo(fx - 6, boden - 10); cx.lineTo(fx + 10, boden - 10); cx.lineTo(fx + 14, boden); cx.closePath(); cx.fill();
+  cx.fillStyle = 'rgba(255,255,255,.25)'; cx.fillRect(fx - 6, boden - 10, 16, 2);
+  // Mast (golden, mit Glanzkante)
+  g = cx.createLinearGradient(fx - 1, 0, fx + 5, 0); g.addColorStop(0, '#b8862a'); g.addColorStop(.4, '#fff0b0'); g.addColorStop(1, '#a8761a');
+  cx.fillStyle = g; cx.fillRect(fx, fy, 4, boden - fy - 10);
+  // Fahne: Verlauf, Wellenschatten, Stern
+  const welle = i => Math.sin(t / 8 + i * .8) * 3;
+  cx.beginPath(); cx.moveTo(fx + 4, fy + 2);
+  for (let i = 0; i <= 10; i++) cx.lineTo(fx + 4 + i * 5, fy + 2 + i * 1.2 + welle(i));
+  for (let i = 10; i >= 0; i--) cx.lineTo(fx + 4 + i * 5, fy + 30 - i * 1.2 + welle(i));
+  cx.closePath();
+  g = cx.createLinearGradient(fx, fy, fx + 54, fy + 30); g.addColorStop(0, '#ff5fae'); g.addColorStop(1, '#9a5cff');
+  cx.fillStyle = g; cx.fill(); cx.strokeStyle = 'rgba(60,10,60,.45)'; cx.lineWidth = 1; cx.stroke();
+  cx.fillStyle = 'rgba(255,255,255,.18)'; for (let i = 1; i < 10; i += 3) { const yy = fy + 6 + i * 1.2 + welle(i); cx.fillRect(fx + 4 + i * 5, yy, 5, 22 - i * 2); }
+  const sx = fx + 27, sy = fy + 16 + welle(5);
+  cx.fillStyle = '#fff6c8'; cx.beginPath(); for (let k = 0; k < 10; k++) { const a = k / 10 * Math.PI * 2 - Math.PI / 2, q = k % 2 ? 2.6 : 6.4; cx.lineTo(sx + Math.cos(a) * q, sy + Math.sin(a) * q); } cx.closePath(); cx.fill();
+  // Stern oben am Mast
+  const kx = fx + 2, ky = fy - 6, p = 1 + .12 * Math.sin(t / 7);
+  g = cx.createRadialGradient(kx, ky, 1, kx, ky, 18); g.addColorStop(0, 'rgba(255,230,140,.9)'); g.addColorStop(1, 'rgba(255,210,100,0)');
+  cx.fillStyle = g; cx.beginPath(); cx.arc(kx, ky, 18, 0, 7); cx.fill();
+  cx.fillStyle = '#ffd34a'; cx.strokeStyle = '#b8862a'; cx.lineWidth = 1;
+  cx.beginPath(); for (let k = 0; k < 10; k++) { const a = k / 10 * Math.PI * 2 - Math.PI / 2 + t / 90, q = (k % 2 ? 3.4 : 8) * p; cx.lineTo(kx + Math.cos(a) * q, ky + Math.sin(a) * q); } cx.closePath(); cx.fill(); cx.stroke();
+  // Funken
+  for (let k = 0; k < 6; k++) { const ph = (t * .01 + k / 6) % 1; cx.fillStyle = `rgba(255,250,220,${1 - ph})`; cx.beginPath(); cx.arc(fx + 2 + Math.sin(k * 2.1 + t / 25) * 22, boden - 10 - ph * 140, 1.6, 0, 7); cx.fill(); }
+  cx.restore();
+  return true;
+};
+
+// ?-Blöcke: alle paar Sekunden gleitet ein Lichtglanz über den Block
+(function () {
+  if (typeof drawDreamObjects !== 'function') return;
+  const prior = drawDreamObjects;
+  drawDreamObjects = function () {
+    const r = prior.apply(this, arguments);
+    if (window.TRAUMSPRUNG_BODEN_OFF || !(level > 0) || !grid) return r;
+    const x0 = Math.max(0, Math.floor(cam / T) - 1), x1 = Math.min(W - 1, x0 + Math.ceil(VW / sceneZoom / T) + 2);
+    cx.save();
+    for (let ty = 0; ty < H; ty++) for (let tx = x0; tx <= x1; tx++) {
+      if (grid[ty][tx] !== '?') continue;
+      const ph = (t + tx * 11 + ty * 7) % 180; if (ph > 26) continue;
+      const x = tx * T - cam, y = ty * T, k = ph / 26;
+      cx.save(); cx.beginPath(); cx.rect(x + 3, y + 3, T - 6, T - 6); cx.clip();
+      const sx = x - 14 + k * (T + 28);
+      const g = cx.createLinearGradient(sx - 8, y, sx + 8, y + T); g.addColorStop(0, 'rgba(255,255,255,0)'); g.addColorStop(.5, 'rgba(255,255,255,.55)'); g.addColorStop(1, 'rgba(255,255,255,0)');
+      cx.fillStyle = g; cx.beginPath(); cx.moveTo(sx - 6, y); cx.lineTo(sx + 4, y); cx.lineTo(sx - 6 + 10, y + T); cx.lineTo(sx - 16 + 10, y + T); cx.closePath(); cx.fill();
+      cx.restore();
     }
     cx.restore();
     return r;
