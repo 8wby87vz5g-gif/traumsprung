@@ -17749,6 +17749,8 @@ setLang();menuSignature='';updateInterface();
     }
     return o;
   };
+  // Erst nach allen anderen Modulen einhängen, damit der Titel über Blöcken und Effekten liegt
+  const einhaengen = () => {
   const priorDraw = draw;
   draw = function () {
     const r = priorDraw.apply(this, arguments);
@@ -17766,8 +17768,8 @@ setLang();menuSignature='';updateInterface();
     // Spielszenen unterdrücken Text (ohne-Text-Regel) – der Titel ist bewusst erlaubt: Original-fillText verwenden
     const schreib = (txt, x, y) => CanvasRenderingContext2D.prototype.fillText.call(cx, txt, x, y);
     cx.textAlign = 'center'; cx.textBaseline = 'middle';
-    const hg = cx.createRadialGradient(Wd / 2, y0, 10 * s, Wd / 2, y0, 230 * s); hg.addColorStop(0, `rgba(10,5,25,${.55 * a})`); hg.addColorStop(1, 'rgba(10,5,25,0)');
-    cx.fillStyle = hg; cx.beginPath(); cx.ellipse(Wd / 2, y0, 230 * s, 70 * s, 0, 0, 7); cx.fill();
+    const hg = cx.createRadialGradient(Wd / 2, y0, 10 * s, Wd / 2, y0, 230 * s); hg.addColorStop(0, `rgba(10,5,25,${.82 * a})`); hg.addColorStop(.6, `rgba(10,5,25,${.6 * a})`); hg.addColorStop(1, "rgba(10,5,25,0)");
+    cx.fillStyle = hg; cx.beginPath(); cx.ellipse(Wd / 2, y0 + 4 * s, 260 * s, 62 * s, 0, 0, 7); cx.fill();
     cx.globalAlpha = a;
     cx.font = `800 ${Math.round(13 * s)}px system-ui, sans-serif`; cx.fillStyle = aktiv.farbe;
     cx.shadowColor = 'rgba(0,0,0,.6)'; cx.shadowBlur = 8 * s;
@@ -17784,6 +17786,8 @@ setLang();menuSignature='';updateInterface();
     cx.restore();
     return r;
   };
+  };
+  if (document.readyState === 'complete') einhaengen(); else addEventListener('load', einhaengen, { once: true });
   window.TRAUMSPRUNG_AUFTRITT = { aktiv: () => !!aktiv };
 })();
 
