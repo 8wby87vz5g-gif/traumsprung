@@ -7857,7 +7857,7 @@ setLang();menuSignature='';updateInterface();
     return;
   }
   window.__traumsprungDreamGateInstalled=true;
-  const VERSION='1.0 (Build 71)';
+  const VERSION='1.0 (Build 72)';
   const KEY_TIME='traumsprung-playtime-v1';
   const KEY_NAME='traumsprung-menu-nickname-v1';
   const KEY_DREAM='traumsprung-menu-realm-v1';
@@ -17726,6 +17726,161 @@ setLang();menuSignature='';updateInterface();
   };
   addEventListener('pagehide', speichern);
   window.TRAUMSPRUNG_BEGLEITER = { stufe, gesamt: () => gesamt, setGesamt: v => { gesamt = v; speichern(); }, name: () => NAMEN[stufe()] };
+})();
+
+</script><script>/* src/systems/zwilling-40.js */
+/* Traumsprung 4.0-p33 – Der Schattenzwilling.
+ *
+ * Das Spiel merkt sich in jedem Level deinen schnellsten Lauf. Beim nächsten Versuch läuft dieser Lauf als
+ * leuchtender Geist mit – dein Schattenzwilling. Oben in der Mitte steht live, ob du vorne liegst oder hinten.
+ * Schlägst du ihn im Ziel, gibt es Jubel und der neue Lauf wird zum neuen Zwilling.
+ *   - getrennt je Level, Tempo-Hilfe und Unverwundbar-Modus (wie die Bestzeiten)
+ *   - nur auf dem Gerät gespeichert (localStorage), nichts geht ins Netz
+ *   - im Albtraum aufgenommene Stücke zeigt der Zwilling dunkelviolett
+ *   - der Zwilling berührt nichts: keine Gegner, keine Perlen, kein Einfluss aufs Spiel
+ *   - abschaltbar in den Einstellungen („Schattenzwilling“) oder mit window.TRAUMSPRUNG_ZWILLING_OFF = true
+ */
+'use strict';
+(function () {
+  if (typeof upd !== 'function' || typeof draw !== 'function' || typeof drawDreamObjects !== 'function') return;
+  const KEY = 'traumsprung-zwilling', AUS_KEY = 'traumsprung-zwilling-aus', ALLE = 3, MAX = 6000;
+  let aus = false; try { aus = localStorage.getItem(AUS_KEY) === '1'; } catch (_) { }
+  let daten = {}; try { daten = JSON.parse(localStorage.getItem(KEY) || '{}') || {}; } catch (_) { daten = {}; }
+  const AN = () => !aus && !window.TRAUMSPRUNG_ZWILLING_OFF && (!window.QA_STEP_MODE || window.QA_ZWILLING) && level > 0 && !!window.TRAUMSPRUNG_LEVEL_HANDMADE;
+  const schluessel = () => `${level}_${typeof asp !== 'undefined' ? asp : 0}_${typeof god !== 'undefined' && god ? 1 : 0}`;
+  const sek = f => (f / 60).toFixed(1).replace('.', ',');
+
+  let aufnahme = [], geist = null, vorher = '', abstand = null, abstandUhr = 0, sieg = 0, letzterLevel = -1;
+
+  function speichern() { try { localStorage.setItem(KEY, JSON.stringify(daten)); } catch (_) { } }
+  function laden() { const d = daten[schluessel()]; geist = d && Array.isArray(d.p) && d.p.length > 6 ? d : null; }
+
+  // Neuer Level (nicht der Neustart an der Fahne): Aufnahme leeren, Zwilling für diesen Level holen
+  const priorBuild = build;
+  build = function () {
+    const o = priorBuild.apply(this, arguments);
+    if (!(typeof RESP !== 'undefined' && RESP)) { aufnahme = []; abstand = null; sieg = 0; letzterLevel = level; laden(); }
+    return o;
+  };
+
+  const priorUpd = upd;
+  upd = function () {
+    const r = priorUpd.apply(this, arguments);
+    if (!AN() || !P) { vorher = state; return r; }
+    // Aufnahme: alle 3 Spielschritte Lage, Blickrichtung, Boden und Traumphase
+    if (state === 'play' && lvFrames % ALLE === 0 && aufnahme.length < MAX * 3) {
+      aufnahme.push(Math.round(P.x), Math.round(P.y), (P.face < 0 ? 1 : 0) | (P.ground ? 2 : 0) | ((dreamPhase || 0) << 2));
+    }
+    // Vorsprung / Rückstand: wann war der Zwilling an meiner Stelle?
+    if (geist && state === 'play' && ++abstandUhr % 8 === 0) {
+      const p = geist.p; let k = -1;
+      for (let i = 0; i < p.length; i += 3) if (p[i] >= P.x) { k = i / 3; break; }
+      abstand = k < 0 ? null : (k * ALLE - lvFrames);   // positiv = ich bin schneller
+    }
+    // Ziel erreicht
+    if ((state === 'next' || state === 'win') && vorher === 'play' && letzterLevel === level) {
+      const f = lvFrames, alt = geist ? geist.f : null;
+      if (alt === null || f < alt) {
+        daten[schluessel()] = { f, p: aufnahme.slice() }; speichern();
+        if (alt !== null) {
+          sieg = 200;
+          for (let i = 0; i < 50; i++) spark(P.x + 11, P.y + 10, i % 2 ? '#c9a6ff' : '#fff2b0', 1);
+          if (typeof snd === 'function') { snd(523, .1, 'triangle', .05); snd(784, .14, 'triangle', .05); snd(1047, .35, 'sine', .05); }
+          if (typeof tell === 'function') tell(`Schattenzwilling geschlagen! ${sek(alt - f)} s schneller – jetzt läuft dein neuer Rekord als Zwilling mit.`, 320);
+        } else if (typeof tell === 'function') tell(`Dein Schattenzwilling hat sich diesen Lauf gemerkt (${sek(f)} s). Nächstes Mal läuft er mit – schlag ihn!`, 300);
+      } else if (typeof tell === 'function') tell(`Dein Schattenzwilling war ${sek(f - alt)} s schneller. Noch ein Versuch?`, 260);
+    }
+    if (sieg > 0) sieg--;
+    vorher = state;
+    return r;
+  };
+
+  // Geist zeichnen: echte Heldenfigur, halb durchsichtig, mit violettem Schimmer
+  const GA = Object.getOwnPropertyDescriptor(CanvasRenderingContext2D.prototype, 'globalAlpha');
+  function lage(i) {
+    const p = geist.p, n = p.length / 3, a = Math.min(n - 1, Math.floor(i)), b = Math.min(n - 1, a + 1), k = i - a;
+    return { x: p[a * 3] + (p[b * 3] - p[a * 3]) * k, y: p[a * 3 + 1] + (p[b * 3 + 1] - p[a * 3 + 1]) * k, fl: p[a * 3 + 2], vx: (p[b * 3] - p[a * 3]) / ALLE, ende: a >= n - 1 };
+  }
+  const priorDDO = drawDreamObjects;
+  drawDreamObjects = function () {
+    const r = priorDDO.apply(this, arguments);
+    if (!geist || !AN() || !P || !(state === 'play' || state === 'dead') || typeof drawP !== 'function') return r;
+    const g = lage(lvFrames / ALLE);
+    if (g.ende || Math.abs(g.x - P.x) < 6 && Math.abs(g.y - P.y) < 6) return r;   // im Ziel oder genau auf der Heldin: ausblenden
+    const x = g.x - cam, alb = (g.fl >> 2) === 2;
+    if (x < -40 || x > VW + 40) return r;
+    // Schimmer
+    cx.save();
+    const sg = cx.createRadialGradient(x + 11, g.y + 16, 2, x + 11, g.y + 16, 30);
+    sg.addColorStop(0, alb ? 'rgba(120,40,200,.5)' : 'rgba(170,140,255,.45)'); sg.addColorStop(1, 'rgba(150,120,255,0)');
+    cx.fillStyle = sg; cx.beginPath(); cx.arc(x + 11, g.y + 16, 30, 0, 7); cx.fill();
+    // Glitzerspur
+    for (let k = 1; k <= 5; k++) {
+      const q = lage(Math.max(0, lvFrames / ALLE - k * 2)); cx.globalAlpha = .35 - k * .06;
+      cx.fillStyle = alb ? '#b07cff' : '#e8dcff'; cx.beginPath(); cx.arc(q.x - cam + 11, q.y + 20 + Math.sin(t / 6 + k) * 2, 2.2 - k * .3, 0, 7); cx.fill();
+    }
+    cx.restore();
+    // Figur über die echte Zeichnung, alle Deckkraft-Werte gedämpft
+    const sv = { x: P.x, y: P.y, face: P.face, ground: P.ground, vx: P.vx, star: P.star, inv: P.inv, tf: P.tf };
+    const K = alb ? .34 : .4;
+    try {
+      Object.assign(P, { x: g.x, y: g.y, face: g.fl & 1 ? -1 : 1, ground: g.fl & 2 ? 1 : 0, vx: g.vx, star: 0, inv: 0, tf: 0 });
+      Object.defineProperty(cx, 'globalAlpha', { configurable: true, get() { return GA.get.call(this) / K; }, set(v) { GA.set.call(this, Math.max(0, Math.min(1, v)) * K); } });
+      cx.save(); cx.globalAlpha = 1; drawP(g.x - cam, g.y); cx.restore();
+    } catch (_) { } finally { delete cx.globalAlpha; cx.globalAlpha = 1; Object.assign(P, sv); }
+    return r;
+  };
+
+  // Anzeige oben in der Mitte: Rekordzeit und Vorsprung/Rückstand
+  const priorDraw = draw;
+  draw = function () {
+    const r = priorDraw.apply(this, arguments);
+    if (!AN() || !(state === 'play' || state === 'dead') || window.TRAUMSPRUNG_AUFTRITT?.aktiv?.()) return r;
+    if (!geist && !sieg) return r;
+    const s = RENDER_SCALE, Wd = cv.width, y = 14 * s;
+    let text, farbe;
+    if (sieg) { text = '✦ Schattenzwilling geschlagen! ✦'; farbe = '#ffe27a'; }
+    else if (abstand === null) { text = `Schattenzwilling · ${sek(geist.f)} s`; farbe = '#e1d4ff'; }
+    else { const v = abstand >= 0; text = `${v ? 'Vorsprung' : 'Rückstand'} ${sek(Math.abs(abstand))} s`; farbe = v ? '#9dffcf' : '#ff9db4'; }
+    cx.save(); cx.setTransform(1, 0, 0, 1, 0, 0);
+    cx.font = `700 ${Math.round(12.5 * s)}px system-ui, sans-serif`; cx.textAlign = 'center'; cx.textBaseline = 'middle';
+    const w = cx.measureText(text).width + 30 * s, h = 23 * s, x0 = Wd / 2 - w / 2;
+    cx.fillStyle = 'rgba(20,10,45,.62)'; cx.strokeStyle = 'rgba(200,180,255,.45)'; cx.lineWidth = 1 * s;
+    cx.beginPath(); cx.roundRect ? cx.roundRect(x0, y - h / 2, w, h, h / 2) : cx.rect(x0, y - h / 2, w, h); cx.fill(); cx.stroke();
+    // kleiner Geist-Kopf links
+    cx.fillStyle = '#d9c8ff'; cx.globalAlpha = .9; cx.beginPath(); cx.arc(x0 + 11 * s, y - 1 * s, 4.5 * s, Math.PI, 0); cx.lineTo(x0 + 15.5 * s, y + 4 * s);
+    for (let i = 0; i < 3; i++) cx.lineTo(x0 + (14 - i * 3) * s, y + (i % 2 ? 4 : 2.5) * s);
+    cx.lineTo(x0 + 6.5 * s, y + 4 * s); cx.closePath(); cx.fill(); cx.globalAlpha = 1;
+    cx.fillStyle = '#2a0f3a'; cx.beginPath(); cx.arc(x0 + 9.5 * s, y - 1 * s, .9 * s, 0, 7); cx.arc(x0 + 12.5 * s, y - 1 * s, .9 * s, 0, 7); cx.fill();
+    cx.fillStyle = farbe; CanvasRenderingContext2D.prototype.fillText.call(cx, text, Wd / 2 + 7 * s, y + .5 * s);
+    cx.restore();
+    return r;
+  };
+
+  // Schalter in den Einstellungen
+  if (typeof updateInterface === 'function') {
+    const priorUI = updateInterface;
+    updateInterface = function () {
+      const r = priorUI.apply(this, arguments);
+      const liste = document.querySelector('#menu .settings-list');
+      if (liste && !liste.querySelector('[data-zwilling]')) {
+        const b = document.createElement('button'); b.type = 'button'; b.dataset.zwilling = '1';
+        b.innerHTML = '<span>Schattenzwilling</span><b></b>';
+        b.querySelector('b').textContent = aus ? 'Aus' : 'An';
+        b.addEventListener('click', e => {
+          e.stopPropagation(); e.preventDefault(); aus = !aus;
+          try { localStorage.setItem(AUS_KEY, aus ? '1' : '0'); } catch (_) { }
+          const v = b.querySelector('b'); v.textContent = aus ? 'Aus' : 'An'; v.classList.toggle('an', !aus); v.setAttribute('aria-label', v.textContent);
+        }, true);
+        liste.appendChild(b);
+      }
+      return r;
+    };
+  }
+  window.TRAUMSPRUNG_ZWILLING = {
+    hat: () => !!geist, rekord: () => daten[schluessel()]?.f ?? null, abstand: () => abstand, aufnahme: () => aufnahme.length / 3,
+    an: () => !aus, setAn: v => { aus = !v; }, loeschen: () => { daten = {}; geist = null; speichern(); }, neuLaden: laden
+  };
 })();
 
 </script><script>/* src/systems/auftritt-40.js */
