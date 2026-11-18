@@ -7857,7 +7857,7 @@ setLang();menuSignature='';updateInterface();
     return;
   }
   window.__traumsprungDreamGateInstalled=true;
-  const VERSION='1.0 (Build 70)';
+  const VERSION='1.0 (Build 71)';
   const KEY_TIME='traumsprung-playtime-v1';
   const KEY_NAME='traumsprung-menu-nickname-v1';
   const KEY_DREAM='traumsprung-menu-realm-v1';
@@ -7948,15 +7948,17 @@ setLang();menuSignature='';updateInterface();
     for(const [fx,f] of [[170,'#ff8fb8'],[296,'#ffe29a'],[312,'#ffffff']]){q.fillStyle='#46c7a8';q.fillRect(fx-1,iy-14,2,12);q.fillStyle=f;q.beginPath();q.arc(fx,iy-16,5,0,7);q.fill();}
     // Figur: echte Spielfigur, groß gezeichnet (über die Spiel-Leinwand, dann kopiert)
     if(typeof P!=='undefined'&&P&&typeof drawP==='function'){
-      const S=6.5,bw=30*S,bh=40*S,sv={...P};
+      const S=6.5,bw=62*S,bh=58*S,sv={...P};   // großer Ausschnitt: Schlafmütze und Laternenschein passen hinein
       try{Object.assign(P,{face:1,ground:1,vx:0,vy:0,star:0,inv:0,fire:0,boots:0,tf:0,dead:0});
-        cx.save();cx.setTransform(1,0,0,1,0,0);cx.clearRect(0,0,bw+8,bh+8);cx.translate(4*S,10*S);cx.scale(S,S);drawP(0,0);cx.restore();
+        cx.save();cx.setTransform(1,0,0,1,0,0);cx.clearRect(0,0,bw+8,bh+8);cx.translate(20*S,16*S);cx.scale(S,S);drawP(0,0);cx.restore();
         // weicher Schatten auf dem Gras
         q.fillStyle='rgba(20,10,50,.35)';q.beginPath();q.ellipse(232,iy-2,52,10,0,0,7);q.fill();
-        q.imageSmoothingEnabled=true;q.drawImage(cv,0,0,bw,bh,Math.round(230-bw/2+16),Math.round(iy-bh+2*S),bw,bh);
+        q.imageSmoothingEnabled=true;q.drawImage(cv,0,0,bw,bh,Math.round(246-11*S-20*S),Math.round(iy-28*S-16*S),bw,bh);
       }catch(e){}finally{Object.assign(P,sv);}
     }
   }
+  // Menüfigur neu zeichnen, sobald alle Module (auch die neuen Helden) geladen sind
+  window.TRAUMSPRUNG_MENU_FIGUR=()=>{const wc=root&&root.querySelector('canvas.ts8-guardian');if(wc)zeichneWaechter(wc);};
   function renderHome(){
     const s=readStats();
     root.className='menu-layer ts8-menu ts8-home';
@@ -11937,13 +11939,14 @@ setLang();menuSignature='';updateInterface();
   let overlay = null, cnv = null, g = null, sprite = null, start = 0, raf = 0, done = null, scene = 0, sceneStart = 0;
 
   function captureHero() {
-    const off = document.createElement('canvas'); off.width = 140; off.height = 140;
+    // 4.0-p31: größerer Ausschnitt, damit Mütze und Laternenschein der neuen Helden nicht abgeschnitten werden
+    const off = document.createElement('canvas'); off.width = 240; off.height = 240;
     if (typeof P === 'undefined' || !P || typeof drawP !== 'function' || typeof cx === 'undefined') return off;
     const sv = { ...P };
     try {
       Object.assign(P, { face: 1, ground: 1, vx: 0, vy: 0, star: 0, inv: 0, fire: 0, boots: 0, tf: 0 });
-      cx.save(); cx.setTransform(1, 0, 0, 1, 0, 0); cx.clearRect(0, 0, 140, 140); cx.translate(30, 34); cx.scale(3, 3); drawP(0, 0); cx.restore();
-      off.getContext('2d').drawImage(cv, 0, 0, 140, 140, 0, 0, 140, 140);
+      cx.save(); cx.setTransform(1, 0, 0, 1, 0, 0); cx.clearRect(0, 0, 240, 240); cx.translate(87, 87); cx.scale(3, 3); drawP(0, 0); cx.restore();
+      off.getContext('2d').drawImage(cv, 0, 0, 240, 240, 0, 0, 240, 240);
     } catch (e) { } finally { Object.assign(P, sv); }
     return off;
   }
@@ -11987,7 +11990,7 @@ setLang();menuSignature='';updateInterface();
   }
   function hero(x, y, s, rot) {
     if (!sprite) return;
-    g.save(); g.translate(x, y); g.rotate(rot || 0); g.scale(s, s); g.drawImage(sprite, -70, -100); g.restore();
+    g.save(); g.translate(x, y); g.rotate(rot || 0); g.scale(s, s); g.drawImage(sprite, -127, -153); g.restore();
   }
   function caption(text, a) {
     g.globalAlpha = a; g.fillStyle = 'rgba(10,4,24,.62)';
@@ -16170,13 +16173,14 @@ setLang();menuSignature='';updateInterface();
   let overlay = null, cnv = null, g = null, sprite = null, start = 0, raf = 0, done = null, scene = 0, sceneStart = 0;
 
   function captureHero() {
-    const off = document.createElement('canvas'); off.width = 140; off.height = 140;
+    // 4.0-p31: größerer Ausschnitt, damit Mütze und Laternenschein der neuen Helden nicht abgeschnitten werden
+    const off = document.createElement('canvas'); off.width = 240; off.height = 240;
     if (typeof P === 'undefined' || !P || typeof drawP !== 'function' || typeof cx === 'undefined') return off;
     const sv = { ...P };
     try {
       Object.assign(P, { face: 1, ground: 1, vx: 0, vy: 0, star: 0, inv: 0, fire: 0, boots: 0, tf: 0 });
-      cx.save(); cx.setTransform(1, 0, 0, 1, 0, 0); cx.clearRect(0, 0, 140, 140); cx.translate(30, 34); cx.scale(3, 3); drawP(0, 0); cx.restore();
-      off.getContext('2d').drawImage(cv, 0, 0, 140, 140, 0, 0, 140, 140);
+      cx.save(); cx.setTransform(1, 0, 0, 1, 0, 0); cx.clearRect(0, 0, 240, 240); cx.translate(87, 87); cx.scale(3, 3); drawP(0, 0); cx.restore();
+      off.getContext('2d').drawImage(cv, 0, 0, 240, 240, 0, 0, 240, 240);
     } catch (e) { } finally { Object.assign(P, sv); }
     return off;
   }
@@ -16193,7 +16197,7 @@ setLang();menuSignature='';updateInterface();
     // zwei kleine, freundliche Augen: der Schatten von früher
     g.fillStyle = '#5a3a2a'; g.fillRect(x - 5, y - 3, 2, 2); g.fillRect(x + 3, y - 3, 2, 2);
   }
-  function hero(x, y, s, rot) { if (!sprite) return; g.save(); g.translate(x, y); g.rotate(rot || 0); g.scale(s, s); g.drawImage(sprite, -70, -100); g.restore(); }
+  function hero(x, y, s, rot) { if (!sprite) return; g.save(); g.translate(x, y); g.rotate(rot || 0); g.scale(s, s); g.drawImage(sprite, -127, -153); g.restore(); }
   function zimmer(hell, t) {
     // hell: 0 = Nacht, 1 = Morgen
     const wall = g.createLinearGradient(0, 0, 0, Hh);
@@ -17621,6 +17625,8 @@ setLang();menuSignature='';updateInterface();
     return true;
   };
 })();
+// Das Hauptmenü wurde evtl. schon vor diesem Modul gezeichnet: Figur dort einmal neu zeichnen
+(function () { const neu = () => { try { window.TRAUMSPRUNG_MENU_FIGUR?.(); } catch (_) { } }; if (document.readyState === 'complete') neu(); else addEventListener('load', neu, { once: true }); setTimeout(neu, 600); })();
 
 </script><script>/* src/systems/begleiter-40.js */
 /* Traumsprung 4.0-p31 – Der Traumbegleiter „Funki“.
