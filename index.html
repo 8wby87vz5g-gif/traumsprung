@@ -1242,6 +1242,7 @@ function upd(){
 }
 function txt(s,x,y,sz,col='#fff',al='center'){cx.font=sz+'px "Press Start 2P",monospace';cx.textAlign=al;cx.fillStyle='#2a0f3a';cx.fillText(s,x+2,y+2);cx.fillStyle=col;cx.fillText(s,x,y)}
 function drawP(x,y){
+  if(window.TRAUMSPRUNG_HELD_NEU?.(x,y))return;   /* 4.0-p31: neue Figuren (held-40.js) */
   const f=P.face,air=!P.ground,run=!air&&Math.abs(P.vx)>.5?fl(t/5)%4:0;
   // 3.7: zwei Figuren – Traumspringerin (w) und Traumspringer (m)
   const M=window.TRAUMSPRUNG_HERO==='m';
@@ -7856,7 +7857,7 @@ setLang();menuSignature='';updateInterface();
     return;
   }
   window.__traumsprungDreamGateInstalled=true;
-  const VERSION='1.0 (Build 69)';
+  const VERSION='1.0 (Build 70)';
   const KEY_TIME='traumsprung-playtime-v1';
   const KEY_NAME='traumsprung-menu-nickname-v1';
   const KEY_DREAM='traumsprung-menu-realm-v1';
@@ -8026,7 +8027,7 @@ setLang();menuSignature='';updateInterface();
     const card=(h,name,info)=>`<button type="button" class="ts8-hero-card${cur===h?' ts8-hero-card--on':''}" data-ts8-action="hero-${h}" aria-label="${html(name)} wählen">
         <canvas width="140" height="140" data-hero="${h}" aria-hidden="true"></canvas><b>${html(name)}</b><small>${html(info)}</small></button>`;
     panel('Wähle deine Figur','WER SPRINGT DURCH DIE TRÄUME?',`<p>Beide spielen sich gleich. Du kannst die Figur jederzeit im Profil wechseln.</p>
-      <div class="ts8-hero-grid">${card('w','Traumspringerin','mit Sternenzopf')}${card('m','Traumspringer','mit Wuschelkopf')}</div>${back()}`);
+      <div class="ts8-hero-grid">${card('w','Traumwandlerin','mit Schlafmütze & Laterne')}${card('m','Traumwandler','mit Sternmütze & Laterne')}</div>${back()}`);
     root.querySelectorAll('canvas[data-hero]').forEach(c=>heroPreview(c,c.dataset.hero));
   }
   const heroStyle=document.createElement('style');
@@ -8067,11 +8068,11 @@ setLang();menuSignature='';updateInterface();
   }
   function renderProfile(){
     const s=readStats();
-    panel('Dein Traumprofil','DEINE REISE AUF DIESEM GERÄT',`<p>Dein Fortschritt wird automatisch auf diesem Gerät gespeichert.</p>
+    panel('Dein Traumprofil','DEINE REISE AUF DIESEM GERÄT',`<p>Dein Fortschritt wird automatisch auf diesem Gerät gespeichert.</p>${window.TRAUMSPRUNG_BEGLEITER?`<p class="ts8-begleiter">✦ Dein Traumbegleiter: <b>${html(window.TRAUMSPRUNG_BEGLEITER.name())}</b> · ${window.TRAUMSPRUNG_BEGLEITER.gesamt()} Perlen gesammelt${window.TRAUMSPRUNG_BEGLEITER.stufe()<3?` · nächste Stufe bei ${window.TRAUMSPRUNG_BEGLEITER.stufe()===1?300:1000}`:''}</p>`:''}
       <label class="ts8-name-label" for="ts8-player-name">Spielername</label>
       <div class="ts8-name-row"><input id="ts8-player-name" maxlength="24" autocomplete="off" value="${html(nickname)}"><button data-ts8-action="save-name">Speichern</button></div>
       <div class="ts8-link-grid"><button data-ts8-action="leaderboard">♛ Bestenliste</button><button data-ts8-action="records">◷ Bestzeiten</button>${typeof certificateEligible==='function'&&certificateEligible()?'<button data-ts8-action="certificate-view">✦ Deine Urkunde</button>':''}</div>
-      <button class="ts8-secondary" data-ts8-action="hero">✦ Figur wechseln (${window.TRAUMSPRUNG_HERO==='m'?'Traumspringer':'Traumspringerin'})</button>
+      <button class="ts8-secondary" data-ts8-action="hero">✦ Figur wechseln (${window.TRAUMSPRUNG_HERO==='m'?'Traumwandler':'Traumwandlerin'})</button>
       <div class="ts8-data-grid">${tile('Aktuelle Welt',`${s.worldNumber} · ${s.world}`)}${tile("Freigeschaltet",`Level ${typeof shortLevel==="function"?shortLevel(s.reached):s.reached}`)}
         ${tile('Abgeschlossen',`${s.finished} / ${s.total}`)}${tile('Traumfunken',`${s.funken}`)}${tile('Erinnerungen',`${s.bilder} / 10`)}${tile('Erfasste Spielzeit',timeString(seconds))}</div>
       <div class="ts8-cloud-note"><b>◌ Nur lokal gespeichert</b><span>Es findet keine Online-Synchronisierung statt. Die Spielzeit wird erst seit Menüversion 2.7 erfasst.</span></div>
@@ -17482,6 +17483,308 @@ setLang();menuSignature='';updateInterface();
     return prior.apply(this, arguments);
   };
   window.TRAUMSPRUNG_GRAFIK = { erde, funkeln, aufrufe: () => letztesBild };
+})();
+
+</script><script>/* src/systems/held-40.js */
+/* Traumsprung 4.0-p31 – Neue Hauptfiguren: die Traumwandlerin und der Traumwandler.
+ *
+ * Eigene, unverwechselbare Figuren statt Stachelhaar-Look:
+ *  - lange Schlafmütze mit leuchtendem Sternbommel (wippt beim Laufen, flattert im Sprung)
+ *  - Umhang aus einer gesteppten Kuscheldecke (weht je nach Tempo)
+ *  - Pyjama und flauschige Puschen
+ *  - kleine Laterne in der Hand – sie ist das Licht im Albtraum: leuchtet dort hell, flackert bei wenig Licht
+ *  - Stern-Form: Mütze und Umhang werden golden, Sternbommel strahlt
+ * Etwas größer gezeichnet (10 %), Trefferfläche und Fußpunkt unverändert.
+ * engine.js drawP ruft TRAUMSPRUNG_HELD_NEU auf; Abschalten (alte Figur): window.TRAUMSPRUNG_HELD_ALT = true
+ */
+'use strict';
+(function () {
+  const OL = '#2a0f3a';
+  const FARBEN = {
+    w: { muetze: ['#ff8fc8', '#ffd6ec'], decke: ['#a978e0', '#c9a6f2', '#7a4ab8'], pyjama: ['#ffb8d8', '#ff8fbf'], haar: ['#b4582e', '#d77a42', '#7a3418'], puschen: ['#ffffff', '#ffd6ec'], laterne: '#ffd27a' },
+    m: { muetze: ['#5fb8ff', '#d6f0ff'], decke: ['#3fbfa8', '#7ee0cc', '#227a6c'], pyjama: ['#8ab8ff', '#5a8ae0'], haar: ['#3a2a1a', '#5a4028', '#20140a'], puschen: ['#ffffff', '#d6f0ff'], laterne: '#a9fff0' }
+  };
+  const GOLD = { muetze: ['#ffd34a', '#fff6c8'], decke: ['#ffcf4a', '#fff0a0', '#d9a020'] };
+  const el = (x, y, rx, ry, c, r = 0, o = 1) => { cx.fillStyle = c; cx.beginPath(); cx.ellipse(x, y, rx, ry, r, 0, 7); cx.fill(); if (o) { cx.strokeStyle = OL; cx.lineWidth = 1.2; cx.stroke(); } };
+  const vg = (y0, y1, a, b) => { const g = cx.createLinearGradient(0, y0, 0, y1); g.addColorStop(0, a); g.addColorStop(1, b); return g; };
+  function stern(x, y, r, c) { cx.fillStyle = c; cx.beginPath(); for (let k = 0; k < 10; k++) { const a = k / 10 * Math.PI * 2 - Math.PI / 2, q = k % 2 ? r * .45 : r; cx.lineTo(x + Math.cos(a) * q, y + Math.sin(a) * q); } cx.closePath(); cx.fill(); }
+
+  window.TRAUMSPRUNG_HELD_NEU = function (x, y) {
+    if (window.TRAUMSPRUNG_HELD_ALT || !P) return false;
+    const M = window.TRAUMSPRUNG_HERO === 'm', F = FARBEN[M ? 'm' : 'w'];
+    const air = !P.ground, lauf = !air && Math.abs(P.vx) > .5, ph = t / 5;
+    const SS = P.star > 0 && !(state === 'morph' && P.tf > 35), mo = state === 'morph', mp = mo ? 1 - P.tf / 70 : 1;
+    const mu = SS ? GOLD.muetze : F.muetze, de = SS ? GOLD.decke : F.decke;
+    const tempo = Math.min(1, Math.abs(P.vx) / 2.6), bob = lauf ? Math.abs(Math.sin(ph)) * 1.2 : Math.sin(t / 20) * .5;
+    const sc = 1.1 * (1 + (SS ? .1 : 0) + (mo ? .15 * Math.sin(mp * Math.PI) : 0));
+    cx.save();
+    cx.translate(x + 11, y + 28 - (mo ? 18 * Math.sin(mp * Math.PI) : 0)); cx.scale(sc, sc);
+    if (P.face < 0) cx.scale(-1, 1);
+    if (mo && mp < .85) { const sp = Math.cos(mp * 16); cx.scale(Math.abs(sp) < .15 ? .15 : sp, 1); }
+    cx.globalAlpha = P.inv > 0 && Math.floor(t / 4) % 2 ? .35 : 1; cx.lineJoin = 'round'; cx.lineCap = 'round';
+    const yb = -bob;   // Körper wippt
+
+    // ── Umhang (hinten) ──
+    const flatter = air ? -P.vy * .6 : 0, weh = 4 + tempo * 7 + Math.sin(t / 6) * 1.2;
+    cx.beginPath(); cx.moveTo(-3, -17 + yb);
+    cx.quadraticCurveTo(-7 - weh * .6, -12 + yb + flatter * .3, -6 - weh, -3 + flatter);
+    cx.lineTo(-2 - weh * .7, 0 + flatter * .6); cx.quadraticCurveTo(-3, -5 + yb, 3, -15 + yb); cx.closePath();
+    cx.fillStyle = vg(-18 + yb, 0, de[1], de[0]); cx.fill(); cx.strokeStyle = OL; cx.lineWidth = 1.2; cx.stroke();
+    cx.strokeStyle = de[2]; cx.globalAlpha *= .5; cx.lineWidth = .8;   // Steppnähte
+    cx.beginPath(); cx.moveTo(-4 - weh * .3, -13 + yb); cx.lineTo(-4 - weh * .7, -2 + flatter * .5); cx.moveTo(-1 - weh * .25, -14 + yb); cx.lineTo(-1 - weh * .5, -1 + flatter * .5); cx.stroke();
+    cx.globalAlpha = P.inv > 0 && Math.floor(t / 4) % 2 ? .35 : 1;
+
+    // ── Beine + Puschen ──
+    const s1 = lauf ? Math.sin(ph) * 3 : 0;
+    const bein = (bx, swing, hinten) => {
+      const fx = bx + swing, fy = air ? -3 + (hinten ? -1 : 1) : 0;
+      el(bx + swing * .5, -6 + (air ? -1 : 0), 2.4, 3.6, hinten ? F.pyjama[1] : F.pyjama[0]);
+      el(fx + 1, fy - 1.8, 4.2, 2.6, vg(fy - 4, fy, F.puschen[0], F.puschen[1]));
+      cx.fillStyle = F.muetze[0]; cx.beginPath(); cx.arc(fx + 4.2, fy - 3, 1.3, 0, 7); cx.fill();   // Bommel am Puschen
+    };
+    bein(-2.5, -s1, true); bein(2.5, s1, false);
+
+    // ── Körper (Pyjama) ──
+    cx.beginPath(); cx.moveTo(-6, -8 + yb); cx.quadraticCurveTo(-7, -16 + yb, -2, -17.5 + yb); cx.lineTo(3, -17.5 + yb); cx.quadraticCurveTo(7.5, -16 + yb, 6.5, -8 + yb); cx.closePath();
+    cx.fillStyle = vg(-18 + yb, -7 + yb, F.pyjama[0], F.pyjama[1]); cx.fill(); cx.strokeStyle = OL; cx.lineWidth = 1.2; cx.stroke();
+    // Punkte / Streifen
+    cx.fillStyle = 'rgba(255,255,255,.55)';
+    if (M) { cx.fillRect(-5, -13 + yb, 11, 1.2); cx.fillRect(-5.5, -10.5 + yb, 12, 1.2); }
+    else for (const [px, py] of [[-3.5, -14], [1.5, -11.5], [4, -15], [-1, -9.5]]) { cx.beginPath(); cx.arc(px, py + yb, .9, 0, 7); cx.fill(); }
+    stern(.5, -13.2 + yb, 2.2, SS ? '#fff' : '#ffe14a');
+
+    // ── hinterer Arm ──
+    const armS = lauf ? -Math.sin(ph) * 2.5 : air ? -3 : 0;
+    el(-4.5 + armS * .3, -12 + yb + Math.abs(armS) * .2, 2, 3.2, F.pyjama[1]);
+
+    // ── Kopf ──
+    const hy = -24 + yb;
+    // Haare hinten
+    if (!M) { el(-6.5, hy + 4, 3, 4.2, F.haar[0], .4); el(6.8, hy + 4, 2.4, 3.6, F.haar[0], -.3); }
+    el(0, hy, 8.4, 7.8, vg(hy - 8, hy + 8, '#ffe6d0', '#f6c8a4'));
+    // Pony
+    cx.fillStyle = vg(hy - 8, hy - 1, F.haar[1], F.haar[0]); cx.beginPath();
+    cx.moveTo(-8.2, hy - 1); cx.quadraticCurveTo(-7, hy - 8, 0, hy - 8.4); cx.quadraticCurveTo(7.4, hy - 8, 8.3, hy - 1);
+    if (M) { cx.lineTo(6, hy - 3.6); cx.lineTo(4.6, hy - 1.6); cx.lineTo(2.6, hy - 3.8); cx.lineTo(.2, hy - 2); cx.lineTo(-2.4, hy - 4); cx.lineTo(-4.6, hy - 2); cx.lineTo(-6.4, hy - 3.6); }
+    else { cx.quadraticCurveTo(5, hy - 4, 2.5, hy - 3); cx.quadraticCurveTo(0, hy - 5, -2.6, hy - 2.8); cx.quadraticCurveTo(-5.6, hy - 4.4, -8.2, hy - 1); }
+    cx.closePath(); cx.fill(); cx.strokeStyle = OL; cx.lineWidth = 1.1; cx.stroke();
+    // Augen
+    for (const ex of [-2.4, 3.4]) {
+      el(ex, hy + 1.6, 2.3, 3, '#ffffff', 0, 0); cx.strokeStyle = 'rgba(42,15,58,.55)'; cx.lineWidth = .7; cx.stroke();
+      cx.fillStyle = '#4a2a9a'; cx.beginPath(); cx.ellipse(ex + .6, hy + 2, 1.6, 2.2, 0, 0, 7); cx.fill();
+      cx.fillStyle = '#16062a'; cx.beginPath(); cx.ellipse(ex + .7, hy + 2.2, .9, 1.3, 0, 0, 7); cx.fill();
+      cx.fillStyle = '#fff'; cx.beginPath(); cx.arc(ex, hy + .7, .9, 0, 7); cx.fill(); cx.beginPath(); cx.arc(ex + 1.3, hy + 3, .45, 0, 7); cx.fill();
+      if (!M) { cx.strokeStyle = OL; cx.lineWidth = .9; cx.beginPath(); cx.moveTo(ex + (ex < 0 ? -2 : 2.1), hy - .6); cx.lineTo(ex + (ex < 0 ? -2.9 : 3), hy - 1.4); cx.stroke(); }
+    }
+    cx.fillStyle = 'rgba(255,110,140,.5)'; cx.beginPath(); cx.ellipse(-5.4, hy + 4.6, 1.7, 1, 0, 0, 7); cx.ellipse(6, hy + 4.6, 1.7, 1, 0, 0, 7); cx.fill();
+    if (air) el(.6, hy + 5.6, 1.2, 1.5, '#8a1d3a'); else { cx.strokeStyle = OL; cx.lineWidth = 1.1; cx.beginPath(); cx.arc(.6, hy + 4.2, 1.9, .25, Math.PI - .25); cx.stroke(); }
+
+    // ── Schlafmütze ──
+    const wip = (lauf ? Math.sin(ph * .5) * 2.5 : Math.sin(t / 25) * 1.2) + (air ? -P.vy * .8 : 0) + tempo * 3;
+    const spX = -16 - tempo * 4, spY = hy + (lauf || air ? -5 : 0) + Math.max(-7, Math.min(9, wip));   // im Stehen hängt der Zipfel tiefer
+    cx.beginPath(); cx.moveTo(8.8, hy - 2.4);
+    cx.quadraticCurveTo(8, hy - 13, 1, hy - 15.5);                       // über den Scheitel (höher)
+    cx.quadraticCurveTo(-6, hy - 21 + wip * .2, spX, spY);               // Zipfel nach hinten, weich gebogen
+    cx.quadraticCurveTo(-10, hy - 4 + wip * .3, -8.9, hy - 1.2);         // zurück zur Schläfe
+    cx.quadraticCurveTo(0, hy - 6.2, 8.8, hy - 2.4); cx.closePath();      // Rand über der Stirn
+    cx.fillStyle = vg(hy - 14, hy - 1, mu[1], mu[0]); cx.fill(); cx.strokeStyle = OL; cx.lineWidth = 1.2; cx.stroke();
+    // Streifen der Mütze
+    cx.strokeStyle = 'rgba(255,255,255,.6)'; cx.lineWidth = 1.6;
+    cx.beginPath(); cx.moveTo(2.5, hy - 14.4); cx.quadraticCurveTo(-1, hy - 9, -1.5, hy - 4.4);
+    cx.moveTo(-5.5, hy - 11.5 + wip * .15); cx.quadraticCurveTo(-8, hy - 8 + wip * .2, -7.6, hy - 3 + wip * .1); cx.stroke();
+    // Krempe
+    cx.fillStyle = mu[1]; cx.beginPath(); cx.moveTo(-9, hy - 1.6); cx.quadraticCurveTo(0, hy - 6.8, 9, hy - 2.2); cx.quadraticCurveTo(0, hy - 4.4, -9, hy - .2); cx.closePath(); cx.fill(); cx.strokeStyle = OL; cx.lineWidth = 1; cx.stroke();
+    // Sternbommel (leuchtet)
+    const gl = cx.createRadialGradient(spX, spY, .5, spX, spY, 8); gl.addColorStop(0, 'rgba(255,240,170,.9)'); gl.addColorStop(1, 'rgba(255,220,120,0)');
+    cx.fillStyle = gl; cx.beginPath(); cx.arc(spX, spY, 8, 0, 7); cx.fill();
+    stern(spX, spY, 3.4 + (SS ? 1 : 0) + Math.sin(t / 8) * .3, SS ? '#ffffff' : '#ffe27a');
+
+    // ── vorderer Arm mit Laterne ──
+    const lx = 7.5 + (lauf ? Math.sin(ph) * 1.2 : 0), ly = -10.5 + yb + (air ? -3 : 0) + Math.sin(t / 7) * .4;
+    el(5.6, -12.4 + yb, 2, 3, F.pyjama[0]);
+    cx.strokeStyle = '#5a3a28'; cx.lineWidth = 1; cx.beginPath(); cx.moveTo(6.2, -10 + yb); cx.lineTo(lx, ly - 3.2); cx.stroke();
+    const L = window.TRAUMSPRUNG_LICHT, nm = dreamPhase === 2, licht = nm && L ? Math.max(0, Math.min(1, L.light())) : .6;
+    const flacker = nm && licht < .3 ? (Math.random() < .25 ? .3 : 1) : 1;
+    const hell = (nm ? .55 + .45 * licht : .45) * flacker;
+    const lg = cx.createRadialGradient(lx, ly, .5, lx, ly, nm ? 16 : 10);
+    lg.addColorStop(0, `rgba(255,236,160,${.75 * hell})`); lg.addColorStop(1, 'rgba(255,220,130,0)');
+    cx.fillStyle = lg; cx.beginPath(); cx.arc(lx, ly, nm ? 16 : 10, 0, 7); cx.fill();
+    cx.fillStyle = '#4a2a3a'; cx.fillRect(lx - 2.4, ly - 3.8, 4.8, 1.2); cx.fillRect(lx - 2.4, ly + 2.6, 4.8, 1.2);
+    cx.fillStyle = `rgba(255,${nm ? 236 : 226},${nm ? 150 : 140},${.65 + .35 * hell})`; cx.fillRect(lx - 1.9, ly - 2.6, 3.8, 5.2);
+    cx.fillStyle = F.laterne; cx.beginPath(); cx.ellipse(lx, ly, .9, 1.6, 0, 0, 7); cx.fill();
+    cx.strokeStyle = '#4a2a3a'; cx.lineWidth = .8; cx.strokeRect(lx - 1.9, ly - 2.6, 3.8, 5.2);
+    el(lx - .3, ly - 3.6, 1.6, 1.2, '#ffe6d0', 0, 1);   // Hand
+
+    // Stern-Form: Funkenkranz
+    if (SS) for (let i = 0; i < 6; i++) { const a = t / 10 + i * Math.PI / 3; stern(Math.cos(a) * 13, -14 + Math.sin(a) * 13, 1.6, `hsl(${(t * 8 + i * 60) % 360},95%,72%)`); }
+    cx.restore(); cx.globalAlpha = 1;
+    return true;
+  };
+})();
+
+</script><script>/* src/systems/begleiter-40.js */
+/* Traumsprung 4.0-p31 – Der Traumbegleiter „Funki“.
+ *
+ * Ein kleines Funkenwesen fliegt mit der Heldin. Es wächst mit allen Perlen, die man je gesammelt hat
+ * (bleibt auf dem Gerät gespeichert):
+ *   Stufe 1 Funke        (0–299)    zieht Perlen in der Nähe an (kleiner Radius)
+ *   Stufe 2 Sternchen    (300–999)  mit Flügeln und Gesicht, größerer Radius
+ *   Stufe 3 Sternenfee   (ab 1000)  mit Krone und Glitzerspur, größter Radius
+ * Es warnt vor Gegnern direkt voraus (kurzes rotes Aufblinken mit „!“) und leuchtet im Albtraum mit.
+ * Beim Wachsen: Jubel, Funkenregen, Hinweis. Abschaltbar: window.TRAUMSPRUNG_BEGLEITER_OFF = true
+ */
+'use strict';
+(function () {
+  if (typeof upd !== 'function' || typeof drawDreamObjects !== 'function') return;
+  const HM = () => level > 0 && !window.TRAUMSPRUNG_BEGLEITER_OFF;
+  const KEY = 'traumsprung-begleiter';
+  let gesamt = 0; try { gesamt = +localStorage.getItem(KEY) || 0; } catch (_) { }
+  const stufe = () => gesamt >= 1000 ? 3 : gesamt >= 300 ? 2 : 1;
+  const NAMEN = { 1: 'Funke', 2: 'Sternchen', 3: 'Sternenfee' };
+  const RADIUS = { 1: 38, 2: 56, 3: 74 };
+  let b = { x: 0, y: 0, vx: 0, vy: 0 }, letzteGems = null, warn = 0, spur = [], jubel = 0, letzteStufe = stufe(), speicherUhr = 0;
+
+  function speichern() { try { localStorage.setItem(KEY, String(gesamt)); } catch (_) { } }
+
+  const priorUpd = upd;
+  upd = function () {
+    const r = priorUpd.apply(this, arguments);
+    if (!HM() || !P) { letzteGems = null; return r; }
+    if (letzteGems === null || state !== 'play') { letzteGems = gemsN; b.x = P.x + 11 - 24 * (P.face || 1); b.y = P.y - 10; }
+    // gewachsen?
+    if (gemsN > letzteGems && state === 'play') { gesamt += gemsN - letzteGems; if (++speicherUhr % 5 === 0) speichern(); }
+    letzteGems = gemsN;
+    const s = stufe();
+    if (s > letzteStufe) {
+      letzteStufe = s; jubel = 120; speichern();
+      for (let i = 0; i < 40; i++) spark(b.x, b.y, i % 2 ? '#ffe27a' : '#a9fff0', 1);
+      if (typeof snd === 'function') { snd(659, .1, 'triangle', .05); snd(880, .14, 'triangle', .05); snd(1175, .3, 'sine', .05); }
+      if (typeof tell === 'function') tell(`Dein Traumbegleiter ist gewachsen: ${NAMEN[s]}! Er zieht jetzt Perlen von weiter her an.`, 300);
+    }
+    if (jubel > 0) jubel--;
+    if (state !== 'play') return r;
+    // Folgen: weich hinter und über der Heldin
+    const zx = P.x + 11 - 30 * (P.face || 1), zy = P.y - 26 + Math.sin(t / 18) * 5;   // Abstand zum Sternbommel der Mütze
+    b.vx += (zx - b.x) * .045; b.vy += (zy - b.y) * .045; b.vx *= .82; b.vy *= .82; b.x += b.vx; b.y += b.vy;
+    spur.push({ x: b.x, y: b.y }); if (spur.length > (s === 3 ? 14 : s === 2 ? 8 : 4)) spur.shift();
+    // Perlen anziehen
+    const R = RADIUS[s];
+    for (const g of gems || []) {
+      if (g.got) continue; const dx = P.x + 11 - g.x, dy = P.y + 14 - g.y, d = Math.hypot(dx, dy);
+      if (d < R && d > 4) { g.x += dx * .12; g.y += dy * .12; g.zieh = 6; }
+    }
+    // Warnen: Gegner kurz voraus
+    if (warn > 0) warn--;
+    else for (const f of foes || []) {
+      if (f.dead || (f.nm && dreamPhase !== 2)) continue;
+      const vorn = (f.x - P.x) * (P.face || 1);
+      if (vorn > 40 && vorn < 4.5 * T && Math.abs(f.y - P.y) < 2 * T) { warn = 70; if (typeof snd === 'function') snd(1320, .04, 'square', .015); break; }
+    }
+    return r;
+  };
+
+  function stern(x, y, r, c, rot = 0) { cx.fillStyle = c; cx.beginPath(); for (let k = 0; k < 10; k++) { const a = k / 10 * Math.PI * 2 - Math.PI / 2 + rot, q = k % 2 ? r * .45 : r; cx.lineTo(x + Math.cos(a) * q, y + Math.sin(a) * q); } cx.closePath(); cx.fill(); }
+  const priorDraw = drawDreamObjects;
+  drawDreamObjects = function () {
+    const r = priorDraw.apply(this, arguments);
+    if (!HM() || !P || !(state === 'play' || state === 'morph' || state === 'dead')) return r;
+    const s = stufe(), x = b.x - cam, y = b.y, nm = dreamPhase === 2, gr = s === 3 ? 1.35 : s === 2 ? 1.1 : .8;
+    cx.save();
+    // Spur
+    for (let i = 0; i < spur.length; i++) { const q = spur[i], a = i / spur.length; cx.globalAlpha = a * .5; stern(q.x - cam, q.y, 2 * a * gr, s === 3 ? `hsl(${(t * 6 + i * 25) % 360},90%,75%)` : '#fff2b0'); }
+    cx.globalAlpha = 1;
+    // Schein
+    const gl = cx.createRadialGradient(x, y, 1, x, y, (nm ? 34 : 22) * gr);
+    gl.addColorStop(0, nm ? 'rgba(255,240,190,.55)' : 'rgba(255,240,190,.4)'); gl.addColorStop(1, 'rgba(255,240,190,0)');
+    cx.fillStyle = gl; cx.beginPath(); cx.arc(x, y, (nm ? 34 : 22) * gr, 0, 7); cx.fill();
+    // Flügel ab Stufe 2
+    if (s >= 2) { const fl = Math.sin(t / 3) * .5; cx.fillStyle = 'rgba(200,240,255,.75)';
+      for (const sd of [-1, 1]) { cx.save(); cx.translate(x + sd * 4 * gr, y - 1); cx.rotate(sd * (.6 + fl)); cx.beginPath(); cx.ellipse(sd * 4 * gr, 0, 4.5 * gr, 2.6 * gr, 0, 0, 7); cx.fill(); cx.restore(); } }
+    // Körper
+    stern(x, y, 7 * gr, warn > 40 && (t >> 3) % 2 ? '#ff6a8a' : '#ffe27a', Math.sin(t / 30) * .2);
+    cx.strokeStyle = '#b8862a'; cx.lineWidth = 1; cx.stroke();
+    if (s >= 2) {   // Gesicht
+      const d = (P.face || 1) * .8; cx.fillStyle = '#2a0f3a';
+      cx.beginPath(); cx.arc(x - 1.8 * gr + d, y - .3, .9 * gr, 0, 7); cx.arc(x + 1.8 * gr + d, y - .3, .9 * gr, 0, 7); cx.fill();
+      cx.strokeStyle = '#2a0f3a'; cx.lineWidth = .8; cx.beginPath(); cx.arc(x + d, y + 1.2, 1.4 * gr, .2, Math.PI - .2); cx.stroke();
+      cx.fillStyle = 'rgba(255,120,150,.6)'; cx.beginPath(); cx.arc(x - 3.2 * gr + d, y + 1.2, .9, 0, 7); cx.arc(x + 3.2 * gr + d, y + 1.2, .9, 0, 7); cx.fill();
+    }
+    if (s === 3) {   // Krone
+      cx.fillStyle = '#ffd34a'; cx.beginPath(); const ky = y - 7 * gr;
+      cx.moveTo(x - 3.5, ky + 2); cx.lineTo(x - 3.5, ky - 1.5); cx.lineTo(x - 1.6, ky + .6); cx.lineTo(x, ky - 2.6); cx.lineTo(x + 1.6, ky + .6); cx.lineTo(x + 3.5, ky - 1.5); cx.lineTo(x + 3.5, ky + 2); cx.closePath(); cx.fill();
+    }
+    if (warn > 40) { cx.fillStyle = '#ff3b5c'; cx.font = 'bold 12px system-ui'; cx.textAlign = 'center'; CanvasRenderingContext2D.prototype.fillText.call(cx, '!', x, y - 11 * gr); }
+    if (jubel > 0) for (let i = 0; i < 8; i++) { const a = i / 8 * Math.PI * 2 + t / 12, d = 14 + (120 - jubel) * .25; stern(x + Math.cos(a) * d, y + Math.sin(a) * d, 2.4, `hsl(${(i * 45 + t * 5) % 360},90%,72%)`); }
+    cx.restore();
+    return r;
+  };
+  addEventListener('pagehide', speichern);
+  window.TRAUMSPRUNG_BEGLEITER = { stufe, gesamt: () => gesamt, setGesamt: v => { gesamt = v; speichern(); }, name: () => NAMEN[stufe()] };
+})();
+
+</script><script>/* src/systems/auftritt-40.js */
+/* Traumsprung 4.0-p31 – Filmreifer Levelstart.
+ *
+ * Beim Betreten eines Levels (nicht nach dem Neustart an der Fahne): Kinobalken gleiten herein, groß erscheint
+ * „Welt 3 · Das Kristallgebirge“ und darunter „3-2 Kristallgrotte“ in der Farbe der Welt, mit kleinem Akkord.
+ * Das Spiel läuft darunter normal weiter (keine Wartezeit, kein Tippen nötig). Nach gut 2 Sekunden ist alles weg.
+ * Boss-Level: roter Schriftzug „Boss“ mit dem Namen des Bosses. Abschaltbar: window.TRAUMSPRUNG_AUFTRITT_OFF = true
+ */
+'use strict';
+(function () {
+  if (typeof draw !== 'function' || typeof build !== 'function') return;
+  const HM = () => level > 0 && !!window.TRAUMSPRUNG_LEVEL_HANDMADE && !window.TRAUMSPRUNG_AUFTRITT_OFF;
+  let start = 0, aktiv = null;
+  const DAUER = 2400;
+  const priorBuild = build;
+  build = function () {
+    const o = priorBuild.apply(this, arguments);
+    const neu = !(typeof RESP !== 'undefined' && RESP);
+    if (neu && HM() && !window.QA_STEP_MODE) {
+      const w = Math.ceil(level / 5), info = (typeof WELTEN !== 'undefined' && WELTEN[w - 1]) || {};
+      const def = window.TRAUMSPRUNG_HANDMADE?.[level] || {};
+      aktiv = { welt: `Welt ${w} · ${info.name || ''}`, level: `${w}-${((level - 1) % 5) + 1}  ${def.name || ''}`, farbe: info.farbe || '#ffe9a8', boss: level % 5 === 0 ? info.boss : null };
+      start = performance.now();
+      if (typeof snd === 'function') setTimeout(() => { try { snd(392, .25, 'sine', .03); snd(523, .3, 'sine', .03); snd(659, .45, 'triangle', .03); } catch (_) { } }, 250);
+    }
+    return o;
+  };
+  const priorDraw = draw;
+  draw = function () {
+    const r = priorDraw.apply(this, arguments);
+    if (!aktiv || state === 'title') return r;
+    const k = (performance.now() - start) / DAUER;
+    if (k >= 1) { aktiv = null; return r; }
+    const ein = Math.min(1, k / .15), aus = k > .8 ? (1 - k) / .2 : 1, a = Math.min(ein, aus);
+    const Wd = cv.width, Hd = cv.height, s = RENDER_SCALE;
+    cx.save(); cx.setTransform(1, 0, 0, 1, 0, 0);
+    // Kinobalken
+    const bh = Hd * .11 * (1 - Math.pow(1 - a, 3));
+    cx.fillStyle = 'rgba(8,4,20,.92)'; cx.fillRect(0, 0, Wd, bh); cx.fillRect(0, Hd - bh, Wd, bh);
+    // Schriften
+    const y0 = Hd * .42, schieb = (1 - ein) * 30 * s;
+    // Spielszenen unterdrücken Text (ohne-Text-Regel) – der Titel ist bewusst erlaubt: Original-fillText verwenden
+    const schreib = (txt, x, y) => CanvasRenderingContext2D.prototype.fillText.call(cx, txt, x, y);
+    cx.textAlign = 'center'; cx.textBaseline = 'middle';
+    const hg = cx.createRadialGradient(Wd / 2, y0, 10 * s, Wd / 2, y0, 230 * s); hg.addColorStop(0, `rgba(10,5,25,${.55 * a})`); hg.addColorStop(1, 'rgba(10,5,25,0)');
+    cx.fillStyle = hg; cx.beginPath(); cx.ellipse(Wd / 2, y0, 230 * s, 70 * s, 0, 0, 7); cx.fill();
+    cx.globalAlpha = a;
+    cx.font = `800 ${Math.round(13 * s)}px system-ui, sans-serif`; cx.fillStyle = aktiv.farbe;
+    cx.shadowColor = 'rgba(0,0,0,.6)'; cx.shadowBlur = 8 * s;
+    schreib((aktiv.boss ? 'BOSS · ' : '') + aktiv.welt.toUpperCase(), Wd / 2, y0 - 26 * s + schieb * .5);
+    cx.font = `700 ${Math.round(30 * s)}px Georgia, 'Times New Roman', serif`; cx.fillStyle = aktiv.boss ? '#ffb0c0' : '#fff8e8';
+    cx.shadowColor = aktiv.boss ? 'rgba(255,40,80,.8)' : 'rgba(255,220,150,.7)'; cx.shadowBlur = 18 * s;
+    schreib(aktiv.boss ? aktiv.boss : aktiv.level, Wd / 2, y0 + 8 * s - schieb * .3);
+    // Zierlinie mit Stern
+    cx.shadowBlur = 0; cx.strokeStyle = aktiv.farbe; cx.lineWidth = 1.5 * s; const lw = 90 * s * a;
+    cx.beginPath(); cx.moveTo(Wd / 2 - lw, y0 + 34 * s); cx.lineTo(Wd / 2 - 8 * s, y0 + 34 * s); cx.moveTo(Wd / 2 + 8 * s, y0 + 34 * s); cx.lineTo(Wd / 2 + lw, y0 + 34 * s); cx.stroke();
+    cx.fillStyle = aktiv.farbe; cx.beginPath();
+    for (let i = 0; i < 10; i++) { const an = i / 10 * Math.PI * 2 - Math.PI / 2, q = (i % 2 ? 2.2 : 5) * s; cx.lineTo(Wd / 2 + Math.cos(an) * q, y0 + 34 * s + Math.sin(an) * q); }
+    cx.closePath(); cx.fill();
+    cx.restore();
+    return r;
+  };
+  window.TRAUMSPRUNG_AUFTRITT = { aktiv: () => !!aktiv };
 })();
 
 </script><script>/* src/systems/wechsel-40.js */
