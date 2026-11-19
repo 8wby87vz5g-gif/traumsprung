@@ -7857,7 +7857,7 @@ setLang();menuSignature='';updateInterface();
     return;
   }
   window.__traumsprungDreamGateInstalled=true;
-  const VERSION='1.0 (Build 73)';
+  const VERSION='1.0 (Build 74)';
   const KEY_TIME='traumsprung-playtime-v1';
   const KEY_NAME='traumsprung-menu-nickname-v1';
   const KEY_DREAM='traumsprung-menu-realm-v1';
@@ -19313,6 +19313,158 @@ window.TRAUMSPRUNG_ZIEL = function (fx, fy) {
     };
   }
   window.TRAUMSPRUNG_BAUWERKE = { info: () => info };
+})();
+
+</script><script>/* src/systems/rausch-40.js */
+/* Traumsprung 4.0-p35 – Rausch-Paket: Perlenkette, Traumrausch und Sprungkette.
+ *
+ *  Perlenkette: Perlen schnell hintereinander (höchstens 1,5 s Pause) bauen eine Kette auf. Jede Perle klingt einen
+ *               Ton höher (Tonleiter nach oben), über der Heldin steht „×7“. Bei 10, 20, 30 … gibt es Bonusperlen.
+ *  Traumrausch: Ab 10 Perlen in Folge – 5 Sekunden goldene Aura, Sternenspur, goldener Bildrand, und Perlen in der
+ *               Nähe fliegen von selbst heran. Läuft die Kette weiter, verlängert sich der Rausch.
+ *  Sprungkette: Mehrere Gegner hintereinander besiegen, ohne den Boden zu berühren: „Doppelsprung!“, „Dreifach!“ …
+ *               mit Bonusperlen (2, 3, 4 …) und größer werdendem Lichtring.
+ * Keine Auswirkung auf Schwierigkeit oder Erreichbarkeit – nur Belohnung. Abschaltbar: window.TRAUMSPRUNG_RAUSCH_OFF = true
+ */
+'use strict';
+(function () {
+  if (typeof upd !== 'function' || typeof draw !== 'function' || typeof drawDreamObjects !== 'function') return;
+  const AN = () => level > 0 && !window.TRAUMSPRUNG_RAUSCH_OFF && (!window.QA_STEP_MODE || window.QA_RAUSCH);
+  const PAUSE = 90, RAUSCH = 300;
+  const TON = [0, 2, 4, 7, 9, 12, 14, 16, 19, 21, 24, 26, 28, 31, 33, 36];
+  const NAMEN = ['', '', 'Doppelsprung!', 'Dreifach!', 'Vierfach!', 'Fünffach!', 'Traumtänzer!'];
+  let kette = 0, uhr = 0, rausch = 0, letzte = null, beste = 0, puls = 0, banner = null;
+  let sprung = 0, ringe = [], schrift = [], spur = [];
+
+  function ton(n) { if (typeof snd !== 'function') return; const st = TON[Math.min(TON.length - 1, n)]; snd(660 * Math.pow(2, st / 12), .07, 'triangle', .035); }
+  function bonus(n, x, y, farbe) {
+    for (let i = 0; i < n; i++) gain();
+    schrift.push({ x, y, txt: `+${n}`, farbe: farbe || '#fff2a8', life: 50, g: 1 });
+  }
+
+  const priorUpd = upd;
+  upd = function () {
+    const vorLeben = AN() && foes ? foes.filter(f => !f.dead) : null;
+    const r = priorUpd.apply(this, arguments);
+    if (!AN() || !P) { letzte = typeof gemsN === 'number' ? gemsN : null; return r; }
+    if (letzte === null || state !== 'play') { letzte = gemsN; if (state !== 'play' && state !== 'morph') { kette = 0; rausch = 0; sprung = 0; } return r; }
+    // Perlenkette
+    const neu = gemsN - letzte;
+    if (neu > 0) {
+      for (let i = 0; i < neu; i++) {
+        kette++; uhr = PAUSE; puls = 10; ton(kette - 1);
+        if (kette >= 10 && kette % 10 === 0) {
+          bonus(kette / 2, P.x + 11, P.y - 20);
+          if (!rausch) { banner = { txt: 'TRAUMRAUSCH!', life: 80 }; if (typeof snd === 'function') { snd(523, .12, 'sine', .05); snd(784, .16, 'sine', .05); snd(1046, .3, 'sine', .05); } for (let k = 0; k < 30; k++) spark(P.x + 11, P.y + 14, k % 2 ? '#ffe27a' : '#fff6c8', 1); }
+          rausch = RAUSCH;
+        }
+      }
+      beste = Math.max(beste, kette);
+    } else if (uhr > 0 && --uhr === 0) kette = 0;
+    // Traumrausch: Aura, Spur, Perlen fliegen heran
+    if (rausch > 0) {
+      rausch--; if (rausch % 2 === 0) spur.push({ x: P.x + 11, y: P.y + 16, life: 26 });
+      for (const g of gems || []) {
+        if (g.got || g.nm && dreamPhase !== 2) continue;
+        const dx = P.x + 11 - g.x, dy = P.y + 14 - g.y, d = Math.hypot(dx, dy);
+        if (d < 120 && d > 3) { g.x += dx * .14; g.y += dy * .14; }
+      }
+    }
+    // Sprungkette: Gegner in diesem Schritt besiegt, während die Heldin in der Luft abprallt
+    if (P.ground) sprung = 0;
+    if (vorLeben) for (const f of vorLeben) if (f.dead && !P.star && P.vy < 0) {
+      sprung++;
+      ringe.push({ x: f.x + 13, y: f.y + 10, r: 6, max: 18 + sprung * 10, life: 22 });
+      if (sprung >= 2) {
+        bonus(sprung, f.x + 13, f.y - 18, '#ffb0e0');
+        schrift.push({ x: f.x + 13, y: f.y - 36, txt: NAMEN[Math.min(6, sprung)] || 'Traumtänzer!', farbe: '#ffd6f2', life: 60 });
+        if (typeof snd === 'function') snd(660 * Math.pow(2, (sprung * 3) / 12), .12, 'square', .03);
+      }
+    }
+    for (const q of spur) q.life--; spur = spur.filter(q => q.life > 0);
+    for (const q of ringe) { q.life--; q.r += (q.max - q.r) * .25; } ringe = ringe.filter(q => q.life > 0);
+    for (const q of schrift) { q.life--; q.y -= .7; } schrift = schrift.filter(q => q.life > 0);
+    if (banner && --banner.life <= 0) banner = null;
+    if (puls > 0) puls--;
+    letzte = gemsN;
+    return r;
+  };
+
+  const schreib = (txt, x, y) => CanvasRenderingContext2D.prototype.fillText.call(cx, txt, x, y);
+  const priorDDO = drawDreamObjects;
+  drawDreamObjects = function () {
+    const r = priorDDO.apply(this, arguments);
+    if (!AN() || !P) return r;
+    cx.save();
+    // Sternenspur und goldene Aura im Rausch
+    for (const q of spur) {
+      const a = q.life / 26; cx.globalAlpha = a * .8; cx.fillStyle = `hsl(${45 + (q.life * 7) % 40},100%,${70 + a * 15}%)`;
+      const x = q.x - cam, y = q.y + (1 - a) * 6, s = 1.5 + a * 2.5;
+      cx.beginPath(); for (let k = 0; k < 8; k++) { const w = k / 8 * Math.PI * 2, d = k % 2 ? s * .4 : s; cx.lineTo(x + Math.cos(w) * d, y + Math.sin(w) * d); } cx.closePath(); cx.fill();
+    }
+    cx.globalAlpha = 1;
+    if (rausch > 0) {
+      const k = Math.min(1, rausch / 40), x = P.x + 11 - cam, y = P.y + 14;
+      const g = cx.createRadialGradient(x, y, 4, x, y, 44 + Math.sin(t / 5) * 4);
+      g.addColorStop(0, `rgba(255,236,150,${.28 * k})`); g.addColorStop(1, 'rgba(255,200,80,0)');
+      cx.fillStyle = g; cx.beginPath(); cx.arc(x, y, 48, 0, 7); cx.fill();
+      for (let i = 0; i < 4; i++) { const w = t / 9 + i * Math.PI / 2; cx.fillStyle = '#fff6c8'; cx.globalAlpha = .8 * k; cx.beginPath(); cx.arc(x + Math.cos(w) * 22, y + Math.sin(w) * 22, 1.8, 0, 7); cx.fill(); }
+      cx.globalAlpha = 1;
+    }
+    // Lichtringe der Sprungkette
+    for (const q of ringe) { cx.globalAlpha = q.life / 22; cx.strokeStyle = '#ffd6f2'; cx.lineWidth = 3; cx.beginPath(); cx.arc(q.x - cam, q.y, q.r, 0, 7); cx.stroke(); }
+    cx.globalAlpha = 1;
+    // aufsteigende Schriften (+5, Doppelsprung!)
+    cx.textAlign = 'center'; cx.textBaseline = 'middle';
+    for (const q of schrift) {
+      cx.globalAlpha = Math.min(1, q.life / 15); cx.font = q.g ? '800 13px system-ui, sans-serif' : '800 11px system-ui, sans-serif';
+      cx.lineWidth = 3; cx.strokeStyle = 'rgba(40,10,60,.8)'; cx.strokeText(q.txt, q.x - cam, q.y); cx.fillStyle = q.farbe; schreib(q.txt, q.x - cam, q.y);
+    }
+    cx.globalAlpha = 1;
+    // Kettenzähler über der Heldin
+    if (kette >= 3 && (state === 'play' || state === 'morph')) {
+      const x = P.x + 11 - cam, y = P.y - 24 - (puls > 0 ? puls * .4 : 0), s = 1 + (puls > 0 ? puls * .03 : 0);
+      const gold = kette >= 10, a = Math.min(1, uhr / 30 + .3);
+      cx.globalAlpha = a; cx.font = `900 ${Math.round(12 * s)}px system-ui, sans-serif`;
+      cx.lineWidth = 3.5; cx.strokeStyle = gold ? 'rgba(120,60,0,.85)' : 'rgba(30,20,70,.8)';
+      const txt = `×${kette}`; cx.strokeText(txt, x, y); cx.fillStyle = gold ? '#ffe27a' : '#bff6ff'; schreib(txt, x, y);
+      // Rest-Zeit als feiner Bogen
+      cx.strokeStyle = gold ? '#ffe27a' : '#bff6ff'; cx.lineWidth = 1.5; cx.beginPath(); cx.arc(x, y, 13 * s, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * uhr / PAUSE); cx.stroke();
+      cx.globalAlpha = 1;
+    }
+    cx.restore();
+    return r;
+  };
+
+  // goldener Bildrand und großes Banner im Bildschirmraum
+  const priorDraw = draw;
+  draw = function () {
+    const r = priorDraw.apply(this, arguments);
+    if (!AN() || !(rausch > 0 || banner)) return r;
+    const Wd = cv.width, Hd = cv.height, s = RENDER_SCALE;
+    cx.save(); cx.setTransform(1, 0, 0, 1, 0, 0);
+    if (rausch > 0) {
+      const k = Math.min(1, rausch / 40) * (.8 + Math.sin(t / 8) * .2);
+      const g = cx.createRadialGradient(Wd / 2, Hd / 2, Hd * .45, Wd / 2, Hd / 2, Hd * .95);
+      g.addColorStop(0, 'rgba(255,210,90,0)'); g.addColorStop(1, `rgba(255,200,70,${.32 * k})`);
+      cx.fillStyle = g; cx.fillRect(0, 0, Wd, Hd);
+      // Restzeit-Leiste unten
+      cx.fillStyle = 'rgba(255,226,122,.85)'; const bw = Wd * .3 * rausch / RAUSCH; cx.fillRect(Wd / 2 - bw / 2, Hd - 6 * s, bw, 3 * s);
+    }
+    if (banner) {
+      const a = Math.min(1, banner.life / 20), z = 1 + Math.max(0, banner.life - 60) / 20 * .4;
+      cx.globalAlpha = a; cx.textAlign = 'center'; cx.textBaseline = 'middle';
+      cx.font = `900 ${Math.round(30 * s * z)}px Georgia, 'Times New Roman', serif`;
+      cx.shadowColor = 'rgba(255,190,60,.9)'; cx.shadowBlur = 20 * s; cx.fillStyle = '#fff3c0';
+      schreib(banner.txt, Wd / 2, Hd * .3);
+      cx.shadowBlur = 0; cx.font = `700 ${Math.round(12 * s)}px system-ui, sans-serif`; cx.fillStyle = '#ffe9a8';
+      schreib('Perlen fliegen dir zu!', Wd / 2, Hd * .3 + 26 * s);
+    }
+    cx.restore();
+    return r;
+  };
+
+  window.TRAUMSPRUNG_RAUSCH = { kette: () => kette, rausch: () => rausch, sprung: () => sprung, beste: () => beste };
 })();
 
 </script>
