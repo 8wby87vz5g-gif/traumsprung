@@ -762,7 +762,110 @@ body.ts-titel #menu.menu-layer:not(.ts8-menu){
  addEventListener('unhandledrejection',e=>record('PROMISE: '+String(e.reason&&e.reason.stack||e.reason)));
  addEventListener('load',()=>setTimeout(()=>{if(!window.__traumsprungDreamGateInstalled || !document.querySelector('#menu button'))record('STARTCHECK: DreamGate-Menü oder Startbutton fehlt.');},1200));
 })();
-</script><script>window.TRAUMSPRUNG_DEV_PREVIEW=false;</script><script>document.getElementById("fullscreen-button").addEventListener("click",()=>press("u",1));</script><script>/* src/systems/sicherung-40.js */
+</script><script>window.TRAUMSPRUNG_DEV_PREVIEW=false;</script><script>document.getElementById("fullscreen-button").addEventListener("click",()=>press("u",1));</script><script>/* src/systems/fehler-40.js */
+/* Traumsprung 4.0-p37 – Absturzschutz und Fehlerbericht.
+ *
+ * Läuft als erstes Skript.
+ *  1) Jeder Fehler (auch beim Laden) wird mitgeschrieben und unten als kleiner Kasten angezeigt:
+ *     Meldung, Stelle, Gerät. Der Kasten lässt sich wegtippen; „Kopieren“ legt den Bericht in die Zwischenablage.
+ *  2) Wirft ein Teil der Spielschleife einen Fehler, läuft das Spiel trotzdem weiter (vorher fror alles ein).
+ *     Derselbe Fehler wird nur einmal gemeldet.
+ *  3) Der letzte Bericht bleibt gespeichert (localStorage 'traumsprung-fehler'), auch nach einem Neuladen.
+ * Für Tests: window.TRAUMSPRUNG_FEHLER.liste()
+ */
+'use strict';
+(function () {
+  const KEY = 'traumsprung-fehler', liste = [], gesehen = new Set();
+  let kasten = null;
+  const geraet = () => { try { return `${navigator.userAgent.match(/(iPhone|iPad|Android|Mac OS X|Windows)[^;)]*/)?.[0] || '?'} · ${innerWidth}×${innerHeight} @${devicePixelRatio}`; } catch (_) { return '?'; } };
+  const version = () => { try { return document.querySelector('.ts8-version, [data-version]')?.textContent || ''; } catch (_) { return ''; } };
+
+  function zeigen(text) {
+    try {
+      if (!document.body) { addEventListener('DOMContentLoaded', () => zeigen(text), { once: true }); return; }
+      if (!kasten) {
+        kasten = document.createElement('div');
+        kasten.setAttribute('role', 'alert');
+        kasten.style.cssText = 'position:fixed;left:max(10px,env(safe-area-inset-left));right:max(10px,env(safe-area-inset-right));bottom:max(10px,env(safe-area-inset-bottom));z-index:2147483600;background:#2a0f3a;color:#fff;border:2px solid #ff8fb8;border-radius:14px;padding:10px 12px;font:600 12px/1.35 system-ui,sans-serif;box-shadow:0 8px 24px #0008;max-height:40vh;overflow:auto;-webkit-user-select:text;user-select:text';
+        document.body.appendChild(kasten);
+      }
+      kasten.innerHTML = '';
+      const kopf = document.createElement('div'); kopf.style.cssText = 'display:flex;gap:8px;align-items:center;margin-bottom:6px';
+      const t = document.createElement('b'); t.textContent = 'Fehler im Spiel – bitte Screenshot an Claude schicken'; t.style.flex = '1';
+      const k = document.createElement('button'); k.type = 'button'; k.textContent = 'Kopieren';
+      const x = document.createElement('button'); x.type = 'button'; x.textContent = '✕';
+      for (const b of [k, x]) b.style.cssText = 'font:700 12px system-ui;padding:6px 10px;border-radius:10px;border:1px solid #ffffff66;background:#ffffff22;color:#fff';
+      k.addEventListener('click', e => { e.stopPropagation(); try { navigator.clipboard.writeText(text).then(() => { k.textContent = 'Kopiert'; }, () => { }); } catch (_) { } });
+      x.addEventListener('click', e => { e.stopPropagation(); kasten.remove(); kasten = null; });
+      kopf.append(t, k, x);
+      const pre = document.createElement('pre'); pre.style.cssText = 'margin:0;white-space:pre-wrap;word-break:break-word;font:11px/1.35 ui-monospace,Menlo,monospace'; pre.textContent = text;
+      kasten.append(kopf, pre);
+    } catch (_) { }
+  }
+
+  function melden(fehler, wo) {
+    try {
+      const msg = (fehler && (fehler.message || String(fehler))) || 'unbekannt';
+      const stapel = (fehler && fehler.stack ? String(fehler.stack).split('\n').slice(0, 4).join('\n') : '');
+      const schluessel = msg + '|' + (stapel.split('\n')[1] || wo || '');
+      if (gesehen.has(schluessel)) return; gesehen.add(schluessel);
+      let lage = '';
+      try { lage = `Zustand ${typeof state !== 'undefined' ? state : '?'} · Level ${typeof level !== 'undefined' ? level : '?'}`; } catch (_) { }
+      const text = `${msg}\nWo: ${wo || '?'}\n${stapel}\n${lage}\nGerät: ${geraet()} ${version()}`;
+      liste.push(text);
+      try { localStorage.setItem(KEY, JSON.stringify({ zeit: new Date().toISOString(), text })); } catch (_) { }
+      zeigen(text);
+    } catch (_) { }
+  }
+
+  addEventListener('error', e => melden(e.error || { message: e.message }, `${(e.filename || '').split('/').pop()}:${e.lineno}:${e.colno}`));
+  addEventListener('unhandledrejection', e => melden(e.reason, 'Promise'));
+
+  // Spielschleife absichern, sobald die Engine geladen ist
+  function schuetzen() {
+    if (typeof loop !== 'function' || loop.__geschuetzt) return false;
+    const prior = loop;
+    const neu = function (ts) {
+      try { prior(ts); }
+      catch (e) { melden(e, 'Spielschleife'); try { requestAnimationFrame(loop); } catch (_) { } }
+    };
+    neu.__geschuetzt = true;
+    try { loop = neu; } catch (_) { return false; }
+    return true;
+  }
+  addEventListener('load', schuetzen, { once: true });
+  addEventListener('DOMContentLoaded', schuetzen, { once: true });
+
+  // Startwache: Kam der letzte Start nicht über die ersten Sekunden hinaus (z. B. Safari hat die Seite wegen
+  // Speicher beendet), startet das Spiel jetzt im sicheren Modus – weniger Effekte, geringere Auflösung.
+  const WACHE = 'traumsprung-startwache';
+  let sicher = false;
+  try {
+    const w = +(localStorage.getItem(WACHE) || 0);
+    if (w >= 1) {
+      sicher = true;
+      window.TRAUMSPRUNG_SICHER_MODUS = true;
+      window.TRAUMSPRUNG_RENDER_CAP = 1.25;        // geringere Bildauflösung auf dem Handy
+      window.TRAUMSPRUNG_KULISSEN_OFF = true;      // zusätzliche Hintergründe aus
+      window.TRAUMSPRUNG_RAUSCH_OFF = true;        // Rausch-Effekte aus
+    }
+    localStorage.setItem(WACHE, String(Math.min(9, w + 1)));
+  } catch (_) { }
+  addEventListener('load', () => {
+    if (sicher) {
+      try { window.TRAUMSPRUNG_LEISTUNG?.setStufe?.(2); } catch (_) { }
+      setTimeout(() => { try { if (typeof tell === 'function') tell('Sicherer Modus: weniger Effekte, weil das Spiel zuletzt nicht starten konnte.', 280); } catch (_) { } }, 1500);
+    }
+    // 12 Sekunden stabil gelaufen: Wache zurücksetzen (nächster Start wieder normal)
+    setTimeout(() => { try { localStorage.setItem(WACHE, '0'); } catch (_) { } }, 12000);
+  }, { once: true });
+
+  window.TRAUMSPRUNG_FEHLER = {
+    sicher: () => sicher,
+    liste: () => liste.slice(), melden, letzter: () => { try { return JSON.parse(localStorage.getItem(KEY) || 'null'); } catch (_) { return null; } } };
+})();
+
+</script><script>/* src/systems/sicherung-40.js */
 /* Traumsprung 4.0 – Spielstand-Sicherung.
  * Läuft als ALLERERSTES Skript, bevor irgendein anderes Skript etwas speichert.
  * Beim ersten Start einer 4.0-Version wird jeder Eintrag, der mit „traumsprung“ beginnt,
@@ -7857,7 +7960,7 @@ setLang();menuSignature='';updateInterface();
     return;
   }
   window.__traumsprungDreamGateInstalled=true;
-  const VERSION='1.0 (Build 75)';
+  const VERSION='1.0 (Build 76)';
   const KEY_TIME='traumsprung-playtime-v1';
   const KEY_NAME='traumsprung-menu-nickname-v1';
   const KEY_DREAM='traumsprung-menu-realm-v1';
