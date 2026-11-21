@@ -770,12 +770,12 @@ body.ts-titel #menu.menu-layer:not(.ts8-menu){
  *     Meldung, Stelle, Gerät. Der Kasten lässt sich wegtippen; „Kopieren“ legt den Bericht in die Zwischenablage.
  *  2) Wirft ein Teil der Spielschleife einen Fehler, läuft das Spiel trotzdem weiter (vorher fror alles ein).
  *     Derselbe Fehler wird nur einmal gemeldet.
- *  3) Der letzte Bericht bleibt gespeichert (localStorage 'traumsprung-fehler'), auch nach einem Neuladen.
+ *  3) Der letzte Bericht bleibt gespeichert (localStorage 'ts-fehlerbericht'), auch nach einem Neuladen.
  * Für Tests: window.TRAUMSPRUNG_FEHLER.liste()
  */
 'use strict';
 (function () {
-  const KEY = 'traumsprung-fehler', liste = [], gesehen = new Set();
+  const KEY = 'ts-fehlerbericht', liste = [], gesehen = new Set();
   let kasten = null;
   const geraet = () => { try { return `${navigator.userAgent.match(/(iPhone|iPad|Android|Mac OS X|Windows)[^;)]*/)?.[0] || '?'} · ${innerWidth}×${innerHeight} @${devicePixelRatio}`; } catch (_) { return '?'; } };
   const version = () => { try { return document.querySelector('.ts8-version, [data-version]')?.textContent || ''; } catch (_) { return ''; } };
@@ -838,7 +838,7 @@ body.ts-titel #menu.menu-layer:not(.ts8-menu){
 
   // Startwache: Kam der letzte Start nicht über die ersten Sekunden hinaus (z. B. Safari hat die Seite wegen
   // Speicher beendet), startet das Spiel jetzt im sicheren Modus – weniger Effekte, geringere Auflösung.
-  const WACHE = 'traumsprung-startwache';
+  const WACHE = 'ts-startwache';
   let sicher = false;
   try {
     const w = +(localStorage.getItem(WACHE) || 0);
@@ -7960,7 +7960,7 @@ setLang();menuSignature='';updateInterface();
     return;
   }
   window.__traumsprungDreamGateInstalled=true;
-  const VERSION='1.0 (Build 76)';
+  const VERSION='1.0 (Build 77)';
   const KEY_TIME='traumsprung-playtime-v1';
   const KEY_NAME='traumsprung-menu-nickname-v1';
   const KEY_DREAM='traumsprung-menu-realm-v1';
@@ -19795,6 +19795,243 @@ window.TRAUMSPRUNG_ZIEL = function (fx, fy) {
     return r;
   };
   window.TRAUMSPRUNG_KULISSEN = { welt };
+})();
+
+</script><script>/* src/systems/sterben-40.js */
+/* Traumsprung 4.0-p38 – Traum-Erwachen: neue Sterbe- und Wiederkehr-Animation.
+ *
+ * Vorher: Die Figur hüpfte hoch und fiel aus dem Bild.
+ * Jetzt (Ablauf in der Zeit, die die Engine ohnehin für den Tod vorsieht – an der Spielzeit ändert sich nichts):
+ *  1) Treffer:   kurzer Ruck, weißer Blitz, Lichtring. Die Welt steht still (macht die Engine schon).
+ *  2) Auflösen:  Die Figur löst sich in Traumfunken auf, die Mütze fliegt im Bogen davon,
+ *                die Laterne fällt und erlischt.
+ *  3) Einschlafen: Ein violetter Kreis schließt sich um die Stelle. In der Mitte die Herzen –
+ *                das verlorene zerspringt.
+ *  4) Erwachen:  Am Neustartpunkt öffnet sich der Kreis wieder, die Funken fliegen zusammen und
+ *                setzen die Figur neu zusammen.
+ * Bei einem Sturz in die Tiefe sprühen die Funken vom unteren Bildrand.
+ * Abschaltbar: window.TRAUMSPRUNG_STERBEN_OFF = true. In Tests aus, außer mit window.QA_STERBEN.
+ */
+'use strict';
+(function () {
+  if (typeof upd !== 'function' || typeof draw !== 'function' || typeof drawP !== 'function' || typeof drawDreamObjects !== 'function') return;
+  const AN = () => !window.TRAUMSPRUNG_STERBEN_OFF && (!window.QA_STEP_MODE || window.QA_STERBEN);
+  const RUHIG = () => { try { return matchMedia('(prefers-reduced-motion: reduce)').matches; } catch (_) { return false; } };
+  const GA = Object.getOwnPropertyDescriptor(CanvasRenderingContext2D.prototype, 'globalAlpha');
+  const schreib = (txt, x, y) => CanvasRenderingContext2D.prototype.fillText.call(cx, txt, x, y);
+  const farben = () => window.TRAUMSPRUNG_HERO === 'm'
+    ? { mu: '#5fb8ff', mu2: '#d6f0ff', de: '#3fbfa8', la: '#a9fff0', fu: ['#a9fff0', '#d6f0ff', '#5fb8ff', '#ffffff'] }
+    : { mu: '#ff8fc8', mu2: '#ffd6ec', de: '#a978e0', la: '#ffd27a', fu: ['#ffd6ec', '#ff8fc8', '#c9a6f2', '#fff2a8'] };
+
+  // A = laufender Tod, E = laufendes Erwachen
+  let A = null, E = null, funken = [], letzterZustand = null, inDDO = false;
+
+  function ton(f, d) { if (typeof snd === 'function') try { snd(f, d, 'sine', .035); } catch (_) { } }
+
+  function beginnen() {
+    const tief = P.y > H * T - 40;
+    A = {
+      x: P.x, y: Math.max(0, Math.min(P.y, H * T - 34)), tief, d0: Math.max(20, dt || 70), f: 0,
+      face: P.face || 1, leben: typeof lives === 'number' ? lives : 0, fb: farben(),
+      muetze: null, laterne: null, aufgeloest: false
+    };
+  }
+  function aufloesen() {
+    const a = A, fb = a.fb, cx0 = a.x + 11, cy0 = a.y + 16, n = window.TRAUMSPRUNG_SICHER_MODUS ? 18 : 38;
+    a.aufgeloest = true;
+    for (let i = 0; i < n; i++) {
+      const w = Math.random() * Math.PI * 2, v = .6 + Math.random() * 2.2;
+      funken.push({
+        x: cx0 + (Math.random() - .5) * 16, y: cy0 + (Math.random() - .5) * 24,
+        vx: Math.cos(w) * v, vy: a.tief ? -2.5 - Math.random() * 3 : Math.sin(w) * v - 1.2,
+        r: 1.4 + Math.random() * 2.2, c: fb.fu[i % fb.fu.length], life: 40 + Math.random() * 30, max: 70, rot: Math.random() * 6
+      });
+    }
+    a.muetze = { x: cx0, y: a.y + 2, vx: -a.face * (1.2 + Math.random()), vy: a.tief ? -6 : -4.2, rot: 0, vr: -a.face * .18 };
+    a.laterne = { x: cx0 + a.face * 9, y: a.y + 18, vy: -1.5, glut: 1 };
+    ton(880, .08); setTimeout(() => ton(740, .08), 70); setTimeout(() => ton(587, .1), 140); setTimeout(() => ton(440, .18), 210);
+  }
+  function erwachen() {
+    const fb = farben(), cx0 = P.x + 11, cy0 = P.y + 16, n = window.TRAUMSPRUNG_SICHER_MODUS ? 14 : 26;
+    E = { f: 0, dauer: 30, fb, ziel: [] };
+    funken = [];
+    for (let i = 0; i < n; i++) {
+      const w = i / n * Math.PI * 2, d = 46 + Math.random() * 22;
+      E.ziel.push({ sx: cx0 + Math.cos(w) * d, sy: cy0 + Math.sin(w) * d * .8, r: 1.4 + Math.random() * 1.8, c: fb.fu[i % fb.fu.length], v: Math.random() * .25 });
+    }
+    ton(523, .07); setTimeout(() => ton(659, .07), 60); setTimeout(() => ton(784, .07), 120); setTimeout(() => ton(1046, .16), 180);
+  }
+
+  // Position im Moment des Treffers festhalten
+  if (typeof die === 'function') {
+    const priorDie = die;
+    die = function () {
+      const vorher = state;
+      const r = priorDie.apply(this, arguments);
+      if (AN() && P && state === 'dead' && vorher !== 'dead') { A = null; E = null; beginnen(); }
+      return r;
+    };
+  }
+
+  // ── Ablauf ──
+  const priorUpd = upd;
+  upd = function () {
+    const vor = state;
+    const r = priorUpd.apply(this, arguments);
+    if (!AN() || !P) { A = null; E = null; letzterZustand = state; return r; }
+    if (state === 'dead' && !A) beginnen();
+    if (state === 'dead' && A) {
+      A.f++;
+      const p = A.f / A.d0;
+      if (!A.aufgeloest && p >= .16) aufloesen();
+      // Figur bleibt an der Stelle (statt aus dem Bild zu fallen)
+      P.x = A.x; P.y = A.y; P.vy = 0;
+      const m = A.muetze; if (m) { m.vy += .18; m.x += m.vx; m.y += m.vy; m.rot += m.vr; }
+      const l = A.laterne; if (l) { l.vy += .25; l.y = Math.min(l.y + l.vy, A.tief ? H * T : 12 * T - 6); l.glut = Math.max(0, l.glut - .03); }
+    }
+    if (vor === 'dead' && state !== 'dead') {
+      // Neustart am Kontrollpunkt – oder Spielende
+      A = null;
+      if (state === 'play') erwachen(); else funken = [];
+    }
+    if (state !== 'dead' && state !== 'play' && state !== 'morph') { A = null; E = null; funken = []; }
+    for (const q of funken) { q.life--; q.vx *= .97; q.vy = q.vy * .97 - .03; q.x += q.vx; q.y += q.vy; q.rot += .1; }
+    funken = funken.filter(q => q.life > 0);
+    if (E && ++E.f > E.dauer) E = null;
+    letzterZustand = state;
+    return r;
+  };
+
+  function stern(x, y, r, c, rot) {
+    cx.fillStyle = c; cx.beginPath();
+    for (let k = 0; k < 8; k++) { const w = k / 8 * Math.PI * 2 + rot, d = k % 2 ? r * .42 : r; cx.lineTo(x + Math.cos(w) * d, y + Math.sin(w) * d); }
+    cx.closePath(); cx.fill();
+  }
+  // Figur mit gedämpfter Deckkraft zeichnen (die Figur setzt globalAlpha selbst, daher wird jeder Wert multipliziert)
+  function figurMit(K, x, y, sx, sy) {
+    if (K <= .01) return;
+    try {
+      Object.defineProperty(cx, 'globalAlpha', { configurable: true, get() { return GA.get.call(this) / K; }, set(v) { GA.set.call(this, Math.max(0, Math.min(1, v)) * K); } });
+      cx.save(); cx.translate(x + 11, y + 28); cx.scale(sx, sy); cx.translate(-(x + 11), -(y + 28));
+      cx.globalAlpha = 1; priorDrawP(x, y); cx.restore();
+    } catch (_) { } finally { delete cx.globalAlpha; cx.globalAlpha = 1; }
+  }
+
+  // ── Figur, Funken, Mütze, Laterne (Weltkoordinaten) ──
+  const priorDDO = drawDreamObjects;
+  drawDreamObjects = function () { inDDO = true; try { return priorDDO.apply(this, arguments); } finally { inDDO = false; } };
+  const priorDrawP = drawP;
+  drawP = function (x, y) {
+    if (inDDO || !AN() || !P || !(A && state === 'dead' || E && state === 'play')) return priorDrawP.apply(this, arguments);
+    if (A) {
+      const p = A.f / A.d0, fb = A.fb, hx = A.x - cam, hy = A.y;
+      if (p < .16) {
+        // Treffer: Ruck, Stauchen, Blitz
+        const ruck = RUHIG() ? 0 : (A.f % 2 ? 2 : -2) * (1 - p / .16);
+        figurMit(1, hx + ruck, hy, 1.12, .86);
+        const g = cx.createRadialGradient(hx + 11, hy + 16, 2, hx + 11, hy + 16, 34);
+        g.addColorStop(0, `rgba(255,255,255,${.85 * (1 - p / .16)})`); g.addColorStop(1, 'rgba(255,255,255,0)');
+        cx.save(); cx.fillStyle = g; cx.beginPath(); cx.arc(hx + 11, hy + 16, 34, 0, 7); cx.fill();
+        cx.strokeStyle = `rgba(255,240,250,${1 - p / .16})`; cx.lineWidth = 2.5; cx.beginPath(); cx.arc(hx + 11, hy + 16, 8 + p / .16 * 30, 0, 7); cx.stroke(); cx.restore();
+      } else if (p < .5) {
+        // Auflösen: Figur wird durchsichtig, streckt sich nach oben
+        const k = (p - .16) / .34;
+        figurMit(1 - k, hx, hy - k * 6, 1 - k * .35, 1 + k * .25);
+      }
+      cx.save();
+      // Laterne fällt und erlischt
+      const l = A.laterne;
+      if (l) {
+        const lx = l.x - cam, ly = l.y;
+        if (l.glut > 0) { const g = cx.createRadialGradient(lx, ly, 1, lx, ly, 18 * l.glut + 2); g.addColorStop(0, `rgba(255,236,170,${.6 * l.glut})`); g.addColorStop(1, 'rgba(255,236,170,0)'); cx.fillStyle = g; cx.beginPath(); cx.arc(lx, ly, 20, 0, 7); cx.fill(); }
+        cx.fillStyle = '#5a3a6a'; cx.fillRect(lx - 3, ly - 4, 6, 8);
+        cx.fillStyle = l.glut > .05 ? fb.la : '#6f6680'; cx.globalAlpha = .4 + .6 * l.glut; cx.fillRect(lx - 2, ly - 3, 4, 6); cx.globalAlpha = 1;
+        if (l.glut <= .05 && A.f % 8 < 4) { cx.fillStyle = 'rgba(200,200,220,.5)'; cx.beginPath(); cx.arc(lx + 1, ly - 8 - (A.f % 8), 1.6, 0, 7); cx.fill(); }   // Rauchwölkchen
+      }
+      // Mütze fliegt davon
+      const m = A.muetze;
+      if (m) {
+        cx.save(); cx.translate(m.x - cam, m.y); cx.rotate(m.rot); cx.globalAlpha = Math.max(0, 1 - Math.max(0, p - .55) / .4);
+        cx.fillStyle = fb.mu; cx.strokeStyle = '#2a0f3a'; cx.lineWidth = 1.1;
+        cx.beginPath(); cx.moveTo(-7, 3); cx.quadraticCurveTo(0, -12, 9, -6); cx.quadraticCurveTo(4, -2, 7, 3); cx.closePath(); cx.fill(); cx.stroke();
+        cx.fillStyle = fb.mu2; cx.fillRect(-8, 2, 16, 3);
+        cx.fillStyle = '#fff6c8'; cx.beginPath(); cx.arc(9, -6, 2.4, 0, 7); cx.fill();
+        cx.restore();
+      }
+      cx.restore();
+    }
+    if (E) {
+      // Erwachen: Funken fliegen zusammen, die Figur erscheint
+      const k = E.f / E.dauer, e = 1 - Math.pow(1 - Math.min(1, k * 1.15), 3), hx = P.x + 11, hy = P.y + 16;
+      figurMit(Math.max(0, Math.min(1, (k - .3) / .5)), x, y, .7 + .3 * e, 1.25 - .25 * e);
+      cx.save();
+      for (const q of E.ziel) {
+        const kk = Math.min(1, e + q.v * (1 - e)), px = q.sx + (hx - q.sx) * kk, py = q.sy + (hy - q.sy) * kk;
+        cx.globalAlpha = k < .85 ? 1 : (1 - k) / .15; stern(px - cam, py, q.r * (1.2 - kk * .5), q.c, t / 6);
+      }
+      if (k > .7) { cx.globalAlpha = (1 - k) / .3; cx.strokeStyle = '#fff6c8'; cx.lineWidth = 2; cx.beginPath(); cx.arc(hx - cam, hy, 10 + (k - .7) * 80, 0, 7); cx.stroke(); }
+      cx.restore();
+    }
+    // freie Traumfunken
+    if (funken.length) {
+      cx.save();
+      for (const q of funken) { cx.globalAlpha = Math.min(1, q.life / 25); stern(q.x - cam, q.y, q.r, q.c, q.rot); }
+      cx.restore();
+    }
+  };
+
+  // ── Kreisblende und Herzen (Bildschirm) ──
+  function herz(x, y, s, c, riss) {
+    cx.save(); cx.translate(x, y); cx.scale(s, s);
+    cx.fillStyle = c; cx.beginPath(); cx.moveTo(0, 4); cx.bezierCurveTo(-7, -1, -5, -7, 0, -3); cx.bezierCurveTo(5, -7, 7, -1, 0, 4); cx.fill();
+    if (riss) { cx.strokeStyle = '#1a0b2e'; cx.lineWidth = .9; cx.beginPath(); cx.moveTo(0, -3); cx.lineTo(-1, -.5); cx.lineTo(1, 1); cx.lineTo(0, 4); cx.stroke(); }
+    cx.restore();
+  }
+  function blende(mx, my, rad, Wd, Hd, s, rand) {
+    cx.fillStyle = 'rgba(26,11,46,.97)';
+    cx.beginPath(); cx.rect(0, 0, Wd, Hd); cx.arc(mx, my, Math.max(0, rad), 0, Math.PI * 2, true); cx.fill('evenodd');
+    if (rad > 2) {
+      cx.strokeStyle = `rgba(201,166,242,${.7 * rand})`; cx.lineWidth = 3 * s; cx.beginPath(); cx.arc(mx, my, rad, 0, 7); cx.stroke();
+      for (let i = 0; i < 10; i++) { const w = i / 10 * Math.PI * 2 + t / 25; cx.globalAlpha = rand; stern(mx + Math.cos(w) * rad, my + Math.sin(w) * rad, 3 * s, i % 2 ? '#fff2a8' : '#ffd6ec', t / 8); }
+      cx.globalAlpha = 1;
+    }
+  }
+  const priorDraw = draw;
+  draw = function () {
+    const r = priorDraw.apply(this, arguments);
+    if (!AN() || !P || !(A && state === 'dead' || E && state === 'play')) return r;
+    const s = RENDER_SCALE, z = typeof sceneZoom === 'number' ? sceneZoom : 1, sy = typeof sceneY === 'number' ? sceneY : 0;
+    const Wd = cv.width, Hd = cv.height, voll = Math.hypot(Wd, Hd);
+    cx.save(); cx.setTransform(1, 0, 0, 1, 0, 0);
+    if (A) {
+      const p = A.f / A.d0;
+      if (p > .42) {
+        const k = Math.min(1, (p - .42) / .5), e = k * k * (3 - 2 * k);
+        const mx = (A.x + 11 - cam) * z * s, my = Math.min(Hd - 20 * s, (A.y + 16) * z * s + sy * s);
+        blende(mx, my, voll * (1 - e), Wd, Hd, s, 1);
+        // Herzen: das verlorene zerspringt
+        if (k > .62 && A.leben >= 0) {
+          const a = Math.min(1, (k - .62) / .2), n = A.leben + 1, abst = 38 * s, x0 = Wd / 2 - (n - 1) * abst / 2;
+          cx.globalAlpha = a;
+          for (let i = 0; i < n; i++) {
+            const weg = i === n - 1, x = x0 + i * abst, y = Hd * .5;
+            if (weg) { const z2 = Math.max(0, (k - .8) / .2); herz(x - z2 * 9 * s, y + z2 * 16 * s, 2.8 * s, `rgba(255,95,130,${1 - z2})`, 1); herz(x + z2 * 9 * s, y + z2 * 18 * s, 2.8 * s, `rgba(255,95,130,${1 - z2})`, 1); }
+            else herz(x, y, 2.8 * s, '#ff6f9a', 0);
+          }
+          if (A.leben === 0) { cx.font = `700 ${Math.round(12 * s)}px system-ui, sans-serif`; cx.textAlign = 'center'; cx.fillStyle = '#ffd6ec'; schreib(lang === 'en' ? 'The dream fades…' : 'Der Traum verblasst …', Wd / 2, Hd * .5 + 34 * s); }
+          cx.globalAlpha = 1;
+        }
+      }
+    } else if (E) {
+      const k = Math.min(1, E.f / (E.dauer * .7)), e = 1 - Math.pow(1 - k, 3);
+      const mx = (P.x + 11 - cam) * z * s, my = (P.y + 16) * z * s + sy * s;
+      if (e < 1) blende(mx, my, voll * e, Wd, Hd, s, 1 - e);
+    }
+    cx.restore();
+    return r;
+  };
+
+  window.TRAUMSPRUNG_STERBEN = { aktiv: () => !!A, erwachen: () => !!E, funken: () => funken.length, phase: () => A ? A.f / A.d0 : -1 };
 })();
 
 </script>
