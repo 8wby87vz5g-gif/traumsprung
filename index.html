@@ -7983,7 +7983,7 @@ setLang();menuSignature='';updateInterface();
     return;
   }
   window.__traumsprungDreamGateInstalled=true;
-  const VERSION='1.0 (Build 88)';
+  const VERSION='1.0 (Build 89)';
   const KEY_TIME='traumsprung-playtime-v1';
   const KEY_NAME='traumsprung-menu-nickname-v1';
   const KEY_DREAM='traumsprung-menu-realm-v1';
@@ -10787,11 +10787,13 @@ setLang();menuSignature='';updateInterface();
       if (wall && dreamPhase === 2) {
         wall.age++;
         // Anfangsschub: die ersten Sekunden fast so schnell wie die Heldin
-        const sp = ch.speed || 2.6;
-        if (ch.burst && wall.age < ch.burst) wall.v = Math.min(ch.burstSpeed || 3, wall.v + .08);
+        // 4.0-p50 (Wunsch: „Welle im Albtraum zu schnell“): Grundtempo höchstens 1,5, Anfangsschub höchstens 2,1 –
+        // beides langsamer als die Heldin (2,4) – und sie rückt nie näher als 260 px heran (vorher 190 px)
+        const sp = Math.min(1.5, ch.speed || 2.6);
+        if (ch.burst && wall.age < ch.burst) wall.v = Math.min(Math.min(2.1, ch.burstSpeed || 3), wall.v + .05);
         else if (wall.v > sp) wall.v = Math.max(sp, wall.v - .03);
         else wall.v = Math.min(sp, wall.v + .02);
-        wall.x = Math.max(wall.x + wall.v, Math.min(cam + 26, P.x - 190));   // immer am linken Bildrand sichtbar – Druck bleibt
+        wall.x = Math.max(wall.x + wall.v, Math.min(cam + 26, P.x - 260));   // immer am linken Bildrand sichtbar – Druck bleibt
         if (P.x < wall.x + 8 && !P.dead) { if (typeof die === 'function') die(); }
       }
       if (wall && dreamPhase !== 2) { wall.fade++; wall.x -= 4; if (wall.fade > 60) wall = null; }
@@ -17864,14 +17866,15 @@ setLang();menuSignature='';updateInterface();
  */
 'use strict';
 (function () {
-  const OL = '#2a0f3a';
+  // Umriss: weicher, in einer dunklen Farbe des Drachen statt fast Schwarz (4.0-p50: süßer)
+  let OL = '#2a0f3a';
   const FARBEN = {
-    w: { koerper: ['#d7b4ff', '#a97ae8'], bauch: ['#fff0fa', '#ffd2ec'], zacken: ['#ff8fc8', '#e0609a'], fluegel: ['#ffb8e0', '#ff8fc8'], horn: ['#fff6e0', '#f0d8b0'], auge: '#6a3ab8' },
+    w: { umriss: '#4a2268', koerper: ['#d7b4ff', '#a97ae8'], bauch: ['#fff0fa', '#ffd2ec'], zacken: ['#ff8fc8', '#e0609a'], fluegel: ['#ffb8e0', '#ff8fc8'], horn: ['#fff6e0', '#f0d8b0'], auge: '#6a3ab8' },
     // Pip: rot mit goldgelbem Bauch, orangefarbenen Zacken und Flügeln (4.0-p47, Wunsch)
-    m: { koerper: ['#ff7a62', '#d8403a'], bauch: ['#fff4d6', '#ffd68a'], zacken: ['#ffb03a', '#e87a1a'], fluegel: ['#ffd27a', '#ffa03a'], horn: ['#fff6e0', '#f0d8b0'], auge: '#6a2a1a' }
+    m: { umriss: '#6a1a2a', koerper: ['#ff7a62', '#d8403a'], bauch: ['#fff4d6', '#ffd68a'], zacken: ['#ffb03a', '#e87a1a'], fluegel: ['#ffd27a', '#ffa03a'], horn: ['#fff6e0', '#f0d8b0'], auge: '#6a2a1a' }
   };
   const GOLD = { koerper: ['#ffe27a', '#f0b030'], zacken: ['#fff6c8', '#ffd34a'], fluegel: ['#fff2b0', '#ffd34a'] };
-  const el = (x, y, rx, ry, c, r = 0, o = 1) => { cx.fillStyle = c; cx.beginPath(); cx.ellipse(x, y, Math.max(.1, rx), Math.max(.1, ry), r, 0, 7); cx.fill(); if (o) { cx.strokeStyle = OL; cx.lineWidth = 1.2; cx.stroke(); } };
+  const el = (x, y, rx, ry, c, r = 0, o = 1) => { cx.fillStyle = c; cx.beginPath(); cx.ellipse(x, y, Math.max(.1, rx), Math.max(.1, ry), r, 0, 7); cx.fill(); if (o) { cx.strokeStyle = OL; cx.lineWidth = 1.05; cx.stroke(); } };
   const vg = (y0, y1, a, b) => { const g = cx.createLinearGradient(0, y0, 0, y1); g.addColorStop(0, a); g.addColorStop(1, b); return g; };
   function stern(x, y, r, c) { cx.fillStyle = c; cx.beginPath(); for (let k = 0; k < 10; k++) { const a = k / 10 * Math.PI * 2 - Math.PI / 2, q = k % 2 ? r * .45 : r; cx.lineTo(x + Math.cos(a) * q, y + Math.sin(a) * q); } cx.closePath(); cx.fill(); }
   // Zwei-Gelenk-Kette (Hüfte→Knie→Fuß); knick +1 = Knie nach vorn, -1 = Ellbogen nach hinten
@@ -17890,9 +17893,9 @@ setLang();menuSignature='';updateInterface();
 
   // ── Kosmetik aus dem Drachenschrank (schatz-40.js) – nur Aussehen ──
   const HAUT = {
-    minze: { koerper: ['#8ef0d6', '#3fbfa8'], bauch: ['#f4fff8', '#cff5e8'], zacken: ['#6ab8ff', '#3a86e0'], fluegel: ['#a8e4ff', '#6ab8ff'], auge: '#1f6a8a' },
-    nacht: { koerper: ['#6a7ae8', '#2e2f8a'], bauch: ['#e0e6ff', '#aab6f0'], zacken: ['#d4a6ff', '#8a5ae0'], fluegel: ['#b8c4ff', '#7a86f0'], auge: '#2a1a6a' },
-    gold: { koerper: ['#ffe27a', '#e0a020'], bauch: ['#fffbe6', '#ffe9a8'], zacken: ['#ff9a3a', '#e06a1a'], fluegel: ['#fff2b0', '#ffcf4a'], auge: '#7a4a10' }
+    minze: { umriss: '#1f5a52', koerper: ['#8ef0d6', '#3fbfa8'], bauch: ['#f4fff8', '#cff5e8'], zacken: ['#6ab8ff', '#3a86e0'], fluegel: ['#a8e4ff', '#6ab8ff'], auge: '#1f6a8a' },
+    nacht: { umriss: '#1a1a4a', koerper: ['#6a7ae8', '#2e2f8a'], bauch: ['#e0e6ff', '#aab6f0'], zacken: ['#d4a6ff', '#8a5ae0'], fluegel: ['#b8c4ff', '#7a86f0'], auge: '#2a1a6a' },
+    gold: { umriss: '#6a4210', koerper: ['#ffe27a', '#e0a020'], bauch: ['#fffbe6', '#ffe9a8'], zacken: ['#ff9a3a', '#e06a1a'], fluegel: ['#fff2b0', '#ffcf4a'], auge: '#7a4a10' }
   };
   const FEUER = {
     orange: { rand: '#ff5a1a', kern: '#ffb02a', glut: 'rgba(255,190,80,.7)', spur: [255, 120, 40], spur2: 90 },
@@ -17917,6 +17920,7 @@ setLang();menuSignature='';updateInterface();
     else if (K.farbe === 'regenbogen') { const h = (t * 2) % 360; F0 = { ...F0, koerper: [`hsl(${h},85%,72%)`, `hsl(${(h + 30) % 360},75%,52%)`], zacken: [`hsl(${(h + 160) % 360},90%,70%)`, `hsl(${(h + 180) % 360},80%,55%)`], fluegel: [`hsl(${(h + 100) % 360},90%,80%)`, `hsl(${(h + 130) % 360},85%,65%)`] }; }
     const SS = P.star > 0 && !(state === 'morph' && P.tf > 35), mo = state === 'morph', mp = mo ? 1 - P.tf / 70 : 1;
     const F = SS ? { ...F0, ...GOLD } : F0;
+    OL = F.umriss || '#2a0f3a';
     const air = !P.ground, lauf = !air && Math.abs(P.vx) > .5, tempo = Math.min(1, Math.abs(P.vx) / 2.6);
     const sc = 1.08 * (1 + (SS ? .1 : 0) + (mo ? .15 * Math.sin(mp * Math.PI) : 0));
 
@@ -18032,13 +18036,16 @@ setLang();menuSignature='';updateInterface();
     bein(1.4, lauf ? fuss(0) : null, sV, false);
 
     // ── Kopf ──
-    const hy = -24.5 + yk, nick = lauf ? Math.sin(th * 2) * .04 : 0;
+    const hy = -23.6 + yk, nick = lauf ? Math.sin(th * 2) * .04 : Math.sin(t / 40) * .03;
     cx.save(); cx.translate(0, hy); cx.rotate(nick - lehne * .5);
+    // großer Kopf = Kindchenschema
+    cx.scale(1.13, 1.13);
     // Hörner
     for (const [hx, r0] of [[-3.6, -.35], [2.4, .15]]) {
       cx.save(); cx.translate(hx, -7); cx.rotate(r0);
-      cx.beginPath(); cx.moveTo(-1.8, 1); cx.quadraticCurveTo(-1.6, -4.4, .4, -5.6); cx.quadraticCurveTo(1.4, -2.6, 1.8, 1); cx.closePath();
-      cx.fillStyle = vg(-5.6, 1, F.horn[0], F.horn[1]); cx.fill(); cx.strokeStyle = OL; cx.lineWidth = 1; cx.stroke(); cx.restore();
+      // kurze, runde Hörnchen (süßer als spitze)
+      cx.beginPath(); cx.moveTo(-2, 1); cx.quadraticCurveTo(-2, -3.4, .2, -4.2); cx.quadraticCurveTo(2, -3.4, 2, 1); cx.closePath();
+      cx.fillStyle = vg(-4.2, 1, F.horn[0], F.horn[1]); cx.fill(); cx.strokeStyle = OL; cx.lineWidth = 1; cx.stroke(); cx.restore();
     }
     // Ohrflosse
     cx.beginPath(); cx.moveTo(-6.4, -2.4); cx.quadraticCurveTo(-12, -4.6, -11, .6); cx.quadraticCurveTo(-8.6, -.4, -6.6, 1.4); cx.closePath();
@@ -18046,16 +18053,16 @@ setLang();menuSignature='';updateInterface();
     // Kopf
     el(0, 0, 9, 8.2, vg(-8, 8, F.koerper[0], F.koerper[1]));
     // Schnauze
-    el(6.4, 2.6, 5, 3.8, vg(-1, 6.4, F.bauch[0], F.bauch[1]));
-    cx.fillStyle = 'rgba(42,15,58,.55)'; cx.beginPath(); cx.ellipse(8.6, 1.4, .55, .8, .3, 0, 7); cx.fill(); cx.beginPath(); cx.ellipse(10, 1.9, .5, .7, .3, 0, 7); cx.fill();
+    el(6.2, 3, 4.1, 3.1, vg(0, 6.2, F.bauch[0], F.bauch[1]));
+    cx.fillStyle = OL; cx.globalAlpha *= .6; cx.beginPath(); cx.ellipse(8.4, 1.9, .45, .6, .3, 0, 7); cx.fill(); cx.beginPath(); cx.ellipse(9.6, 2.3, .4, .55, .3, 0, 7); cx.fill(); cx.globalAlpha /= .6;
     // Mund mit Zähnchen; im Sprung offen und fröhlich
     if (spuck > 0) { el(8, 4.2, 2.6, 2.2, '#8a1d3a'); el(8.4, 4.6, 1.6, 1.2, `rgba(255,${150 + spuck * 8},60,.9)`, 0, 0); }   // Feuer spucken: Maul weit auf
     else if (air) { el(6.6, 4.4, 1.9, 1.5, '#8a1d3a'); el(6.6, 5.1, 1.1, .6, '#ff8aa8', 0, 0); }
-    else { cx.strokeStyle = OL; cx.lineWidth = 1; cx.beginPath(); cx.moveTo(3.4, 4); cx.quadraticCurveTo(6.6, 6.4, 9.6, 4); cx.stroke(); cx.fillStyle = '#ffffff'; cx.beginPath(); cx.moveTo(7.6, 4.9); cx.lineTo(8.2, 6.2); cx.lineTo(8.8, 4.6); cx.fill(); }
+    else { cx.strokeStyle = OL; cx.lineWidth = .9; cx.beginPath(); cx.arc(5.6, 4.1, 1, .15, Math.PI - .15); cx.moveTo(8.6, 4.2); cx.arc(7.6, 4.1, 1, .15, Math.PI - .15); cx.stroke(); cx.fillStyle = '#ffffff'; cx.beginPath(); cx.moveTo(7.9, 4.9); cx.lineTo(8.25, 5.9); cx.lineTo(8.6, 4.8); cx.fill(); }   // süßes ω-Mündchen mit Zähnchen
     // Feuerkraft: Rauch und kleine Flamme an den Nasenlöchern
     if (P.fire && !SS) { for (let i = 0; i < 2; i++) { const k = ((t + i * 11) % 22) / 22; el(10.4 + k * 4, .8 - k * 6, .9 + k * 1.6, .9 + k * 1.6, `rgba(200,190,210,${.55 * (1 - k)})`, 0, 0); } if (t % 20 < 8 || window.TRAUMSPRUNG_VORSCHAU_FEUER) el(10.6, 1.2, 1.2, .8, feuerFarbe().kern, 0, 0); }
     // Glanz auf dem Kopf
-    el(-3, -4.4, 3.6, 1.8, 'rgba(255,255,255,.35)', -.3, 0);
+    el(-3.4, -4.6, 3.8, 2, 'rgba(255,255,255,.42)', -.35, 0); el(-6, -1.6, 1, .7, 'rgba(255,255,255,.35)', -.6, 0);
     // große Augen (vorderes etwas größer – Blick nach vorn)
     const auge = (ax, ay, rx, ry) => {
       if (zu) { cx.strokeStyle = OL; cx.lineWidth = 1.2; cx.beginPath(); cx.arc(ax, ay, rx * .9, .3, Math.PI - .3); cx.stroke(); return; }
@@ -18063,13 +18070,15 @@ setLang();menuSignature='';updateInterface();
       const ix = ax + rx * .25, iy = ay + ry * .12;
       cx.fillStyle = vg(iy - ry * .8, iy + ry * .8, F.auge, '#16062a'); cx.beginPath(); cx.ellipse(ix, iy, rx * .72, ry * .78, 0, 0, 7); cx.fill();
       cx.fillStyle = '#0c0418'; cx.beginPath(); cx.ellipse(ix + .2, iy + .3, rx * .38, ry * .44, 0, 0, 7); cx.fill();
-      cx.fillStyle = '#fff'; cx.beginPath(); cx.arc(ix - rx * .28, iy - ry * .34, rx * .34, 0, 7); cx.fill(); cx.beginPath(); cx.arc(ix + rx * .3, iy + ry * .36, rx * .16, 0, 7); cx.fill();
+      cx.fillStyle = '#fff'; cx.beginPath(); cx.arc(ix - rx * .28, iy - ry * .34, rx * .36, 0, 7); cx.fill(); cx.beginPath(); cx.arc(ix + rx * .3, iy + ry * .36, rx * .17, 0, 7); cx.fill();
+      // kleiner Glitzerstern im Auge
+      cx.fillStyle = 'rgba(255,255,255,.9)'; cx.beginPath(); const gx = ix + rx * .32, gy = iy - ry * .42, gr = rx * .22 * (1 + Math.sin(t / 12) * .25); cx.moveTo(gx, gy - gr); cx.lineTo(gx + gr * .3, gy - gr * .3); cx.lineTo(gx + gr, gy); cx.lineTo(gx + gr * .3, gy + gr * .3); cx.lineTo(gx, gy + gr); cx.lineTo(gx - gr * .3, gy + gr * .3); cx.lineTo(gx - gr, gy); cx.lineTo(gx - gr * .3, gy - gr * .3); cx.closePath(); cx.fill();
       cx.strokeStyle = OL; cx.lineWidth = 1.1; cx.beginPath(); cx.arc(ax, ay, rx + .1, Math.PI * 1.15, Math.PI * 1.85); cx.stroke();   // Lidstrich oben
     };
-    auge(-.4, -.6, 2.9, 3.5); auge(5, -1, 2.5, 3.2);
+    auge(-.6, -.9, 3.3, 3.9); auge(5.1, -1.2, 2.85, 3.55);
     if (!M) { cx.strokeStyle = OL; cx.lineWidth = .9; for (const [wx, wy, dx, dy] of [[-3, -3.6, -1.1, -1], [-2.2, -4.1, -.6, -1.3], [7.2, -3.8, 1, -1]]) { cx.beginPath(); cx.moveTo(wx, wy); cx.lineTo(wx + dx, wy + dy); cx.stroke(); } }   // Wimpern bei Lumi
     // Bäckchen
-    el(-2.8, 3.6, 1.8, 1.1, 'rgba(255,110,150,.55)', 0, 0); el(3.4, 3.8, 1.5, 1, 'rgba(255,110,150,.45)', 0, 0);
+    for (const [bx, by, br] of [[-3.2, 3.4, 2.4], [3.2, 3.6, 1.9]]) { const bg = cx.createRadialGradient(bx, by, .2, bx, by, br); bg.addColorStop(0, 'rgba(255,100,150,.6)'); bg.addColorStop(1, 'rgba(255,100,150,0)'); cx.fillStyle = bg; cx.beginPath(); cx.ellipse(bx, by, br, br * .7, 0, 0, 7); cx.fill(); }
     // Stirnstern (Traumzeichen)
     if (!K.hut || K.hut === 'keiner' || K.hut === 'blumen') stern(1.4, -5.6, 1.5, SS ? '#ffffff' : '#ffe27a');
     // Hut aus dem Drachenschrank
@@ -18169,7 +18178,7 @@ setLang();menuSignature='';updateInterface();
  *
  * Ein kleines Funkenwesen fliegt mit der Heldin. Es wächst mit allen Perlen, die man je gesammelt hat
  * (bleibt auf dem Gerät gespeichert):
- *   Stufe 1 Funke        (0–299)    zieht Perlen in der Nähe an (kleiner Radius)
+ *   Stufe 1 Funke        (0–299)    (4.0-p50: zieht keine Perlen mehr an – Wunsch „kein Magnet“)
  *   Stufe 2 Sternchen    (300–999)  mit Flügeln und Gesicht, größerer Radius
  *   Stufe 3 Sternenfee   (ab 1000)  mit Krone und Glitzerspur, größter Radius
  * Es warnt vor Gegnern direkt voraus (kurzes rotes Aufblinken mit „!“) und leuchtet im Albtraum mit.
@@ -18201,7 +18210,7 @@ setLang();menuSignature='';updateInterface();
       letzteStufe = s; jubel = 120; speichern();
       for (let i = 0; i < 40; i++) spark(b.x, b.y, i % 2 ? '#ffe27a' : '#a9fff0', 1);
       if (typeof snd === 'function') { snd(659, .1, 'triangle', .05); snd(880, .14, 'triangle', .05); snd(1175, .3, 'sine', .05); }
-      if (typeof tell === 'function') tell(`Dein Traumbegleiter ist gewachsen: ${NAMEN[s]}! Er zieht jetzt Perlen von weiter her an.`, 300);
+      if (typeof tell === 'function') tell(`Dein Traumbegleiter ist gewachsen: ${NAMEN[s]}! Er leuchtet jetzt noch heller.`, 300);
     }
     if (jubel > 0) jubel--;
     if (state !== 'play') return r;
@@ -18209,12 +18218,7 @@ setLang();menuSignature='';updateInterface();
     const zx = P.x + 11 - 30 * (P.face || 1), zy = P.y - 26 + Math.sin(t / 18) * 5;   // Abstand zum Sternbommel der Mütze
     b.vx += (zx - b.x) * .045; b.vy += (zy - b.y) * .045; b.vx *= .82; b.vy *= .82; b.x += b.vx; b.y += b.vy;
     spur.push({ x: b.x, y: b.y }); if (spur.length > (s === 3 ? 14 : s === 2 ? 8 : 4)) spur.shift();
-    // Perlen anziehen
-    const R = RADIUS[s];
-    for (const g of gems || []) {
-      if (g.got) continue; const dx = P.x + 11 - g.x, dy = P.y + 14 - g.y, d = Math.hypot(dx, dy);
-      if (d < R && d > 4) { g.x += dx * .12; g.y += dy * .12; g.zieh = 6; }
-    }
+    // 4.0-p50: Funki zieht keine Perlen mehr an (Wunsch: kein Magnet) – er begleitet, leuchtet und warnt
     // Warnen: Gegner kurz voraus
     if (warn > 0) warn--;
     else for (const f of foes || []) {
@@ -19580,8 +19584,8 @@ window.TRAUMSPRUNG_ZIEL = function (fx, fy) {
  *
  *  Perlenkette: Perlen schnell hintereinander (höchstens 1,5 s Pause) bauen eine Kette auf. Jede Perle klingt einen
  *               Ton höher (Tonleiter nach oben), über der Heldin steht „×7“. Bei 10, 20, 30 … gibt es Bonusperlen.
- *  Traumrausch: Ab 10 Perlen in Folge – 5 Sekunden goldene Aura, Sternenspur, goldener Bildrand, und Perlen in der
- *               Nähe fliegen von selbst heran. Läuft die Kette weiter, verlängert sich der Rausch.
+ *  Traumrausch: Ab 10 Perlen in Folge – 5 Sekunden goldene Aura, Sternenspur, goldener Bildrand und Bonusperlen.
+ *               (4.0-p50: kein Perlen-Sog mehr.) Läuft die Kette weiter, verlängert sich der Rausch.
  *  Sprungkette: Mehrere Gegner hintereinander besiegen, ohne den Boden zu berühren: „Doppelsprung!“, „Dreifach!“ …
  *               mit Bonusperlen (2, 3, 4 …) und größer werdendem Lichtring.
  * p39: Kette zählt nur echte Perlen; Bonus höchstens 20 (vorher Endlosschleife im freiwilligen Albtraum).
@@ -19627,11 +19631,7 @@ window.TRAUMSPRUNG_ZIEL = function (fx, fy) {
     // Traumrausch: Aura, Spur, Perlen fliegen heran
     if (rausch > 0) {
       rausch--; if (rausch % 2 === 0) spur.push({ x: P.x + 11, y: P.y + 16, life: 26 });
-      for (const g of gems || []) {
-        if (g.got || g.nm && dreamPhase !== 2) continue;
-        const dx = P.x + 11 - g.x, dy = P.y + 14 - g.y, d = Math.hypot(dx, dy);
-        if (d < 120 && d > 3) { g.x += dx * .14; g.y += dy * .14; }
-      }
+      // 4.0-p50: Perlen fliegen nicht mehr magnetisch heran (Wunsch) – der Rausch bleibt Aura, Spur und Bonus
     }
     // Sprungkette: Gegner in diesem Schritt besiegt, während die Heldin in der Luft abprallt
     if (P.ground) sprung = 0;
@@ -19721,7 +19721,7 @@ window.TRAUMSPRUNG_ZIEL = function (fx, fy) {
       cx.shadowColor = 'rgba(255,190,60,.9)'; cx.shadowBlur = 20 * s; cx.fillStyle = '#fff3c0';
       schreib(banner.txt, Wd / 2, Hd * .3);
       cx.shadowBlur = 0; cx.font = `700 ${Math.round(12 * s)}px system-ui, sans-serif`; cx.fillStyle = '#ffe9a8';
-      schreib('Perlen fliegen dir zu!', Wd / 2, Hd * .3 + 26 * s);
+      schreib('Weiter so – Bonusperlen!', Wd / 2, Hd * .3 + 26 * s);
     }
     cx.restore();
     return r;
