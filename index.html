@@ -7983,7 +7983,7 @@ setLang();menuSignature='';updateInterface();
     return;
   }
   window.__traumsprungDreamGateInstalled=true;
-  const VERSION='1.0 (Build 87)';
+  const VERSION='1.0 (Build 88)';
   const KEY_TIME='traumsprung-playtime-v1';
   const KEY_NAME='traumsprung-menu-nickname-v1';
   const KEY_DREAM='traumsprung-menu-realm-v1';
@@ -8007,7 +8007,7 @@ setLang();menuSignature='';updateInterface();
     {id:'worlds',icon:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 6.5l5.5-2 6 2 5.5-2v13l-5.5 2-6-2-5.5 2z"/><path d="M9 4.5v13M15 6.5v13"/></svg>',name:'Welten',info:'Weltkarte'},
     {id:'settings',icon:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h10M18 7h2M4 17h2M10 17h10"/><circle cx="16" cy="7" r="2.2"/><circle cx="8" cy="17" r="2.2"/></svg>',name:'Einstellungen',info:'Musik & Hilfen'},
     {id:'profile',icon:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="8.5" r="3.8"/><path d="M4.5 20c1.2-4 4.2-5.6 7.5-5.6s6.3 1.6 7.5 5.6"/></svg>',name:'Profil',info:'Bestenliste & Urkunde'},
-    {id:'story',icon:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M12 6.5c-2-1.6-4.8-2-8-1.5v13c3.2-.5 6 0 8 1.5 2-1.5 4.8-2 8-1.5V5c-3.2-.5-6-.1-8 1.5z"/><path d="M12 6.5v13"/></svg>',name:'Geschichte',info:'Wie alles begann'}
+    {id:'hoehle',icon:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M4 11h16v9H4z"/><path d="M3 7h18v4H3z"/><path d="M12 7v13"/><path d="M12 7c-1.5-3-5-3.5-5-1.2C7 7 10 7 12 7zM12 7c1.5-3 5-3.5 5-1.2C17 7 14 7 12 7z"/></svg>',name:'Drachenhöhle',info:'Geschenke & Schrank'},
   ];
   const stars=(()=>{
     let seed=218417;const rnd=()=>{seed=(Math.imul(seed,1664525)+1013904223)>>>0;return seed/4294967296;};
@@ -8048,9 +8048,11 @@ setLang();menuSignature='';updateInterface();
     const resume=a.id==='continue'&&s.hasProgress;
     const name=resume?`Fortsetzen · Level ${typeof shortLevel==="function"?shortLevel(s.reached):s.reached}`:a.name;
     // 4.0-p48: Die Geschichte läuft nicht mehr vor dem ersten Sprung (17 s Wartezeit) – im Menü als „Neu“ markiert
-    const info=a.id==='continue'&&!s.hasProgress?'Deine erste Reise wartet':a.id==='story'&&!read(KEY_INTRO,'')?'✦ Neu · Wie alles begann':a.info;
-    return `<button type="button" class="ts8-action ${a.className||''}" style="--order:${i}" data-ts8-action="${a.id}" aria-label="${html(name)}">
-      <span class="ts8-action-symbol" aria-hidden="true">${a.icon}</span><span class="ts8-action-label">${html(name)}</span><small class="ts8-action-info">${html(info)}</small>
+    // 4.0-p49: Drachenhöhle zeigt, wenn ein Geschenk wartet; die Geschichte ist ins Profil gewandert
+    const offen=a.id==='hoehle'?(window.TRAUMSPRUNG_HOEHLE?.hinweis?.()||0):0;
+    const info=a.id==='continue'&&!s.hasProgress?'Deine erste Reise wartet':a.id==='profile'&&!read(KEY_INTRO,'')?'✦ Neu · Geschichte':a.id==='hoehle'&&offen?`🎁 ${offen} Geschenk${offen>1?'e':''} wartet${offen>1?'en':''}!`:a.info;
+    return `<button type="button" class="ts8-action ${a.className||''}${offen?' ts8-action--neu':''}" style="--order:${i}" data-ts8-action="${a.id}" aria-label="${html(name)}">
+      <span class="ts8-action-symbol" aria-hidden="true">${a.icon}</span><span class="ts8-action-label">${html(name)}</span>${offen?`<span class="ts8-zahl">${offen}</span>`:''}<small class="ts8-action-info">${html(info)}</small>
       <span class="ts8-action-arrow" aria-hidden="true">›</span></button>`;
   }
   // 4.0-p22: Menüfigur – die echte Spielfigur (Mädchen oder Junge, wie gewählt) auf einer eigenen Trauminsel,
@@ -8142,14 +8144,20 @@ setLang();menuSignature='';updateInterface();
   // 3.7: Figurenwahl – Traumspringerin oder Traumspringer
   const KEY_HERO='traumsprung-held';
   let heroPending=null;
-  function heroPreview(cvs,h){
+  function heroPreview(cvs,h,feuer){
     if(typeof P==='undefined'||!P||typeof drawP!=='function')return;
     const old=window.TRAUMSPRUNG_HERO,sv={...P};
     try{
-      window.TRAUMSPRUNG_HERO=h;Object.assign(P,{face:1,ground:1,vx:0,vy:0,star:0,inv:0,fire:0,boots:0,tf:0});
+      window.TRAUMSPRUNG_HERO=h;Object.assign(P,{face:1,ground:1,vx:0,vy:0,star:0,inv:0,fire:feuer?1:0,boots:0,tf:0});
+      window.TRAUMSPRUNG_VORSCHAU_FEUER=!!feuer;
       cx.save();cx.setTransform(1,0,0,1,0,0);cx.clearRect(0,0,140,140);cx.translate(30,34);cx.scale(3,3);drawP(0,0);cx.restore();
       const c2=cvs.getContext('2d');c2.clearRect(0,0,cvs.width,cvs.height);c2.drawImage(cv,0,0,140,140,0,0,cvs.width,cvs.height);
-    }catch(e){}finally{Object.assign(P,sv);window.TRAUMSPRUNG_HERO=old;}
+    }catch(e){}finally{Object.assign(P,sv);window.TRAUMSPRUNG_HERO=old;window.TRAUMSPRUNG_VORSCHAU_FEUER=false;}
+  }
+  window.TRAUMSPRUNG_HELD_VORSCHAU=heroPreview;
+  function renderHoehle(){
+    panel('Drachenhöhle','GESCHENKE · AUFGABEN · ALBUM · SCHRANK',(window.TRAUMSPRUNG_HOEHLE?window.TRAUMSPRUNG_HOEHLE.html():'')+back());
+    window.TRAUMSPRUNG_HOEHLE?.nachRender?.(root);
   }
   function renderHero(){
     const cur=window.TRAUMSPRUNG_HERO==='m'?'m':'w';
@@ -8202,6 +8210,7 @@ setLang();menuSignature='';updateInterface();
       <div class="ts8-name-row"><input id="ts8-player-name" maxlength="24" autocomplete="off" value="${html(nickname)}"><button data-ts8-action="save-name">Speichern</button></div>
       <div class="ts8-link-grid"><button data-ts8-action="leaderboard">♛ Bestenliste</button><button data-ts8-action="records">◷ Bestzeiten</button>${typeof certificateEligible==='function'&&certificateEligible()?'<button data-ts8-action="certificate-view">✦ Deine Urkunde</button>':''}</div>
       <button class="ts8-secondary" data-ts8-action="hero">✦ Figur wechseln (${window.TRAUMSPRUNG_HERO==='m'?'Pip':'Lumi'})</button>
+      <button class="ts8-secondary" data-ts8-action="story">📖 Geschichte: Wie alles begann${read(KEY_INTRO,'')?'':' ✦ Neu'}</button>
       <div class="ts8-data-grid">${tile('Aktuelle Welt',`${s.worldNumber} · ${s.world}`)}${tile("Freigeschaltet",`Level ${typeof shortLevel==="function"?shortLevel(s.reached):s.reached}`)}
         ${tile('Abgeschlossen',`${s.finished} / ${s.total}`)}${tile('Traumfunken',`${s.funken}`)}${tile('Erinnerungen',`${s.bilder} / 10`)}${tile('Erfasste Spielzeit',timeString(seconds))}</div>
       <div class="ts8-cloud-note"><b>◌ Nur lokal gespeichert</b><span>Es findet keine Online-Synchronisierung statt. Die Spielzeit wird erst seit Menüversion 2.7 erfasst.</span></div>
@@ -8215,6 +8224,7 @@ setLang();menuSignature='';updateInterface();
     if(menuView==='ts8-achievements'){renderAchievements();return;}
     if(menuView==='ts8-profile'){renderProfile();return;}
     if(menuView==='ts8-hero'){renderHero();return;}
+    if(menuView==='ts8-hoehle'){renderHoehle();return;}
     root.className='menu-layer ts8-menu ts8-legacy';
     root.removeAttribute('data-realm');
     previousRender();
@@ -8262,6 +8272,8 @@ setLang();menuSignature='';updateInterface();
       clearInputs();settingsReturn='title';menuView='';state='settings';menuSignature='';updateInterface();return;
     }
     if(a==='profile')return openView('ts8-profile');
+    if(a==='hoehle')return openView('ts8-hoehle');
+    if(a.startsWith('schatz:')){const y=root.scrollTop;window.TRAUMSPRUNG_HOEHLE?.aktion(a.slice(7));menuSignature='';updateInterface();root.scrollTop=y;return;}
     if(['orbs','wardrobe','chronicle','leaderboard','records'].includes(a))return openView(a);
     if(a==='certificate-view')return openView(typeof certificateEligible==='function'&&certificateEligible()?'certificate':'ts8-profile');
     if(a==='back')return openView('');
@@ -17876,12 +17888,33 @@ setLang();menuSignature='';updateInterface();
     cx.strokeStyle = farbe; cx.lineWidth = breite; cx.stroke();
   }
 
+  // ── Kosmetik aus dem Drachenschrank (schatz-40.js) – nur Aussehen ──
+  const HAUT = {
+    minze: { koerper: ['#8ef0d6', '#3fbfa8'], bauch: ['#f4fff8', '#cff5e8'], zacken: ['#6ab8ff', '#3a86e0'], fluegel: ['#a8e4ff', '#6ab8ff'], auge: '#1f6a8a' },
+    nacht: { koerper: ['#6a7ae8', '#2e2f8a'], bauch: ['#e0e6ff', '#aab6f0'], zacken: ['#d4a6ff', '#8a5ae0'], fluegel: ['#b8c4ff', '#7a86f0'], auge: '#2a1a6a' },
+    gold: { koerper: ['#ffe27a', '#e0a020'], bauch: ['#fffbe6', '#ffe9a8'], zacken: ['#ff9a3a', '#e06a1a'], fluegel: ['#fff2b0', '#ffcf4a'], auge: '#7a4a10' }
+  };
+  const FEUER = {
+    orange: { rand: '#ff5a1a', kern: '#ffb02a', glut: 'rgba(255,190,80,.7)', spur: [255, 120, 40], spur2: 90 },
+    blau: { rand: '#3a7aff', kern: '#9ad8ff', glut: 'rgba(120,190,255,.75)', spur: [80, 150, 255], spur2: 80 },
+    gruen: { rand: '#2ac85a', kern: '#b8ff7a', glut: 'rgba(140,255,140,.7)', spur: [60, 210, 90], spur2: 40 }
+  };
+  const kosmetik = () => window.TRAUMSPRUNG_HOEHLE?.angelegt?.() || {};
+  function feuerFarbe() {
+    const f = kosmetik().feuer;
+    if (f === 'regenbogen') { const h = (t * 6) % 360; return { rand: `hsl(${h},95%,55%)`, kern: `hsl(${(h + 40) % 360},100%,75%)`, glut: `hsla(${h},100%,70%,.7)`, spur: null, hue: h }; }
+    return FEUER[f] || FEUER.orange;
+  }
+  let spurTeile = [];
   let zyklus = 0, letzteX = 0, blinzel = 0, spuck = 0;
   const altNeu = window.TRAUMSPRUNG_HELD_NEU;
   window.TRAUMSPRUNG_HELD_NEU = function (x, y) {
     if (window.TRAUMSPRUNG_DRACHE_OFF) return altNeu ? altNeu(x, y) : false;
     if (window.TRAUMSPRUNG_HELD_ALT || !P) return false;
-    const M = window.TRAUMSPRUNG_HERO === 'm', F0 = FARBEN[M ? 'm' : 'w'];
+    const M = window.TRAUMSPRUNG_HERO === 'm', K = kosmetik();
+    let F0 = FARBEN[M ? 'm' : 'w'];
+    if (HAUT[K.farbe]) F0 = { ...F0, ...HAUT[K.farbe] };
+    else if (K.farbe === 'regenbogen') { const h = (t * 2) % 360; F0 = { ...F0, koerper: [`hsl(${h},85%,72%)`, `hsl(${(h + 30) % 360},75%,52%)`], zacken: [`hsl(${(h + 160) % 360},90%,70%)`, `hsl(${(h + 180) % 360},80%,55%)`], fluegel: [`hsl(${(h + 100) % 360},90%,80%)`, `hsl(${(h + 130) % 360},85%,65%)`] }; }
     const SS = P.star > 0 && !(state === 'morph' && P.tf > 35), mo = state === 'morph', mp = mo ? 1 - P.tf / 70 : 1;
     const F = SS ? { ...F0, ...GOLD } : F0;
     const air = !P.ground, lauf = !air && Math.abs(P.vx) > .5, tempo = Math.min(1, Math.abs(P.vx) / 2.6);
@@ -17898,6 +17931,24 @@ setLang();menuSignature='';updateInterface();
     if (--blinzel < -170 - (P.x % 60)) blinzel = 7;   // ab und zu blinzeln
     if (spuck > 0) spuck--;
     const zu = blinzel > 0;
+
+    // Laufspur (Sterne, Herzen, Funken) – hinter der Figur, in Weltkoordinaten
+    const spurArt = K.spur;
+    if (spurArt && spurArt !== 'keine') {
+      const vorschau = window.TRAUMSPRUNG_VORSCHAU_SPUR;
+      if (!vorschau && (lauf || air) && t % 3 === 0) spurTeile.push({ x: P.x + 11 - P.face * 8, y: P.y + 24 - Math.random() * 10, l: 40, a: Math.random() * 6, h: Math.random() * 360 });
+      const teile = vorschau ? [0, 1, 2, 3].map(i => ({ x: P.x + 11 - 10 - i * 9, y: P.y + 20 - (i % 2) * 6, l: 40 - i * 8, a: i, h: i * 80 })) : spurTeile;
+      for (const q of teile) {
+        const a = q.l / 40, qx = q.x - (P.x - x), qy = q.y - (P.y - y);
+        cx.save(); cx.globalAlpha = a; cx.translate(qx, qy); cx.rotate(q.a);
+        if (spurArt === 'sterne') stern(0, 0, 2.4 + a * 1.4, '#ffe27a');
+        else if (spurArt === 'herzen') { cx.fillStyle = '#ff6a9a'; cx.beginPath(); const r = 1.6 + a; cx.moveTo(0, r * 1.2); cx.bezierCurveTo(-r * 2.4, -r * .4, -r * 1, -r * 2.2, 0, -r * .7); cx.bezierCurveTo(r * 1, -r * 2.2, r * 2.4, -r * .4, 0, r * 1.2); cx.fill(); }
+        else { cx.fillStyle = `hsl(${q.h},95%,68%)`; cx.fillRect(-1.3, -1.3, 2.6, 2.6); }
+        cx.restore();
+      }
+      if (!vorschau) { for (const q of spurTeile) { q.l--; q.y -= .25; } spurTeile = spurTeile.filter(q => q.l > 0); if (spurTeile.length > 60) spurTeile.splice(0, spurTeile.length - 60); }
+    } else spurTeile.length = 0;
+    cx.globalAlpha = 1;
 
     cx.save();
     cx.translate(x + 11, y + 28 - (mo ? 18 * Math.sin(mp * Math.PI) : 0)); cx.scale(sc, sc);
@@ -18002,7 +18053,7 @@ setLang();menuSignature='';updateInterface();
     else if (air) { el(6.6, 4.4, 1.9, 1.5, '#8a1d3a'); el(6.6, 5.1, 1.1, .6, '#ff8aa8', 0, 0); }
     else { cx.strokeStyle = OL; cx.lineWidth = 1; cx.beginPath(); cx.moveTo(3.4, 4); cx.quadraticCurveTo(6.6, 6.4, 9.6, 4); cx.stroke(); cx.fillStyle = '#ffffff'; cx.beginPath(); cx.moveTo(7.6, 4.9); cx.lineTo(8.2, 6.2); cx.lineTo(8.8, 4.6); cx.fill(); }
     // Feuerkraft: Rauch und kleine Flamme an den Nasenlöchern
-    if (P.fire && !SS) { for (let i = 0; i < 2; i++) { const k = ((t + i * 11) % 22) / 22; el(10.4 + k * 4, .8 - k * 6, .9 + k * 1.6, .9 + k * 1.6, `rgba(200,190,210,${.55 * (1 - k)})`, 0, 0); } if (t % 20 < 8) el(10.6, 1.2, 1.2, .8, 'rgba(255,170,60,.9)', 0, 0); }
+    if (P.fire && !SS) { for (let i = 0; i < 2; i++) { const k = ((t + i * 11) % 22) / 22; el(10.4 + k * 4, .8 - k * 6, .9 + k * 1.6, .9 + k * 1.6, `rgba(200,190,210,${.55 * (1 - k)})`, 0, 0); } if (t % 20 < 8 || window.TRAUMSPRUNG_VORSCHAU_FEUER) el(10.6, 1.2, 1.2, .8, feuerFarbe().kern, 0, 0); }
     // Glanz auf dem Kopf
     el(-3, -4.4, 3.6, 1.8, 'rgba(255,255,255,.35)', -.3, 0);
     // große Augen (vorderes etwas größer – Blick nach vorn)
@@ -18020,12 +18071,36 @@ setLang();menuSignature='';updateInterface();
     // Bäckchen
     el(-2.8, 3.6, 1.8, 1.1, 'rgba(255,110,150,.55)', 0, 0); el(3.4, 3.8, 1.5, 1, 'rgba(255,110,150,.45)', 0, 0);
     // Stirnstern (Traumzeichen)
-    stern(1.4, -5.6, 1.5, SS ? '#ffffff' : '#ffe27a');
+    if (!K.hut || K.hut === 'keiner' || K.hut === 'blumen') stern(1.4, -5.6, 1.5, SS ? '#ffffff' : '#ffe27a');
+    // Hut aus dem Drachenschrank
+    if (K.hut === 'muetze') {
+      cx.beginPath(); cx.moveTo(-7.4, -5.2); cx.quadraticCurveTo(-2, -16, 4, -14); cx.quadraticCurveTo(-3, -12.6, -9.6, -3.2 + Math.sin(t / 14)); cx.quadraticCurveTo(-1, -9.4, 7.6, -5.6); cx.closePath();
+      cx.fillStyle = vg(-15, -4, F.zacken[0], F.zacken[1]); cx.fill(); cx.strokeStyle = OL; cx.lineWidth = 1; cx.stroke();
+      el(-9.6, -3.2 + Math.sin(t / 14), 2, 2, '#ffe27a');
+      cx.fillStyle = '#ffffff'; cx.beginPath(); cx.moveTo(-8, -4.6); cx.quadraticCurveTo(0, -8.8, 8, -5.2); cx.quadraticCurveTo(0, -6.8, -8, -3); cx.closePath(); cx.fill(); cx.strokeStyle = OL; cx.lineWidth = .8; cx.stroke();
+    } else if (K.hut === 'blumen') {
+      const fb = ['#ff8fc8', '#ffe27a', '#9cf3f4', '#c9a6ff', '#ff9a6a'];
+      for (let i = 0; i < 5; i++) { const w = Math.PI * (1.08 + i * .21), bx = Math.cos(w) * 8.6, by = Math.sin(w) * 7.6 - .6; el(bx, by, 2, 2, fb[i]); el(bx, by, .8, .8, '#fff6c8', 0, 0); }
+      el(-1, -8.2, 1.3, .7, '#6ac07a', .4, 0); el(4.4, -7.4, 1.3, .7, '#6ac07a', -.4, 0);
+    } else if (K.hut === 'pirat') {
+      cx.beginPath(); cx.moveTo(-10, -5.4); cx.quadraticCurveTo(-6, -15, 0, -13.6); cx.quadraticCurveTo(6, -15, 10, -5.4); cx.quadraticCurveTo(0, -8.6, -10, -5.4); cx.closePath();
+      cx.fillStyle = '#2a2236'; cx.fill(); cx.strokeStyle = OL; cx.lineWidth = 1; cx.stroke();
+      cx.fillStyle = '#e04a4a'; cx.beginPath(); cx.moveTo(-8.6, -6.6); cx.quadraticCurveTo(0, -9.6, 8.6, -6.6); cx.lineTo(8.2, -5.6); cx.quadraticCurveTo(0, -8.4, -8.2, -5.6); cx.fill();
+      el(0, -11, 1.6, 1.5, '#ffffff', 0, 0); el(-.6, -11.2, .4, .4, OL, 0, 0); el(.6, -11.2, .4, .4, OL, 0, 0);
+    } else if (K.hut === 'krone') {
+      cx.beginPath(); cx.moveTo(-6, -6); cx.lineTo(-6.4, -12.6); cx.lineTo(-3, -9.4); cx.lineTo(0, -14); cx.lineTo(3, -9.4); cx.lineTo(6.4, -12.6); cx.lineTo(6, -6); cx.closePath();
+      cx.fillStyle = vg(-14, -6, '#fff2a0', '#e0a020'); cx.fill(); cx.strokeStyle = OL; cx.lineWidth = 1; cx.stroke();
+      el(0, -8, 1.2, 1.2, '#ff4a6a', 0, 0); el(-4, -7.8, .9, .9, '#4ac8ff', 0, 0); el(4, -7.8, .9, .9, '#7dffa0', 0, 0);
+      if (t % 50 < 6) stern(5.6, -12.4, 1.6, '#ffffff');
+    }
+
     cx.restore();
 
     // vorderes Ärmchen
     arm(3, -13.6 + yk, -armSchwung * .9 + .15, F.koerper[0]);
 
+    // Menü-Vorschau des Feuers: eine Kugel vor dem Maul
+    if (window.TRAUMSPRUNG_VORSCHAU_FEUER) { cx.restore(); cx.save(); window.TRAUMSPRUNG_BALLSKIN?.({ x: x + 34 + cam, y: y + 8, vx: 1, drache: true, spur: [[x + 30 + cam, y + 8], [x + 26 + cam, y + 9], [x + 22 + cam, y + 9]] }); cx.restore(); cx.save(); }
     // Stern-Form: Funkenkranz
     if (SS) for (let i = 0; i < 6; i++) { const a = t / 10 + i * Math.PI / 3; stern(Math.cos(a) * 14, -14 + Math.sin(a) * 14, 1.6, `hsl(${(t * 8 + i * 60) % 360},95%,72%)`); }
     cx.restore(); cx.globalAlpha = 1;
@@ -18067,18 +18142,20 @@ setLang();menuSignature='';updateInterface();
     const spur = b.spur || [];
     for (let i = spur.length - 1; i >= 0; i--) {
       const [sx, sy] = spur[i], k = 1 - i / spur.length, r = 1.5 + k * 4.4;
-      cx.fillStyle = heiss ? `rgba(255,250,200,${.5 * k})` : `rgba(255,${120 + 90 * k | 0},40,${.55 * k})`;
+      const FF = feuerFarbe();
+      cx.fillStyle = heiss ? `rgba(255,250,200,${.5 * k})` : FF.spur ? `rgba(${FF.spur[0]},${Math.min(255, FF.spur[1] + FF.spur2 * k) | 0},${FF.spur[2]},${.55 * k})` : `hsla(${(FF.hue + i * 30) % 360},100%,62%,${.6 * k})`;
       cx.beginPath(); cx.arc(sx - cam, sy, r, 0, 7); cx.fill();
     }
     // Glühen
-    const g = cx.createRadialGradient(x, y, 1, x, y, 13); g.addColorStop(0, heiss ? 'rgba(255,255,220,.75)' : 'rgba(255,190,80,.7)'); g.addColorStop(1, 'rgba(255,90,20,0)');
+    const FF = feuerFarbe();
+    const g = cx.createRadialGradient(x, y, 1, x, y, 13); g.addColorStop(0, heiss ? 'rgba(255,255,220,.75)' : FF.glut); g.addColorStop(1, 'rgba(255,90,20,0)');
     cx.fillStyle = g; cx.beginPath(); cx.arc(x, y, 13, 0, 7); cx.fill();
     // Flammenkugel: flackernde Zungen
     const dir = Math.sign(b.vx) || 1;
-    cx.fillStyle = heiss ? '#ffe680' : '#ff5a1a'; cx.beginPath();
+    cx.fillStyle = heiss ? '#ffe680' : FF.rand; cx.beginPath();
     for (let k = 0; k <= 12; k++) { const w = k / 12 * Math.PI * 2, zunge = (k % 2 ? 1 : 1.45) + Math.sin(t * .8 + k * 2) * .18, rr = 5.4 * zunge * (Math.cos(w) * -dir > .3 ? 1.25 : 1); cx.lineTo(x + Math.cos(w) * rr, y + Math.sin(w) * rr); }
     cx.closePath(); cx.fill();
-    cx.fillStyle = heiss ? '#fffbe0' : '#ffb02a'; cx.beginPath(); cx.arc(x + dir * .6, y, 3.6, 0, 7); cx.fill();
+    cx.fillStyle = heiss ? '#fffbe0' : FF.kern; cx.beginPath(); cx.arc(x + dir * .6, y, 3.6, 0, 7); cx.fill();
     cx.fillStyle = '#fff6c0'; cx.beginPath(); cx.arc(x + dir * 1, y - .4, 1.8, 0, 7); cx.fill();
     cx.restore();
     return true;
@@ -20813,6 +20890,260 @@ window.TRAUMSPRUNG_ZIEL = function (fx, fy) {
   };
 
   window.TRAUMSPRUNG_EINSTIEG = { stand: () => ({ ...stand }), fertig: () => fertig, truhe: () => truhe ? truhe.t : -1, reset: () => { fertig = false; stand = { sprung: 0, perlen: 0, tier: 0 }; truhe = null; startX = null; uhr = 0; gelaufen = gesprungen = false; } };
+})();
+
+</script><script>/* src/systems/schatz-40.js */
+/* Traumsprung 4.0-p49 – Sprint B: Gründe zum Wiederkommen (Tag 1–7). Alles nur auf dem Gerät, ohne Echtgeld.
+ *
+ * Traumsterne (★) – die Belohnungs-Währung für Kosmetik. Man bekommt sie nur durchs Spielen.
+ *  1) Tagesbonus: 7-Tage-Kalender. Jeden Tag, an dem man das Spiel öffnet, ein Geschenk (★, an Tag 3 ein Hut,
+ *     Tag 5 blaues Feuer, Tag 7 Gold-Drache + 100 ★). Verpasste Tage setzen NICHT zurück – es geht einfach weiter.
+ *  2) Tagesaufgaben: jeden Tag 3 neue (aus 8 Arten, gleich für den ganzen Tag), je 30 ★, alle drei +30 ★ extra.
+ *     Im Spiel: kurzer Jubel „Aufgabe geschafft!“, abholen in der Drachenhöhle.
+ *  3) Tieralbum: jede Tierart (Wildschwein, Heuschrecke, Nashornkäfer, Hornisse, Spinne) mit Stufen 1/10/30
+ *     besiegt → Bronze/Silber/Gold-Stern, je Stufe ★ zum Abholen.
+ *  4) Drachenschrank: Farben, Hüte, Feuerfarben, Laufspuren – mit ★ oder aus dem Kalender. Nur Aussehen, kein Vorteil.
+ * Speicher: localStorage 'traumsprung-schatz' (wird mit dem Spielstand gesichert).
+ * API: window.TRAUMSPRUNG_HOEHLE (html, aktion, angelegt, hinweis, zaehle …). Menü: dream-menu.js „Drachenhöhle“.
+ */
+'use strict';
+(function () {
+  const KEY = 'traumsprung-schatz';
+  const heute = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
+  let S = { sterne: 0, tag: 0, letzterTag: '', aufgTag: '', aufg: [], aufgBonus: false, zaehl: {}, album: {}, albumAb: {}, besitz: ['farbe:standard', 'hut:keiner', 'feuer:orange', 'spur:keine'], an: { farbe: 'standard', hut: 'keiner', feuer: 'orange', spur: 'keine' } };
+  try { const s = JSON.parse(localStorage.getItem(KEY) || 'null'); if (s && typeof s === 'object') S = Object.assign(S, s); } catch (_) { }
+  const sichern = () => { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (_) { } };
+
+  // ── Kalender ──
+  const KALENDER = [
+    { sterne: 20 }, { sterne: 30 }, { item: 'hut:blumen', sterne: 10 }, { sterne: 40 }, { item: 'feuer:blau', sterne: 10 }, { sterne: 50 }, { item: 'farbe:gold', sterne: 100 }
+  ];
+  const bonusOffen = () => S.letzterTag !== heute();
+  function bonusAbholen() {
+    if (!bonusOffen()) return false;
+    const g = KALENDER[S.tag % 7]; S.sterne += g.sterne || 0; if (g.item && !S.besitz.includes(g.item)) S.besitz.push(g.item);
+    S.tag++; S.letzterTag = heute(); sichern(); return g;
+  }
+
+  // ── Tagesaufgaben ──
+  const AUFGABEN = {
+    perlen: { text: 'Sammle 60 Perlen', ziel: 60, icon: '💎' },
+    tiere: { text: 'Besiege 8 Tiere', ziel: 8, icon: '🐾' },
+    level: { text: 'Schaffe 2 Level', ziel: 2, icon: '🏁' },
+    sprung: { text: 'Springe 80-mal', ziel: 80, icon: '⤴' },
+    traum: { text: 'Wechsle 6-mal in die Traumwelt', ziel: 6, icon: '🌙' },
+    feuer: { text: 'Spucke 5 Feuerkugeln', ziel: 5, icon: '🔥' },
+    ohnetod: { text: 'Schaffe ein Level ohne Herz zu verlieren', ziel: 1, icon: '❤' },
+    funken: { text: 'Finde 2 Traumfunken', ziel: 2, icon: '✦' }
+  };
+  function aufgabenHeute() {
+    if (S.aufgTag !== heute()) {
+      const ids = Object.keys(AUFGABEN); let h = 0; for (const c of heute()) h = (Math.imul(h, 31) + c.charCodeAt(0)) >>> 0;
+      // gemischte Liste (Fisher-Yates mit festem Zufall je Tag) – drei verschiedene Aufgaben
+      const liste = ids.slice(); for (let i = liste.length - 1; i > 0; i--) { h = (Math.imul(h, 1103515245) + 12345) >>> 0; const j = h % (i + 1); [liste[i], liste[j]] = [liste[j], liste[i]]; }
+      const wahl = liste.slice(0, 3);
+      S.aufgTag = heute(); S.aufg = wahl.map(id => ({ id, n: 0, ab: false })); S.aufgBonus = false; sichern();
+    }
+    return S.aufg;
+  }
+
+  // ── Album ──
+  const TIERE = [{ k: 0, name: 'Wildschwein', icon: '🐗' }, { k: 1, name: 'Heuschrecke', icon: '🦗' }, { k: 2, name: 'Nashornkäfer', icon: '🪲' }, { k: 3, name: 'Hornisse', icon: '🐝' }, { k: 4, name: 'Spinne', icon: '🕷' }];
+  const STUFEN = [{ n: 1, sterne: 10, name: 'Bronze' }, { n: 10, sterne: 20, name: 'Silber' }, { n: 30, sterne: 40, name: 'Gold' }];
+
+  // ── Schrank ──
+  const SCHRANK = {
+    farbe: [{ id: 'standard', name: 'Original', preis: 0 }, { id: 'minze', name: 'Minze', preis: 150 }, { id: 'nacht', name: 'Mitternacht', preis: 200 }, { id: 'gold', name: 'Gold', kalender: 7 }, { id: 'regenbogen', name: 'Regenbogen', preis: 400 }],
+    hut: [{ id: 'keiner', name: 'Ohne', preis: 0 }, { id: 'muetze', name: 'Schlafmütze', preis: 80 }, { id: 'blumen', name: 'Blumenkranz', kalender: 3 }, { id: 'pirat', name: 'Piratenhut', preis: 150 }, { id: 'krone', name: 'Krone', preis: 250 }],
+    feuer: [{ id: 'orange', name: 'Feuer', preis: 0 }, { id: 'blau', name: 'Blaues Feuer', kalender: 5 }, { id: 'gruen', name: 'Grünes Feuer', preis: 120 }, { id: 'regenbogen', name: 'Regenbogen', preis: 300 }],
+    spur: [{ id: 'keine', name: 'Ohne', preis: 0 }, { id: 'sterne', name: 'Sternenspur', preis: 100 }, { id: 'herzen', name: 'Herzchen', preis: 100 }, { id: 'funken', name: 'Funkenregen', preis: 150 }]
+  };
+  const KAT = { farbe: 'Farbe', hut: 'Hut', feuer: 'Feuer', spur: 'Spur' };
+  let schrankKat = 'farbe';
+
+  // ── Zählen im Spiel ──
+  let toast = null;
+  function zaehle(art, n = 1, extra) {
+    if (!(level > 0) || (window.QA_STEP_MODE && !window.QA_SCHATZ)) return;
+    S.zaehl[art] = (S.zaehl[art] || 0) + n;
+    if (art === 'tiere' && extra != null) S.album[extra] = (S.album[extra] || 0) + n;
+    for (const a of aufgabenHeute()) if (a.id === art && a.n < AUFGABEN[art].ziel) {
+      a.n = Math.min(AUFGABEN[art].ziel, a.n + n);
+      if (a.n >= AUFGABEN[art].ziel) { toast = { t: 0, text: 'Aufgabe geschafft!', icon: AUFGABEN[art].icon }; try { snd(784, .1, 'sine', .05); setTimeout(() => snd(1046, .16, 'sine', .05), 90); } catch (_) { } }
+    }
+    schreibSpaeter();
+  }
+  let sp = 0; function schreibSpaeter() { if (!sp) sp = setTimeout(() => { sp = 0; sichern(); }, 800); }
+
+  if (typeof upd === 'function') {
+    let warBoden = true, altPhase = 0;
+    const priorUpd = upd;
+    upd = function () {
+      const an = level > 0 && state === 'play' && P;
+      const offen = an && Array.isArray(gems) ? gems.filter(g => !g.got) : null;
+      const lebend = an && foes ? foes.filter(f => !f.dead) : null;
+      const siegel = an && typeof dreamSeals !== 'undefined' && dreamSeals ? dreamSeals.filter(s => !s.got) : null;
+      const st0 = state, tode0 = typeof lvDeaths !== 'undefined' ? lvDeaths : 0;
+      const r = priorUpd.apply(this, arguments);
+      if (level > 0 && P) {
+        if (offen) { const n = offen.filter(g => g.got).length; if (n) zaehle('perlen', n); }
+        if (lebend) for (const f of lebend) if (f.dead) zaehle('tiere', 1, f.k | 0);
+        if (siegel) { const n = siegel.filter(s => s.got).length; if (n) zaehle('funken', n); }
+        if (state === 'play') {
+          if (warBoden && !P.ground && P.vy < -5) zaehle('sprung');
+          warBoden = !!P.ground;
+          if (altPhase !== 1 && dreamPhase === 1) zaehle('traum');
+          altPhase = dreamPhase;
+          if (typeof balls !== 'undefined') for (const b of balls) if (!b.gezaehlt) { b.gezaehlt = true; zaehle('feuer'); }
+        }
+        if (st0 === 'play' && state === 'next') { zaehle('level'); if (tode0 === 0 && (typeof lvDeaths === 'undefined' || lvDeaths === 0)) zaehle('ohnetod'); }
+      }
+      if (toast && ++toast.t > 150) toast = null;
+      return r;
+    };
+  }
+  if (typeof draw === 'function') {
+    const priorDraw = draw;
+    draw = function () {
+      const r = priorDraw.apply(this, arguments);
+      if (!toast || !(state === 'play' || state === 'morph')) return r;
+      const s = RENDER_SCALE, Wd = cv.width, k = toast.t, ein = Math.min(1, k / 12), aus = k > 125 ? Math.max(0, 1 - (k - 125) / 25) : 1;
+      cx.save(); cx.setTransform(1, 0, 0, 1, 0, 0); cx.globalAlpha = aus;
+      const w = 230 * s, h = 40 * s, x = Wd / 2 - w / 2, y = (-50 + 64 * ein) * s + 8 * s;
+      cx.fillStyle = 'rgba(40,20,70,.88)'; cx.beginPath(); cx.roundRect(x, y, w, h, 20 * s); cx.fill(); cx.strokeStyle = '#ffd34a'; cx.lineWidth = 2.5 * s; cx.stroke();
+      cx.font = `800 ${16 * s | 0}px system-ui,sans-serif`; cx.textAlign = 'center'; cx.textBaseline = 'middle'; cx.fillStyle = '#fff6c8';
+      CanvasRenderingContext2D.prototype.fillText.call(cx, `${toast.icon}  ${toast.text}  ★`, Wd / 2, y + h / 2);
+      cx.restore();
+      return r;
+    };
+  }
+
+  // ── Menü-Inhalt ──
+  const esc = v => String(v).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  function itemName(it) { const [kat, id] = it.split(':'); return (SCHRANK[kat] || []).find(x => x.id === id)?.name || id; }
+  function albumOffen() { let n = 0; for (const t of TIERE) STUFEN.forEach((st, i) => { if ((S.album[t.k] || 0) >= st.n && !S.albumAb[t.k + ':' + i]) n++; }); return n; }
+  function aufgabenOffen() { return aufgabenHeute().filter(a => a.n >= AUFGABEN[a.id].ziel && !a.ab).length + (aufgabenHeute().every(a => a.ab) && !S.aufgBonus ? 1 : 0); }
+  function hinweis() { return (bonusOffen() ? 1 : 0) + aufgabenOffen() + albumOffen(); }
+  function html() {
+    const A = aufgabenHeute();
+    const kal = KALENDER.map((g, i) => {
+      const nr = S.tag - (S.tag % 7) + i, genommen = nr < S.tag, jetzt = nr === S.tag && bonusOffen();
+      const inhalt = g.item ? `<b>${esc(itemName(g.item))}</b>${g.sterne ? `<small>+${g.sterne} ★</small>` : ''}` : `<b>${g.sterne} ★</b>`;
+      return `<div class="ts9-tag${genommen ? ' ts9-tag--ok' : ''}${jetzt ? ' ts9-tag--jetzt' : ''}${g.item ? ' ts9-tag--item' : ''}"><small>Tag ${i + 1}</small>${inhalt}${genommen ? '<i>✓</i>' : ''}</div>`;
+    }).join('');
+    const aufg = A.map((a, i) => {
+      const d = AUFGABEN[a.id], fertig = a.n >= d.ziel;
+      return `<div class="ts9-aufgabe"><span class="ts9-icon">${d.icon}</span><div><b>${esc(d.text)}</b><div class="ts9-balken"><i style="width:${Math.round(100 * a.n / d.ziel)}%"></i></div><small>${a.n} / ${d.ziel}</small></div>
+        ${a.ab ? '<span class="ts9-ok">✓</span>' : fertig ? `<button type="button" class="ts9-hol" data-ts8-action="schatz:aufgabe:${i}">+30 ★</button>` : '<span class="ts9-preis">30 ★</span>'}</div>`;
+    }).join('') + `<div class="ts9-aufgabe ts9-bonus"><span class="ts9-icon">🎁</span><div><b>Alle drei geschafft</b><small>Extra-Belohnung</small></div>${S.aufgBonus ? '<span class="ts9-ok">✓</span>' : A.every(a => a.ab) ? '<button type="button" class="ts9-hol" data-ts8-action="schatz:bonus">+30 ★</button>' : '<span class="ts9-preis">30 ★</span>'}</div>`;
+    const album = TIERE.map(t => {
+      const n = S.album[t.k] || 0;
+      const sterne = STUFEN.map((st, i) => `<span class="ts9-st ts9-st--${i}${n >= st.n ? ' an' : ''}" title="${st.name}: ${st.n}">★</span>`).join('');
+      const offen = STUFEN.findIndex((st, i) => n >= st.n && !S.albumAb[t.k + ':' + i]);
+      return `<div class="ts9-tier${n ? '' : ' ts9-tier--neu'}"><span class="ts9-tiericon">${n ? t.icon : '❔'}</span><b>${n ? esc(t.name) : '???'}</b><small>${n}× besiegt</small><div>${sterne}</div>
+        ${offen >= 0 ? `<button type="button" class="ts9-hol" data-ts8-action="schatz:album:${t.k}:${offen}">+${STUFEN[offen].sterne} ★</button>` : ''}</div>`;
+    }).join('');
+    const tabs = Object.keys(KAT).map(k => `<button type="button" class="ts9-tab${k === schrankKat ? ' an' : ''}" data-ts8-action="schatz:kat:${k}">${KAT[k]}</button>`).join('');
+    const items = SCHRANK[schrankKat].map(it => {
+      const key = schrankKat + ':' + it.id, hat = S.besitz.includes(key), an = S.an[schrankKat] === it.id;
+      let knopf;
+      if (an) knopf = '<span class="ts9-ok">✓ An</span>';
+      else if (hat) knopf = `<button type="button" class="ts9-anlegen" data-ts8-action="schatz:an:${key}">Anlegen</button>`;
+      else if (it.kalender) knopf = `<span class="ts9-preis">Tag ${it.kalender}</span>`;
+      else knopf = `<button type="button" class="ts9-kauf"${S.sterne < it.preis ? ' disabled' : ''} data-ts8-action="schatz:kauf:${key}">${it.preis} ★</button>`;
+      return `<div class="ts9-item${an ? ' an' : ''}"><canvas width="96" height="96" data-schatz-vorschau="${key}"></canvas><b>${esc(it.name)}</b>${knopf}</div>`;
+    }).join('');
+    return `<div class="ts9-hoehle">
+      <div class="ts9-kopf"><span class="ts9-sterne">★ ${S.sterne}</span><small>Traumsterne – nur durchs Spielen, nur fürs Aussehen</small></div>
+      <h3>Tagesbonus ${bonusOffen() ? '<span class="ts9-punkt"></span>' : ''}</h3>
+      <div class="ts9-kalender">${kal}</div>
+      ${bonusOffen() ? '<button type="button" class="ts9-gross" data-ts8-action="schatz:abholen">🎁 Geschenk abholen</button>' : '<p class="ts9-leise">Morgen wartet das nächste Geschenk.</p>'}
+      <h3>Tagesaufgaben</h3><div class="ts9-aufgaben">${aufg}</div>
+      <h3>Tieralbum</h3><div class="ts9-album">${album}</div>
+      <h3>Drachenschrank</h3><div class="ts9-tabs">${tabs}</div><div class="ts9-schrank">${items}</div>
+    </div>`;
+  }
+  let feier = null;
+  function aktion(a) {
+    const [was, p1, p2, p3] = a.split(':');
+    if (was === 'abholen') { const g = bonusAbholen(); if (g) feier = g.item ? `Neu: ${itemName(g.item)}!` : `+${g.sterne} ★`; }
+    else if (was === 'aufgabe') { const x = aufgabenHeute()[+p1]; if (x && !x.ab && x.n >= AUFGABEN[x.id].ziel) { x.ab = true; S.sterne += 30; feier = '+30 ★'; } }
+    else if (was === 'bonus') { if (!S.aufgBonus && aufgabenHeute().every(x => x.ab)) { S.aufgBonus = true; S.sterne += 30; feier = '+30 ★'; } }
+    else if (was === 'album') { const k = +p1, i = +p2, st = STUFEN[i]; if (st && (S.album[k] || 0) >= st.n && !S.albumAb[k + ':' + i]) { S.albumAb[k + ':' + i] = true; S.sterne += st.sterne; feier = `+${st.sterne} ★`; } }
+    else if (was === 'kat') { if (KAT[p1]) schrankKat = p1; }
+    else if (was === 'kauf') { const key = p1 + ':' + p2, it = (SCHRANK[p1] || []).find(x => x.id === p2); if (it && !it.kalender && !S.besitz.includes(key) && S.sterne >= it.preis) { S.sterne -= it.preis; S.besitz.push(key); S.an[p1] = p2; feier = `${it.name} gehört dir!`; } }
+    else if (was === 'an') { if (S.besitz.includes(p1 + ':' + p2)) S.an[p1] = p2; }
+    sichern();
+    if (feier && typeof snd === 'function') { try { snd(660, .08, 'sine', .05); setTimeout(() => snd(880, .08, 'sine', .05), 80); setTimeout(() => snd(1320, .16, 'triangle', .04), 160); } catch (_) { } }
+  }
+  // nach dem Zeichnen des Menüs: Vorschau-Bilder und kurzer Jubel
+  function nachRender(root) {
+    root.querySelectorAll('canvas[data-schatz-vorschau]').forEach(c => {
+      const [kat, id] = c.dataset.schatzVorschau.split(':'); const alt = { ...S.an }; S.an[kat] = id;
+      window.TRAUMSPRUNG_VORSCHAU_SPUR = kat === 'spur';
+      try { window.TRAUMSPRUNG_HELD_VORSCHAU?.(c, window.TRAUMSPRUNG_HERO === 'm' ? 'm' : 'w', kat === 'feuer'); } finally { S.an = alt; window.TRAUMSPRUNG_VORSCHAU_SPUR = false; }
+    });
+    if (feier) {
+      const f = document.createElement('div'); f.className = 'ts9-feier'; f.textContent = feier; root.appendChild(f);
+      setTimeout(() => f.remove(), 1600); feier = null;
+    }
+  }
+
+  const css = document.createElement('style');
+  css.textContent = `
+  #menu.ts8-menu .ts8-action--neu{border-color:#ffd34a!important;box-shadow:0 0 0 2px #ffd34a66,0 0 18px #ffd34a77;animation:ts9puls2 1.4s infinite}
+  #menu.ts8-menu .ts8-action{position:relative}#menu.ts8-menu .ts8-zahl{position:absolute;top:-7px;right:-5px;min-width:22px;height:22px;padding:0 5px;border-radius:11px;background:#ff4a6a;color:#fff;font:900 13px/22px system-ui;text-align:center;box-shadow:0 0 0 2px #1a1030,0 0 12px #ff4a6a}
+  #menu.ts8-menu .ts8-action--neu .ts8-action-info{color:#ffe27a;font-weight:800}
+  .ts9-hoehle{display:flex;flex-direction:column;gap:8px}
+  .ts9-hoehle h3{margin:10px 0 2px;font-size:15px;letter-spacing:.06em;text-transform:uppercase;color:#ffe9a8;display:flex;align-items:center;gap:8px}
+  .ts9-kopf{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+  .ts9-sterne{font:900 28px/1 Georgia,serif;color:#ffd34a;text-shadow:0 0 14px #ffb40088}
+  .ts9-kopf small,.ts9-leise{opacity:.75;font-size:12px;margin:0}
+  .ts9-punkt{width:10px;height:10px;border-radius:50%;background:#ff5a7a;box-shadow:0 0 10px #ff5a7a;animation:ts9puls 1s infinite}
+  @keyframes ts9puls{50%{transform:scale(1.4)}}
+  .ts9-kalender{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:5px}
+  .ts9-tag{position:relative;display:flex;flex-direction:column;align-items:center;gap:2px;padding:7px 2px;border-radius:12px;background:#ffffff12;border:2px solid #ffffff22;text-align:center;min-width:0}
+  .ts9-tag small{font-size:10px;opacity:.75}.ts9-tag b{font-size:12px;line-height:1.1;word-break:break-word}
+  .ts9-tag--item{background:linear-gradient(160deg,#ffffff1c,#ffcf4a26)}
+  .ts9-tag--jetzt{border-color:#ffd34a;box-shadow:0 0 16px #ffd34a88;animation:ts9puls2 1.2s infinite}
+  @keyframes ts9puls2{50%{transform:translateY(-3px)}}
+  .ts9-tag--ok{opacity:.55}.ts9-tag i{position:absolute;top:2px;right:5px;font-style:normal;color:#7dffa0;font-weight:900}
+  .ts9-gross{padding:12px;border-radius:16px;border:2px solid #fffae1;background:linear-gradient(110deg,#fff1be,#ffd6b6 57%,#ffaccd);color:#282145;font:800 17px system-ui;cursor:pointer;animation:ts9puls2 1.2s infinite}
+  .ts9-aufgaben,.ts9-album{display:flex;flex-direction:column;gap:6px}
+  .ts9-album{display:grid;grid-template-columns:repeat(auto-fill,minmax(112px,1fr))}
+  .ts9-aufgabe{display:grid;grid-template-columns:34px minmax(0,1fr) auto;gap:10px;align-items:center;padding:8px 10px;border-radius:14px;background:#ffffff10;border:1px solid #ffffff1c}
+  .ts9-aufgabe b{display:block;font-size:14px}.ts9-aufgabe small{font-size:11px;opacity:.75}
+  .ts9-icon{font-size:22px;text-align:center}
+  .ts9-balken{height:7px;border-radius:5px;background:#ffffff22;overflow:hidden;margin:4px 0 2px}.ts9-balken i{display:block;height:100%;background:linear-gradient(90deg,#7dffa0,#ffd34a)}
+  .ts9-hol,.ts9-kauf,.ts9-anlegen,.ts9-tab{border-radius:12px;border:2px solid #fffae1aa;background:#ffd34a;color:#3a2350;font:800 13px system-ui;padding:7px 11px;cursor:pointer;white-space:nowrap}
+  .ts9-hol{animation:ts9puls2 1s infinite}
+  .ts9-kauf[disabled]{background:#ffffff22;color:#ffffffaa;border-color:#ffffff33;cursor:default}
+  .ts9-anlegen{background:#9cf3f4}
+  .ts9-ok{color:#7dffa0;font-weight:900;white-space:nowrap}.ts9-preis{opacity:.7;font-weight:700;white-space:nowrap;font-size:13px}
+  .ts9-tier{display:flex;flex-direction:column;align-items:center;gap:3px;padding:9px 6px;border-radius:14px;background:#ffffff10;border:1px solid #ffffff1c;text-align:center}
+  .ts9-tier--neu{opacity:.6}.ts9-tiericon{font-size:30px;line-height:1}.ts9-tier small{font-size:11px;opacity:.75}
+  .ts9-st{font-size:16px;color:#ffffff33;margin:0 1px}.ts9-st.an.ts9-st--0{color:#e8a060}.ts9-st.an.ts9-st--1{color:#e0e8f0}.ts9-st.an.ts9-st--2{color:#ffd34a}
+  .ts9-tabs{display:flex;gap:6px;flex-wrap:wrap}.ts9-tab{background:#ffffff18;color:#fff;border-color:#ffffff33}.ts9-tab.an{background:#ffd34a;color:#3a2350}
+  .ts9-schrank{display:grid;grid-template-columns:repeat(auto-fill,minmax(104px,1fr));gap:7px}
+  .ts9-item{display:flex;flex-direction:column;align-items:center;gap:4px;padding:8px 4px;border-radius:14px;background:#ffffff10;border:2px solid #ffffff1c}
+  .ts9-item.an{border-color:#7dffa0;box-shadow:0 0 12px #7dffa055}.ts9-item canvas{width:80px;height:80px}.ts9-item b{font-size:12px;text-align:center}
+  .ts9-feier{position:fixed;left:50%;top:38%;transform:translate(-50%,-50%);z-index:2147483000;font:900 34px Georgia,serif;color:#fff6c8;text-shadow:0 0 22px #ffb400,0 2px 0 #7a3a00;pointer-events:none;animation:ts9feier 1.6s ease-out forwards;white-space:nowrap}
+  @keyframes ts9feier{0%{opacity:0;transform:translate(-50%,-30%) scale(.4)}18%{opacity:1;transform:translate(-50%,-50%) scale(1.15)}30%{transform:translate(-50%,-50%) scale(1)}80%{opacity:1}100%{opacity:0;transform:translate(-50%,-80%) scale(1)}}
+  @media (prefers-reduced-motion:reduce){.ts9-hol,.ts9-gross,.ts9-tag--jetzt,.ts9-punkt{animation:none}}
+  `;
+  document.head.appendChild(css);
+
+  window.TRAUMSPRUNG_HOEHLE = {
+    html, aktion, nachRender, hinweis, zaehle,
+    angelegt: () => ({ ...S.an }),
+    sterne: () => S.sterne,
+    daten: () => JSON.parse(JSON.stringify(S)),
+    aufgaben: () => aufgabenHeute().map(a => ({ ...a, ziel: AUFGABEN[a.id].ziel })),
+    _setze: o => { Object.assign(S, o); sichern(); }
+  };
+  // Das Hauptmenü wurde evtl. schon vor diesem Modul gezeichnet: neu zeichnen, damit „Geschenk wartet“ sichtbar ist
+  const neu = () => { try { if (typeof menuSignature !== 'undefined') menuSignature = ''; if (typeof updateInterface === 'function') updateInterface(); } catch (_) { } };
+  if (document.readyState === 'complete') setTimeout(neu, 0); else addEventListener('load', neu, { once: true });
 })();
 
 </script>
