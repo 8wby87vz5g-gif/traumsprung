@@ -7964,7 +7964,7 @@ setLang();menuSignature='';updateInterface();
     return;
   }
   window.__traumsprungDreamGateInstalled=true;
-  const VERSION='1.0 (Build 84)';
+  const VERSION='1.0 (Build 85)';
   const KEY_TIME='traumsprung-playtime-v1';
   const KEY_NAME='traumsprung-menu-nickname-v1';
   const KEY_DREAM='traumsprung-menu-realm-v1';
@@ -8136,7 +8136,7 @@ setLang();menuSignature='';updateInterface();
     const card=(h,name,info)=>`<button type="button" class="ts8-hero-card${cur===h?' ts8-hero-card--on':''}" data-ts8-action="hero-${h}" aria-label="${html(name)} wählen">
         <canvas width="140" height="140" data-hero="${h}" aria-hidden="true"></canvas><b>${html(name)}</b><small>${html(info)}</small></button>`;
     panel('Wähle deine Figur','WER SPRINGT DURCH DIE TRÄUME?',`<p>Beide spielen sich gleich. Du kannst die Figur jederzeit im Profil wechseln.</p>
-      <div class="ts8-hero-grid">${card('w','Traumwandlerin','mit Schlafmütze & Laterne')}${card('m','Traumwandler','mit Sternmütze & Laterne')}</div>${back()}`);
+      <div class="ts8-hero-grid">${card('w','Lumi','kleiner Traumdrache mit Sternschweif')}${card('m','Pip','kleiner Traumdrache mit Sternschweif')}</div>${back()}`);
     root.querySelectorAll('canvas[data-hero]').forEach(c=>heroPreview(c,c.dataset.hero));
   }
   const heroStyle=document.createElement('style');
@@ -8181,7 +8181,7 @@ setLang();menuSignature='';updateInterface();
       <label class="ts8-name-label" for="ts8-player-name">Spielername</label>
       <div class="ts8-name-row"><input id="ts8-player-name" maxlength="24" autocomplete="off" value="${html(nickname)}"><button data-ts8-action="save-name">Speichern</button></div>
       <div class="ts8-link-grid"><button data-ts8-action="leaderboard">♛ Bestenliste</button><button data-ts8-action="records">◷ Bestzeiten</button>${typeof certificateEligible==='function'&&certificateEligible()?'<button data-ts8-action="certificate-view">✦ Deine Urkunde</button>':''}</div>
-      <button class="ts8-secondary" data-ts8-action="hero">✦ Figur wechseln (${window.TRAUMSPRUNG_HERO==='m'?'Traumwandler':'Traumwandlerin'})</button>
+      <button class="ts8-secondary" data-ts8-action="hero">✦ Figur wechseln (${window.TRAUMSPRUNG_HERO==='m'?'Pip':'Lumi'})</button>
       <div class="ts8-data-grid">${tile('Aktuelle Welt',`${s.worldNumber} · ${s.world}`)}${tile("Freigeschaltet",`Level ${typeof shortLevel==="function"?shortLevel(s.reached):s.reached}`)}
         ${tile('Abgeschlossen',`${s.finished} / ${s.total}`)}${tile('Traumfunken',`${s.funken}`)}${tile('Erinnerungen',`${s.bilder} / 10`)}${tile('Erfasste Spielzeit',timeString(seconds))}</div>
       <div class="ts8-cloud-note"><b>◌ Nur lokal gespeichert</b><span>Es findet keine Online-Synchronisierung statt. Die Spielzeit wird erst seit Menüversion 2.7 erfasst.</span></div>
@@ -17813,6 +17813,201 @@ setLang();menuSignature='';updateInterface();
 // Das Hauptmenü wurde evtl. schon vor diesem Modul gezeichnet: Figur dort einmal neu zeichnen
 (function () { const neu = () => { try { window.TRAUMSPRUNG_MENU_FIGUR?.(); } catch (_) { } }; if (document.readyState === 'complete') neu(); else addEventListener('load', neu, { once: true }); setTimeout(neu, 600); })();
 
+</script><script>/* src/systems/drache-40.js */
+/* Traumsprung 4.0-p46 – Die Babydrachen Lumi und Pip (Wunsch: eine Figur, die Kinder anzieht).
+ *
+ * Ersetzt die Zeichnung der Traumwandler (held-40.js) durch zwei kleine, runde Babydrachen:
+ *   Lumi (statt Heldin)  lila mit rosa Bauch, rosa Rückenzacken und Flügelchen
+ *   Pip  (statt Held)    mint mit hellem Bauch, blauen Rückenzacken und Flügelchen
+ * Merkmale: großer runder Kopf mit großen, glänzenden Augen, kleine Hörner, Stupsschnauze mit Lächeln und Zähnchen,
+ * rundes Bäuchlein, kurze Beine mit Krallenfüßen, Stummelärmchen, Flügel, die im Sprung flattern, und ein Schwanz
+ * mit leuchtender Sternspitze – sie ist das Licht im Albtraum (wie früher die Laterne: hell bei viel Licht, flackert
+ * bei wenig). Stern-Form: golden mit Funkenkranz.
+ * Bewegung: Laufzyklus an die gelaufene Strecke gekoppelt (Füße rutschen nicht), Körper federt und lehnt sich vor,
+ * Ärmchen schwingen gegengleich, Schwanz und Flügel wippen. Augen blinzeln ab und zu.
+ * Nur Darstellung – Trefferfläche, Fußpunkt und Steuerung unverändert.
+ * Abschaltbar (zurück zu den Traumwandlern): window.TRAUMSPRUNG_DRACHE_OFF = true
+ */
+'use strict';
+(function () {
+  const OL = '#2a0f3a';
+  const FARBEN = {
+    w: { koerper: ['#d7b4ff', '#a97ae8'], bauch: ['#fff0fa', '#ffd2ec'], zacken: ['#ff8fc8', '#e0609a'], fluegel: ['#ffb8e0', '#ff8fc8'], horn: ['#fff6e0', '#f0d8b0'], auge: '#6a3ab8' },
+    m: { koerper: ['#8ef0d6', '#3fbfa8'], bauch: ['#f4fff8', '#cff5e8'], zacken: ['#6ab8ff', '#3a86e0'], fluegel: ['#a8e4ff', '#6ab8ff'], horn: ['#fff6e0', '#f0d8b0'], auge: '#1f6a8a' }
+  };
+  const GOLD = { koerper: ['#ffe27a', '#f0b030'], zacken: ['#fff6c8', '#ffd34a'], fluegel: ['#fff2b0', '#ffd34a'] };
+  const el = (x, y, rx, ry, c, r = 0, o = 1) => { cx.fillStyle = c; cx.beginPath(); cx.ellipse(x, y, Math.max(.1, rx), Math.max(.1, ry), r, 0, 7); cx.fill(); if (o) { cx.strokeStyle = OL; cx.lineWidth = 1.2; cx.stroke(); } };
+  const vg = (y0, y1, a, b) => { const g = cx.createLinearGradient(0, y0, 0, y1); g.addColorStop(0, a); g.addColorStop(1, b); return g; };
+  function stern(x, y, r, c) { cx.fillStyle = c; cx.beginPath(); for (let k = 0; k < 10; k++) { const a = k / 10 * Math.PI * 2 - Math.PI / 2, q = k % 2 ? r * .45 : r; cx.lineTo(x + Math.cos(a) * q, y + Math.sin(a) * q); } cx.closePath(); cx.fill(); }
+  // Zwei-Gelenk-Kette (Hüfte→Knie→Fuß); knick +1 = Knie nach vorn, -1 = Ellbogen nach hinten
+  function kette(ax, ay, zx, zy, l1, l2, knick) {
+    let dx = zx - ax, dy = zy - ay, d = Math.hypot(dx, dy); const max = l1 + l2 - .05;
+    if (d > max) { zx = ax + dx / d * max; zy = ay + dy / d * max; dx = zx - ax; dy = zy - ay; d = max; }
+    const basis = Math.atan2(dy, dx), al = Math.acos(Math.max(-1, Math.min(1, (l1 * l1 + d * d - l2 * l2) / (2 * l1 * Math.max(d, .01)))));
+    const w = basis - knick * al;
+    return [ax + Math.cos(w) * l1, ay + Math.sin(w) * l1, zx, zy];
+  }
+  function glied(pts, breite, farbe) {
+    cx.lineCap = 'round'; cx.lineJoin = 'round';
+    cx.strokeStyle = OL; cx.lineWidth = breite + 2.2; cx.beginPath(); cx.moveTo(pts[0], pts[1]); for (let i = 2; i < pts.length; i += 2) cx.lineTo(pts[i], pts[i + 1]); cx.stroke();
+    cx.strokeStyle = farbe; cx.lineWidth = breite; cx.stroke();
+  }
+
+  let zyklus = 0, letzteX = 0, blinzel = 0;
+  const altNeu = window.TRAUMSPRUNG_HELD_NEU;
+  window.TRAUMSPRUNG_HELD_NEU = function (x, y) {
+    if (window.TRAUMSPRUNG_DRACHE_OFF) return altNeu ? altNeu(x, y) : false;
+    if (window.TRAUMSPRUNG_HELD_ALT || !P) return false;
+    const M = window.TRAUMSPRUNG_HERO === 'm', F0 = FARBEN[M ? 'm' : 'w'];
+    const SS = P.star > 0 && !(state === 'morph' && P.tf > 35), mo = state === 'morph', mp = mo ? 1 - P.tf / 70 : 1;
+    const F = SS ? { ...F0, ...GOLD } : F0;
+    const air = !P.ground, lauf = !air && Math.abs(P.vx) > .5, tempo = Math.min(1, Math.abs(P.vx) / 2.6);
+    const sc = 1.08 * (1 + (SS ? .1 : 0) + (mo ? .15 * Math.sin(mp * Math.PI) : 0));
+
+    // Laufzyklus
+    const A = 1.6 + tempo * 2.6, HUB = 1.2 + tempo * 2.6;
+    if (lauf) zyklus += Math.abs(P.x - letzteX) / (2 * A * sc) * Math.PI; else if (!air) zyklus = 0;
+    letzteX = P.x;
+    const th = zyklus % (Math.PI * 2);
+    const fuss = ph0 => { const q = (th + ph0) % (Math.PI * 2); return [A * Math.cos(q), q < Math.PI ? 0 : -HUB * Math.sin(q - Math.PI)]; };
+    const federn = lauf ? -Math.cos(2 * th) * 1.0 : Math.sin(t / 22) * .45;   // im Stehen: atmen
+    const lehne = lauf ? tempo * .13 : air ? (P.vy < 0 ? .06 : -.05) : 0;
+    if (--blinzel < -170 - (P.x % 60)) blinzel = 7;   // ab und zu blinzeln
+    const zu = blinzel > 0;
+
+    cx.save();
+    cx.translate(x + 11, y + 28 - (mo ? 18 * Math.sin(mp * Math.PI) : 0)); cx.scale(sc, sc);
+    if (P.face < 0) cx.scale(-1, 1);
+    if (mo && mp < .85) { const sp = Math.cos(mp * 16); cx.scale(Math.abs(sp) < .15 ? .15 : sp, 1); }
+    const blink = P.inv > 0 && Math.floor(t / 4) % 2 ? .35 : 1; cx.globalAlpha = blink; cx.lineJoin = 'round'; cx.lineCap = 'round';
+    cx.rotate(lehne);
+    const yk = federn;
+
+    // ── Schwanz mit Sternspitze (hinten) ──
+    const sw = (lauf ? Math.sin(th) * 2.2 : Math.sin(t / 16) * 1.2) + (air ? P.vy * .35 : 0);
+    const s0 = [-5, -6 + yk], s1 = [-12, -6 + yk + sw * .4], s2 = [-16, -11 + yk + sw];
+    cx.beginPath(); cx.moveTo(-4, -10 + yk); cx.quadraticCurveTo(s1[0], -9 + yk + sw * .3, s2[0], s2[1]);
+    cx.quadraticCurveTo(s1[0] + 1, -3 + yk + sw * .4, -3, -3.5 + yk); cx.closePath();
+    cx.fillStyle = vg(-12 + yk, -3 + yk, F.koerper[0], F.koerper[1]); cx.fill(); cx.strokeStyle = OL; cx.lineWidth = 1.2; cx.stroke();
+    // Licht der Sternspitze: im Albtraum das Licht (wie die Laterne früher)
+    const L = window.TRAUMSPRUNG_LICHT, nm = dreamPhase === 2, licht = nm && L ? Math.max(0, Math.min(1, L.light())) : .6;
+    const flacker = nm && licht < .3 ? (Math.random() < .25 ? .3 : 1) : 1;
+    const hell = (nm ? .55 + .45 * licht : .5) * flacker;
+    const lr = nm ? 17 : 10, lg = cx.createRadialGradient(s2[0], s2[1], .5, s2[0], s2[1], lr);
+    lg.addColorStop(0, `rgba(255,236,160,${.85 * hell})`); lg.addColorStop(1, 'rgba(255,220,130,0)');
+    cx.fillStyle = lg; cx.beginPath(); cx.arc(s2[0], s2[1], lr, 0, 7); cx.fill();
+    stern(s2[0], s2[1], 3.4 + Math.sin(t / 8) * .3, SS ? '#ffffff' : `rgba(255,${226 + 20 * hell | 0},${110 + 60 * hell | 0},1)`);
+    cx.strokeStyle = 'rgba(120,70,20,.55)'; cx.lineWidth = .7; cx.beginPath(); for (let k = 0; k < 10; k++) { const a = k / 10 * Math.PI * 2 - Math.PI / 2, q = k % 2 ? 1.5 : 3.4; cx.lineTo(s2[0] + Math.cos(a) * q, s2[1] + Math.sin(a) * q); } cx.closePath(); cx.stroke();
+
+    // ── Flügel (hinten): flattern im Sprung, wippen beim Laufen ──
+    const fl = air ? Math.sin(t * .9) * .55 : lauf ? Math.sin(th * 2) * .12 : Math.sin(t / 20) * .06;
+    const fluegel = (ox, groesse, farbe, w0) => {
+      cx.save(); cx.translate(ox, -16.5 + yk); cx.rotate(-.05 + w0 + fl);
+      cx.beginPath(); cx.moveTo(0, 0); cx.quadraticCurveTo(-3 * groesse, -9 * groesse, -9 * groesse, -9 * groesse);
+      cx.quadraticCurveTo(-7.4 * groesse, -6 * groesse, -9 * groesse, -3.6 * groesse); cx.quadraticCurveTo(-6.6 * groesse, -3 * groesse, -7.2 * groesse, -.2 * groesse);
+      cx.quadraticCurveTo(-3.6 * groesse, -1 * groesse, 0, 2); cx.closePath();
+      cx.fillStyle = vg(-9 * groesse, 2, farbe[0], farbe[1]); cx.fill(); cx.strokeStyle = OL; cx.lineWidth = 1.1; cx.stroke();
+      cx.strokeStyle = 'rgba(42,15,58,.35)'; cx.lineWidth = .7; cx.beginPath(); cx.moveTo(-.5, 0); cx.lineTo(-8 * groesse, -8 * groesse); cx.moveTo(-.5, .5); cx.lineTo(-7.6 * groesse, -3.4 * groesse); cx.stroke();
+      cx.restore();
+    };
+    fluegel(-3.6, 1.15, F.zacken, -.25);   // hinterer Flügel (dunkler)
+    fluegel(-1.8, 1.3, F.fluegel, .12);   // vorderer Flügel – ebenfalls hinter dem Körper
+
+    // ── Beine (kurz und stämmig, Krallenfüße) ──
+    const huefte = -6.2 + yk, OS = 3.4, US = 3.2;
+    let sV = [1.4, 0], sH = [-2, 0];
+    if (air && P.vy < 0) { sV = [2.8, -3.6]; sH = [-3.2, -1]; } else if (air) { sV = [2.2, -.4]; sH = [-2.6, -1.8]; }
+    const bein = (bx, ziel, standard, hinten) => {
+      let [zx, zy] = ziel || standard; zx += bx;
+      const [kx, ky, fx, fy] = kette(bx * .7, huefte, zx, zy, OS, US, 1);
+      glied([bx * .7, huefte, kx, ky, fx, fy - 1], 4.2, hinten ? F.koerper[1] : F.koerper[0]);
+      cx.save(); cx.translate(fx, fy); cx.rotate(fy < -.3 ? Math.min(.45, -fy * .12) : 0);
+      el(1.2, -1.4, 3.6, 2.1, hinten ? F.koerper[1] : F.koerper[0]);
+      for (const kx2 of [3.2, 4.4]) { cx.fillStyle = F.horn[0]; cx.beginPath(); cx.moveTo(kx2 - .6, -1.8); cx.lineTo(kx2 + .9, -1.2); cx.lineTo(kx2 - .4, -.4); cx.fill(); }
+      cx.restore();
+    };
+    bein(-1.4, lauf ? fuss(Math.PI) : null, sH, true);
+    // hinteres Ärmchen
+    const armSchwung = lauf ? Math.cos(th) * (.5 + tempo * .4) : air ? (P.vy < 0 ? -1.4 : -1.9) : .2;
+    // Ärmchen: weich, ohne dicken Umriss am Ende (sonst wirkt die Hand wie ein Ring auf dem Bauch)
+    const arm = (sx, sy, schwung, farbe) => {
+      const hx = sx + Math.sin(schwung) * 4.6 + .8, hy = sy + Math.cos(schwung) * 4.6;
+      const [ex, ey] = kette(sx, sy, hx, hy, 2.5, 2.4, -1);
+      cx.lineCap = 'round'; cx.lineJoin = 'round';
+      cx.strokeStyle = OL; cx.lineWidth = 4; cx.beginPath(); cx.moveTo(sx, sy); cx.lineTo(ex, ey); cx.lineTo(hx, hy); cx.stroke();
+      cx.strokeStyle = farbe; cx.lineWidth = 2.6; cx.stroke();
+      el(hx, hy, 1.4, 1.4, farbe, 0, 0);
+    };
+    arm(-2.4, -14 + yk, armSchwung, F.koerper[1]);
+
+
+    // ── Körper: rundes Bäuchlein ──
+    el(0, -11 + yk, 7.6, 7.8, vg(-19 + yk, -3 + yk, F.koerper[0], F.koerper[1]));
+    // Bauch mit Querstreifen
+    cx.save(); cx.beginPath(); cx.ellipse(1.6, -10 + yk, 4.6, 6, .1, 0, 7); cx.clip();
+    cx.fillStyle = vg(-16 + yk, -4 + yk, F.bauch[0], F.bauch[1]); cx.fillRect(-4, -17 + yk, 12, 14);
+    cx.strokeStyle = 'rgba(160,90,140,.28)'; cx.lineWidth = .8; for (const by of [-13, -10.4, -7.8]) { cx.beginPath(); cx.moveTo(-3, by + yk); cx.quadraticCurveTo(1.6, by + 1 + yk, 6.4, by + yk); cx.stroke(); }
+    cx.restore();
+    cx.strokeStyle = OL; cx.lineWidth = .9; cx.beginPath(); cx.ellipse(1.6, -10 + yk, 4.6, 6, .1, 0, 7); cx.stroke();
+    // Rückenzacken
+    cx.fillStyle = F.zacken[0];
+    for (const [zx, zy, r] of [[-6.4, -13, 2.2], [-6.9, -9, 1.9], [-6, -5.4, 1.5]]) { cx.beginPath(); cx.moveTo(zx + 1.4, zy - r + yk); cx.quadraticCurveTo(zx - r * 1.4, zy - r * .2 + yk, zx + 1.4, zy + r + yk); cx.closePath(); cx.fill(); cx.strokeStyle = OL; cx.lineWidth = 1; cx.stroke(); }
+
+    // vorderes Bein
+    bein(1.4, lauf ? fuss(0) : null, sV, false);
+
+    // ── Kopf ──
+    const hy = -24.5 + yk, nick = lauf ? Math.sin(th * 2) * .04 : 0;
+    cx.save(); cx.translate(0, hy); cx.rotate(nick - lehne * .5);
+    // Hörner
+    for (const [hx, r0] of [[-3.6, -.35], [2.4, .15]]) {
+      cx.save(); cx.translate(hx, -7); cx.rotate(r0);
+      cx.beginPath(); cx.moveTo(-1.8, 1); cx.quadraticCurveTo(-1.6, -4.4, .4, -5.6); cx.quadraticCurveTo(1.4, -2.6, 1.8, 1); cx.closePath();
+      cx.fillStyle = vg(-5.6, 1, F.horn[0], F.horn[1]); cx.fill(); cx.strokeStyle = OL; cx.lineWidth = 1; cx.stroke(); cx.restore();
+    }
+    // Ohrflosse
+    cx.beginPath(); cx.moveTo(-6.4, -2.4); cx.quadraticCurveTo(-12, -4.6, -11, .6); cx.quadraticCurveTo(-8.6, -.4, -6.6, 1.4); cx.closePath();
+    cx.fillStyle = F.zacken[0]; cx.fill(); cx.strokeStyle = OL; cx.lineWidth = 1; cx.stroke();
+    // Kopf
+    el(0, 0, 9, 8.2, vg(-8, 8, F.koerper[0], F.koerper[1]));
+    // Schnauze
+    el(6.4, 2.6, 5, 3.8, vg(-1, 6.4, F.bauch[0], F.bauch[1]));
+    cx.fillStyle = 'rgba(42,15,58,.55)'; cx.beginPath(); cx.ellipse(8.6, 1.4, .55, .8, .3, 0, 7); cx.fill(); cx.beginPath(); cx.ellipse(10, 1.9, .5, .7, .3, 0, 7); cx.fill();
+    // Mund mit Zähnchen; im Sprung offen und fröhlich
+    if (air) { el(6.6, 4.4, 1.9, 1.5, '#8a1d3a'); el(6.6, 5.1, 1.1, .6, '#ff8aa8', 0, 0); }
+    else { cx.strokeStyle = OL; cx.lineWidth = 1; cx.beginPath(); cx.moveTo(3.4, 4); cx.quadraticCurveTo(6.6, 6.4, 9.6, 4); cx.stroke(); cx.fillStyle = '#ffffff'; cx.beginPath(); cx.moveTo(7.6, 4.9); cx.lineTo(8.2, 6.2); cx.lineTo(8.8, 4.6); cx.fill(); }
+    // Glanz auf dem Kopf
+    el(-3, -4.4, 3.6, 1.8, 'rgba(255,255,255,.35)', -.3, 0);
+    // große Augen (vorderes etwas größer – Blick nach vorn)
+    const auge = (ax, ay, rx, ry) => {
+      if (zu) { cx.strokeStyle = OL; cx.lineWidth = 1.2; cx.beginPath(); cx.arc(ax, ay, rx * .9, .3, Math.PI - .3); cx.stroke(); return; }
+      el(ax, ay, rx, ry, '#ffffff', 0, 0); cx.strokeStyle = 'rgba(42,15,58,.6)'; cx.lineWidth = .8; cx.stroke();
+      const ix = ax + rx * .25, iy = ay + ry * .12;
+      cx.fillStyle = vg(iy - ry * .8, iy + ry * .8, F.auge, '#16062a'); cx.beginPath(); cx.ellipse(ix, iy, rx * .72, ry * .78, 0, 0, 7); cx.fill();
+      cx.fillStyle = '#0c0418'; cx.beginPath(); cx.ellipse(ix + .2, iy + .3, rx * .38, ry * .44, 0, 0, 7); cx.fill();
+      cx.fillStyle = '#fff'; cx.beginPath(); cx.arc(ix - rx * .28, iy - ry * .34, rx * .34, 0, 7); cx.fill(); cx.beginPath(); cx.arc(ix + rx * .3, iy + ry * .36, rx * .16, 0, 7); cx.fill();
+      cx.strokeStyle = OL; cx.lineWidth = 1.1; cx.beginPath(); cx.arc(ax, ay, rx + .1, Math.PI * 1.15, Math.PI * 1.85); cx.stroke();   // Lidstrich oben
+    };
+    auge(-.4, -.6, 2.9, 3.5); auge(5, -1, 2.5, 3.2);
+    if (!M) { cx.strokeStyle = OL; cx.lineWidth = .9; for (const [wx, wy, dx, dy] of [[-3, -3.6, -1.1, -1], [-2.2, -4.1, -.6, -1.3], [7.2, -3.8, 1, -1]]) { cx.beginPath(); cx.moveTo(wx, wy); cx.lineTo(wx + dx, wy + dy); cx.stroke(); } }   // Wimpern bei Lumi
+    // Bäckchen
+    el(-2.8, 3.6, 1.8, 1.1, 'rgba(255,110,150,.55)', 0, 0); el(3.4, 3.8, 1.5, 1, 'rgba(255,110,150,.45)', 0, 0);
+    // Stirnstern (Traumzeichen)
+    stern(1.4, -5.6, 1.5, SS ? '#ffffff' : '#ffe27a');
+    cx.restore();
+
+    // vorderes Ärmchen
+    arm(3, -13.6 + yk, -armSchwung * .9 + .15, F.koerper[0]);
+
+    // Stern-Form: Funkenkranz
+    if (SS) for (let i = 0; i < 6; i++) { const a = t / 10 + i * Math.PI / 3; stern(Math.cos(a) * 14, -14 + Math.sin(a) * 14, 1.6, `hsl(${(t * 8 + i * 60) % 360},95%,72%)`); }
+    cx.restore(); cx.globalAlpha = 1;
+    return true;
+  };
+})();
+// Das Hauptmenü wurde evtl. schon vor diesem Modul gezeichnet: Figur dort einmal neu zeichnen
+(function () { const neu = () => { try { window.TRAUMSPRUNG_MENU_FIGUR?.(); } catch (_) { } }; if (document.readyState === 'complete') neu(); else addEventListener('load', neu, { once: true }); setTimeout(neu, 700); })();
+
 </script><script>/* src/systems/begleiter-40.js */
 /* Traumsprung 4.0-p31 – Der Traumbegleiter „Funki“.
  *
@@ -20147,7 +20342,7 @@ window.TRAUMSPRUNG_ZIEL = function (fx, fy) {
  * Jetzt (Ablauf in der Zeit, die die Engine ohnehin für den Tod vorsieht – an der Spielzeit ändert sich nichts):
  *  1) Treffer:   kurzer Ruck, weißer Blitz, Lichtring. Die Welt steht still (macht die Engine schon).
  *  2) Auflösen:  Die Figur löst sich in Traumfunken auf, die Mütze fliegt im Bogen davon,
- *                die Laterne fällt und erlischt.
+ *                die Laterne fällt und erlischt (Babydrachen: keine Mütze, die Sternspitze des Schwanzes fällt und erlischt).
  *  3) Einschlafen: Ein violetter Kreis schließt sich um die Stelle. In der Mitte die Herzen –
  *                das verlorene zerspringt.
  *  4) Erwachen:  Am Neustartpunkt öffnet sich der Kreis wieder, die Funken fliegen zusammen und
@@ -20190,8 +20385,11 @@ window.TRAUMSPRUNG_ZIEL = function (fx, fy) {
         r: 1.4 + Math.random() * 2.2, c: fb.fu[i % fb.fu.length], life: 40 + Math.random() * 30, max: 70, rot: Math.random() * 6
       });
     }
-    a.muetze = { x: cx0, y: a.y + 2, vx: -a.face * (1.2 + Math.random()), vy: a.tief ? -6 : -4.2, rot: 0, vr: -a.face * .18 };
-    a.laterne = { x: cx0 + a.face * 9, y: a.y + 18, vy: -1.5, glut: 1 };
+    // Babydrachen (drache-40.js) haben keine Mütze; statt der Laterne fällt ihre Sternspitze und erlischt
+    const drache = !window.TRAUMSPRUNG_DRACHE_OFF && typeof window.TRAUMSPRUNG_HELD_NEU === 'function';
+    a.drache = drache;
+    a.muetze = drache ? null : { x: cx0, y: a.y + 2, vx: -a.face * (1.2 + Math.random()), vy: a.tief ? -6 : -4.2, rot: 0, vr: -a.face * .18 };
+    a.laterne = { x: drache ? cx0 - a.face * 14 : cx0 + a.face * 9, y: a.y + 18, vy: -1.5, glut: 1 };
     ton(880, .08); setTimeout(() => ton(740, .08), 70); setTimeout(() => ton(587, .1), 140); setTimeout(() => ton(440, .18), 210);
   }
   function erwachen() {
@@ -20287,8 +20485,14 @@ window.TRAUMSPRUNG_ZIEL = function (fx, fy) {
       if (l) {
         const lx = l.x - cam, ly = l.y;
         if (l.glut > 0) { const g = cx.createRadialGradient(lx, ly, 1, lx, ly, 18 * l.glut + 2); g.addColorStop(0, `rgba(255,236,170,${.6 * l.glut})`); g.addColorStop(1, 'rgba(255,236,170,0)'); cx.fillStyle = g; cx.beginPath(); cx.arc(lx, ly, 20, 0, 7); cx.fill(); }
-        cx.fillStyle = '#5a3a6a'; cx.fillRect(lx - 3, ly - 4, 6, 8);
-        cx.fillStyle = l.glut > .05 ? fb.la : '#6f6680'; cx.globalAlpha = .4 + .6 * l.glut; cx.fillRect(lx - 2, ly - 3, 4, 6); cx.globalAlpha = 1;
+        if (A.drache) {
+          // Sternspitze des Drachenschwanzes: dreht sich, fällt und wird grau
+          cx.save(); cx.translate(lx, ly); cx.rotate(A.f * .12); cx.fillStyle = l.glut > .05 ? '#ffe27a' : '#8a8298'; cx.globalAlpha = .45 + .55 * l.glut;
+          cx.beginPath(); for (let k = 0; k < 10; k++) { const w = k / 10 * Math.PI * 2 - Math.PI / 2, q = k % 2 ? 1.6 : 3.6; cx.lineTo(Math.cos(w) * q, Math.sin(w) * q); } cx.closePath(); cx.fill(); cx.restore(); cx.globalAlpha = 1;
+        } else {
+          cx.fillStyle = '#5a3a6a'; cx.fillRect(lx - 3, ly - 4, 6, 8);
+          cx.fillStyle = l.glut > .05 ? fb.la : '#6f6680'; cx.globalAlpha = .4 + .6 * l.glut; cx.fillRect(lx - 2, ly - 3, 4, 6); cx.globalAlpha = 1;
+        }
         if (l.glut <= .05 && A.f % 8 < 4) { cx.fillStyle = 'rgba(200,200,220,.5)'; cx.beginPath(); cx.arc(lx + 1, ly - 8 - (A.f % 8), 1.6, 0, 7); cx.fill(); }   // Rauchwölkchen
       }
       // Mütze fliegt davon
