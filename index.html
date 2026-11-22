@@ -1574,7 +1574,8 @@ function draw(){
     cx.strokeStyle='#e5ffff';cx.lineWidth=.9;cx.stroke();
     cx.fillStyle='#fff';cx.beginPath();cx.arc(x-2,y-2,1.2,0,7);cx.fill();
   }
-  for(const b of balls){cx.fillStyle='rgba(255,154,42,.3)';cx.beginPath();cx.arc(b.x-cam,b.y,9,0,7);cx.fill();cx.fillStyle=b.super?'#ffde65':'#ff9a2a';cx.beginPath();cx.arc(b.x-cam,b.y,b.super?6:5,0,7);cx.fill();cx.fillStyle=b.super?'#fffdf0':'#ffe14a';cx.beginPath();cx.arc(b.x-cam,b.y,2.5,0,7);cx.fill()}
+  /* 4.0-p47: Schüsse können anders aussehen (drache-40.js: Feuerkugeln) */
+  for(const b of balls){if(window.TRAUMSPRUNG_BALLSKIN?.(b))continue;cx.fillStyle='rgba(255,154,42,.3)';cx.beginPath();cx.arc(b.x-cam,b.y,9,0,7);cx.fill();cx.fillStyle=b.super?'#ffde65':'#ff9a2a';cx.beginPath();cx.arc(b.x-cam,b.y,b.super?6:5,0,7);cx.fill();cx.fillStyle=b.super?'#fffdf0':'#ffe14a';cx.beginPath();cx.arc(b.x-cam,b.y,2.5,0,7);cx.fill()}
   for(const q of items){const x=q.x+8-cam,y=q.y+8;if(q.rise>0){cx.save();cx.beginPath();cx.rect(0,0,VW,q.by);cx.clip()}
     cx.fillStyle=q.k==='s'?'rgba(255,240,120,.25)':q.k==='f'?'rgba(255,120,60,.25)':'rgba(255,207,74,.22)';cx.beginPath();cx.arc(x,y,18,0,7);cx.fill();
     if(q.k==='s'){cx.fillStyle='hsl('+(t*12%360)+',95%,60%)';cx.beginPath();for(let i=0;i<10;i++){const a=i*Math.PI/5-Math.PI/2,r=i%2?5:11;cx.lineTo(x+Math.cos(a)*r,y+Math.sin(a)*r)}cx.fill()}
@@ -7964,7 +7965,7 @@ setLang();menuSignature='';updateInterface();
     return;
   }
   window.__traumsprungDreamGateInstalled=true;
-  const VERSION='1.0 (Build 85)';
+  const VERSION='1.0 (Build 86)';
   const KEY_TIME='traumsprung-playtime-v1';
   const KEY_NAME='traumsprung-menu-nickname-v1';
   const KEY_DREAM='traumsprung-menu-realm-v1';
@@ -8136,7 +8137,7 @@ setLang();menuSignature='';updateInterface();
     const card=(h,name,info)=>`<button type="button" class="ts8-hero-card${cur===h?' ts8-hero-card--on':''}" data-ts8-action="hero-${h}" aria-label="${html(name)} wählen">
         <canvas width="140" height="140" data-hero="${h}" aria-hidden="true"></canvas><b>${html(name)}</b><small>${html(info)}</small></button>`;
     panel('Wähle deine Figur','WER SPRINGT DURCH DIE TRÄUME?',`<p>Beide spielen sich gleich. Du kannst die Figur jederzeit im Profil wechseln.</p>
-      <div class="ts8-hero-grid">${card('w','Lumi','kleiner Traumdrache mit Sternschweif')}${card('m','Pip','kleiner Traumdrache mit Sternschweif')}</div>${back()}`);
+      <div class="ts8-hero-grid">${card('w','Lumi','kleiner Traumdrache mit Sternschweif')}${card('m','Pip','kleiner Feuerdrache mit Sternschweif')}</div>${back()}`);
     root.querySelectorAll('canvas[data-hero]').forEach(c=>heroPreview(c,c.dataset.hero));
   }
   const heroStyle=document.createElement('style');
@@ -17818,7 +17819,9 @@ setLang();menuSignature='';updateInterface();
  *
  * Ersetzt die Zeichnung der Traumwandler (held-40.js) durch zwei kleine, runde Babydrachen:
  *   Lumi (statt Heldin)  lila mit rosa Bauch, rosa Rückenzacken und Flügelchen
- *   Pip  (statt Held)    mint mit hellem Bauch, blauen Rückenzacken und Flügelchen
+ *   Pip  (statt Held)    rot mit goldgelbem Bauch, orangefarbenen Rückenzacken und Flügelchen
+ * Schuss (mit Traumstab-Kraft, Taste Feuer): der Drache spuckt Feuerkugeln aus dem Maul – Maul geht auf,
+ * Rauchwölkchen; die Kugel brennt mit Flammenschweif. Solange die Feuerkraft da ist, qualmt es aus den Nasenlöchern.
  * Merkmale: großer runder Kopf mit großen, glänzenden Augen, kleine Hörner, Stupsschnauze mit Lächeln und Zähnchen,
  * rundes Bäuchlein, kurze Beine mit Krallenfüßen, Stummelärmchen, Flügel, die im Sprung flattern, und ein Schwanz
  * mit leuchtender Sternspitze – sie ist das Licht im Albtraum (wie früher die Laterne: hell bei viel Licht, flackert
@@ -17833,7 +17836,8 @@ setLang();menuSignature='';updateInterface();
   const OL = '#2a0f3a';
   const FARBEN = {
     w: { koerper: ['#d7b4ff', '#a97ae8'], bauch: ['#fff0fa', '#ffd2ec'], zacken: ['#ff8fc8', '#e0609a'], fluegel: ['#ffb8e0', '#ff8fc8'], horn: ['#fff6e0', '#f0d8b0'], auge: '#6a3ab8' },
-    m: { koerper: ['#8ef0d6', '#3fbfa8'], bauch: ['#f4fff8', '#cff5e8'], zacken: ['#6ab8ff', '#3a86e0'], fluegel: ['#a8e4ff', '#6ab8ff'], horn: ['#fff6e0', '#f0d8b0'], auge: '#1f6a8a' }
+    // Pip: rot mit goldgelbem Bauch, orangefarbenen Zacken und Flügeln (4.0-p47, Wunsch)
+    m: { koerper: ['#ff7a62', '#d8403a'], bauch: ['#fff4d6', '#ffd68a'], zacken: ['#ffb03a', '#e87a1a'], fluegel: ['#ffd27a', '#ffa03a'], horn: ['#fff6e0', '#f0d8b0'], auge: '#6a2a1a' }
   };
   const GOLD = { koerper: ['#ffe27a', '#f0b030'], zacken: ['#fff6c8', '#ffd34a'], fluegel: ['#fff2b0', '#ffd34a'] };
   const el = (x, y, rx, ry, c, r = 0, o = 1) => { cx.fillStyle = c; cx.beginPath(); cx.ellipse(x, y, Math.max(.1, rx), Math.max(.1, ry), r, 0, 7); cx.fill(); if (o) { cx.strokeStyle = OL; cx.lineWidth = 1.2; cx.stroke(); } };
@@ -17853,7 +17857,7 @@ setLang();menuSignature='';updateInterface();
     cx.strokeStyle = farbe; cx.lineWidth = breite; cx.stroke();
   }
 
-  let zyklus = 0, letzteX = 0, blinzel = 0;
+  let zyklus = 0, letzteX = 0, blinzel = 0, spuck = 0;
   const altNeu = window.TRAUMSPRUNG_HELD_NEU;
   window.TRAUMSPRUNG_HELD_NEU = function (x, y) {
     if (window.TRAUMSPRUNG_DRACHE_OFF) return altNeu ? altNeu(x, y) : false;
@@ -17873,6 +17877,7 @@ setLang();menuSignature='';updateInterface();
     const federn = lauf ? -Math.cos(2 * th) * 1.0 : Math.sin(t / 22) * .45;   // im Stehen: atmen
     const lehne = lauf ? tempo * .13 : air ? (P.vy < 0 ? .06 : -.05) : 0;
     if (--blinzel < -170 - (P.x % 60)) blinzel = 7;   // ab und zu blinzeln
+    if (spuck > 0) spuck--;
     const zu = blinzel > 0;
 
     cx.save();
@@ -17974,8 +17979,11 @@ setLang();menuSignature='';updateInterface();
     el(6.4, 2.6, 5, 3.8, vg(-1, 6.4, F.bauch[0], F.bauch[1]));
     cx.fillStyle = 'rgba(42,15,58,.55)'; cx.beginPath(); cx.ellipse(8.6, 1.4, .55, .8, .3, 0, 7); cx.fill(); cx.beginPath(); cx.ellipse(10, 1.9, .5, .7, .3, 0, 7); cx.fill();
     // Mund mit Zähnchen; im Sprung offen und fröhlich
-    if (air) { el(6.6, 4.4, 1.9, 1.5, '#8a1d3a'); el(6.6, 5.1, 1.1, .6, '#ff8aa8', 0, 0); }
+    if (spuck > 0) { el(8, 4.2, 2.6, 2.2, '#8a1d3a'); el(8.4, 4.6, 1.6, 1.2, `rgba(255,${150 + spuck * 8},60,.9)`, 0, 0); }   // Feuer spucken: Maul weit auf
+    else if (air) { el(6.6, 4.4, 1.9, 1.5, '#8a1d3a'); el(6.6, 5.1, 1.1, .6, '#ff8aa8', 0, 0); }
     else { cx.strokeStyle = OL; cx.lineWidth = 1; cx.beginPath(); cx.moveTo(3.4, 4); cx.quadraticCurveTo(6.6, 6.4, 9.6, 4); cx.stroke(); cx.fillStyle = '#ffffff'; cx.beginPath(); cx.moveTo(7.6, 4.9); cx.lineTo(8.2, 6.2); cx.lineTo(8.8, 4.6); cx.fill(); }
+    // Feuerkraft: Rauch und kleine Flamme an den Nasenlöchern
+    if (P.fire && !SS) { for (let i = 0; i < 2; i++) { const k = ((t + i * 11) % 22) / 22; el(10.4 + k * 4, .8 - k * 6, .9 + k * 1.6, .9 + k * 1.6, `rgba(200,190,210,${.55 * (1 - k)})`, 0, 0); } if (t % 20 < 8) el(10.6, 1.2, 1.2, .8, 'rgba(255,170,60,.9)', 0, 0); }
     // Glanz auf dem Kopf
     el(-3, -4.4, 3.6, 1.8, 'rgba(255,255,255,.35)', -.3, 0);
     // große Augen (vorderes etwas größer – Blick nach vorn)
@@ -18002,6 +18010,58 @@ setLang();menuSignature='';updateInterface();
     // Stern-Form: Funkenkranz
     if (SS) for (let i = 0; i < 6; i++) { const a = t / 10 + i * Math.PI / 3; stern(Math.cos(a) * 14, -14 + Math.sin(a) * 14, 1.6, `hsl(${(t * 8 + i * 60) % 360},95%,72%)`); }
     cx.restore(); cx.globalAlpha = 1;
+    return true;
+  };
+
+  // ── Feuerkugeln ──
+  const AN = () => !window.TRAUMSPRUNG_DRACHE_OFF && !window.TRAUMSPRUNG_HELD_ALT;
+  // neu abgefeuerte Kugeln (Taste Feuer → press('x')) kommen aus dem Maul – Kugeln anderer Herkunft bleiben, wie sie sind
+  if (typeof press === 'function') {
+    const priorPress = press;
+    press = function (k, v) {
+      const vorher = typeof balls !== 'undefined' ? balls.length : 0;
+      const r = priorPress.apply(this, arguments);
+      if (AN() && P && typeof balls !== 'undefined') for (let i = vorher; i < balls.length; i++) {
+        const b = balls[i]; b.drache = true; b.spur = [];
+        b.x = P.x + 11 + P.face * 10; b.y = P.y + 6; b.vy = .8;
+        spuck = 12;
+        if (typeof spark === 'function') for (let j = 0; j < 6; j++) spark(b.x, b.y, j % 2 ? '#ffcf6a' : '#c8bcd0', 1);
+        if (typeof snd === 'function') snd(170, .12, 'sawtooth', .035);
+      }
+      return r;
+    };
+  }
+  if (typeof upd === 'function') {
+    const priorUpd = upd;
+    upd = function () {
+      const r = priorUpd.apply(this, arguments);
+      // Feuerkugeln hüpfen flach über den Boden (statt hoher Bögen) – so treffen sie Gegner am Boden zuverlässig
+      if (AN() && typeof balls !== 'undefined') for (const b of balls) if (b.spur) { if (b.vy === -6) b.vy = -3.4; b.spur.unshift([b.x, b.y]); if (b.spur.length > 7) b.spur.pop(); }
+      return r;
+    };
+  }
+  window.TRAUMSPRUNG_BALLSKIN = b => {
+    if (!AN() || !b.drache) return false;
+    const x = b.x - cam, y = b.y, heiss = b.super;
+    cx.save();
+    // Flammenschweif
+    const spur = b.spur || [];
+    for (let i = spur.length - 1; i >= 0; i--) {
+      const [sx, sy] = spur[i], k = 1 - i / spur.length, r = 1.5 + k * 4.4;
+      cx.fillStyle = heiss ? `rgba(255,250,200,${.5 * k})` : `rgba(255,${120 + 90 * k | 0},40,${.55 * k})`;
+      cx.beginPath(); cx.arc(sx - cam, sy, r, 0, 7); cx.fill();
+    }
+    // Glühen
+    const g = cx.createRadialGradient(x, y, 1, x, y, 13); g.addColorStop(0, heiss ? 'rgba(255,255,220,.75)' : 'rgba(255,190,80,.7)'); g.addColorStop(1, 'rgba(255,90,20,0)');
+    cx.fillStyle = g; cx.beginPath(); cx.arc(x, y, 13, 0, 7); cx.fill();
+    // Flammenkugel: flackernde Zungen
+    const dir = Math.sign(b.vx) || 1;
+    cx.fillStyle = heiss ? '#ffe680' : '#ff5a1a'; cx.beginPath();
+    for (let k = 0; k <= 12; k++) { const w = k / 12 * Math.PI * 2, zunge = (k % 2 ? 1 : 1.45) + Math.sin(t * .8 + k * 2) * .18, rr = 5.4 * zunge * (Math.cos(w) * -dir > .3 ? 1.25 : 1); cx.lineTo(x + Math.cos(w) * rr, y + Math.sin(w) * rr); }
+    cx.closePath(); cx.fill();
+    cx.fillStyle = heiss ? '#fffbe0' : '#ffb02a'; cx.beginPath(); cx.arc(x + dir * .6, y, 3.6, 0, 7); cx.fill();
+    cx.fillStyle = '#fff6c0'; cx.beginPath(); cx.arc(x + dir * 1, y - .4, 1.8, 0, 7); cx.fill();
+    cx.restore();
     return true;
   };
 })();
@@ -20358,7 +20418,8 @@ window.TRAUMSPRUNG_ZIEL = function (fx, fy) {
   const GA = Object.getOwnPropertyDescriptor(CanvasRenderingContext2D.prototype, 'globalAlpha');
   const schreib = (txt, x, y) => CanvasRenderingContext2D.prototype.fillText.call(cx, txt, x, y);
   const farben = () => window.TRAUMSPRUNG_HERO === 'm'
-    ? { mu: '#5fb8ff', mu2: '#d6f0ff', de: '#3fbfa8', la: '#a9fff0', fu: ['#a9fff0', '#d6f0ff', '#5fb8ff', '#ffffff'] }
+    ? (!window.TRAUMSPRUNG_DRACHE_OFF ? { mu: '#ff7a5a', mu2: '#ffd89a', de: '#e04a3a', la: '#ffcf6a', fu: ['#ffcf6a', '#ff7a5a', '#ffb03a', '#fff2c8'] }   // roter Drache Pip
+       : { mu: '#5fb8ff', mu2: '#d6f0ff', de: '#3fbfa8', la: '#a9fff0', fu: ['#a9fff0', '#d6f0ff', '#5fb8ff', '#ffffff'] })
     : { mu: '#ff8fc8', mu2: '#ffd6ec', de: '#a978e0', la: '#ffd27a', fu: ['#ffd6ec', '#ff8fc8', '#c9a6f2', '#fff2a8'] };
 
   // A = laufender Tod, E = laufendes Erwachen
