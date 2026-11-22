@@ -7964,7 +7964,7 @@ setLang();menuSignature='';updateInterface();
     return;
   }
   window.__traumsprungDreamGateInstalled=true;
-  const VERSION='1.0 (Build 81)';
+  const VERSION='1.0 (Build 82)';
   const KEY_TIME='traumsprung-playtime-v1';
   const KEY_NAME='traumsprung-menu-nickname-v1';
   const KEY_DREAM='traumsprung-menu-realm-v1';
@@ -19301,28 +19301,29 @@ window.TRAUMSPRUNG_ZIEL = function (fx, fy) {
   window.TRAUMSPRUNG_RAUSCH = { kette: () => kette, rausch: () => rausch, sprung: () => sprung, beste: () => beste };
 })();
 
-</script><script>/* src/systems/albwesen-40.js */
-/* Traumsprung 4.0-p42 – Albwesen: neue Gegner statt Hase, Frosch und Igel (Wunsch: „zu friedlich“, „andere Größen“).
+</script><script>/* src/systems/wildtiere-40.js */
+/* Traumsprung 4.0-p43 – Wildtiere: Gegner als Tiere aus der Natur, in drei Größen.
  *
- * Alle normalen Gegner der Hand-Level bekommen ein neues, bedrohliches Aussehen – Wesen aus dem Albtraum,
- * dunkel, mit glühenden, böse blickenden Augen und Zähnen, in den Farben der jeweiligen Welt:
- *   Läufer  (k0)  Schattenkrabbler – zotteliger Schatten mit Hörnern, Zahnreihe, vier Krallenbeinen
- *   Hüpfer  (k1)  Springzahn       – ein großes Auge, breites Maul, Sprungfedern als Beine
- *   Stachel (k2)  Dornling         – rundum lange, rot glühende Dornen: sieht gefährlich aus, darf man nicht treten
- *   Flieger (k3)  Nachtflatterer   – zerfetzte Flügel, Reißzähne
- *   Werfer  (k4)  Funkenspucker    – Kapuzenwesen mit glühendem Schlund
+ * Wunsch: Hase, Frosch und Igel waren zu friedlich, die Albwesen (p42) passten nicht zur Optik.
+ * Jetzt echte Wildtiere im Stil des Spiels (Umriss, weiche Farben), aber wachsam und angriffslustig:
+ *   Läufer  (k0)  Wildschwein   – Borstenkamm, Hauer, Rüssel; klein = gestreifter Frischling
+ *   Hüpfer  (k1)  Heuschrecke   – großes Sprungbein, Fühler
+ *   Stachel (k2)  Nashornkäfer  – Horn und Dornen auf dem Panzer: man sieht sofort, dass man nicht draufspringen darf
+ *   Flieger (k3)  Hornisse      – gestreift, Stachel, schwirrende Flügel
+ *   Werfer  (k4)  Spinne        – acht Beine, rote Augen, Giftzähne
+ * Im Albtraum dunkler mit rot glühenden Augen.
  * Größen (fest je Gegner, nicht zufällig pro Versuch):
  *   klein  – 0,7-fach, flinker
  *   normal
  *   groß   – 1,4-fach, langsamer, braucht zwei Sprünge: beim ersten schrumpft er auf normale Größe
- * Die Trefferfläche wächst und schrumpft mit dem Bild. Große Wesen nur, wo über ihnen genug Platz ist.
+ * Die Trefferfläche wächst und schrumpft mit dem Bild. Große Tiere nur, wo über ihnen genug Platz ist.
  * Bosse und die besonderen Welt-Gegner (Eis, Wasser, Lava …) bleiben unverändert.
- * Abschaltbar: window.TRAUMSPRUNG_ALBWESEN_OFF = true
+ * Abschaltbar: window.TRAUMSPRUNG_WILDTIERE_OFF = true
  */
 'use strict';
 (function () {
   if (typeof build !== 'function' || typeof upd !== 'function') return;
-  const HM = () => level > 0 && !!window.TRAUMSPRUNG_LEVEL_HANDMADE && !window.TRAUMSPRUNG_ALBWESEN_OFF;
+  const HM = () => level > 0 && !!window.TRAUMSPRUNG_LEVEL_HANDMADE && !window.TRAUMSPRUNG_WILDTIERE_OFF;
   const welt = () => Math.max(1, Math.ceil(level / 5));
   // je Welt: [Körper hell, Körper dunkel, Glühen]
   const FARBE = {
@@ -19399,6 +19400,13 @@ window.TRAUMSPRUNG_ZIEL = function (fx, fy) {
       cx.strokeStyle = OL; cx.lineWidth = 1.6 * s; cx.beginPath(); cx.moveTo(ax - 3.8 * s * ex, y - 1.6 * s); cx.lineTo(ax + 3.2 * s * ex, y - 4.8 * s); cx.stroke();
     }
   }
+  // Tierauge: weiß mit Pupille, darüber eine schräge Braue (wachsam/angriffslustig, nicht süß)
+  function auge(x, y, r, F, s = 1, facette = false) {
+    if (facette) { E(x, y, 2.4 * s, 2.6 * s, F.alb ? '#ff3a4e' : '#2a1a10'); E(x - .6 * s, y - .8 * s, .8 * s, .8 * s, 'rgba(255,255,255,.8)'); }
+    else { E(x, y, 2.2 * s, 2.2 * s, '#fff8ec'); E(x + r * .7 * s, y + .2, 1.2 * s, 1.4 * s, F.alb ? '#ff3a4e' : OL); E(x + r * .3 * s, y - .5, .45 * s, .45 * s, '#fff'); }
+    cx.strokeStyle = OL; cx.lineWidth = 1.5 * s; cx.lineCap = 'round';
+    cx.beginPath(); cx.moveTo(x - r * 2.6 * s, y - 3.4 * s); cx.lineTo(x + r * 2.4 * s, y - 1.8 * s); cx.stroke();
+  }
   function zaehne(x, y, w, n, h = 2.6) {
     cx.fillStyle = OL; cx.beginPath(); cx.ellipse(x, y + 1, w / 2, h * .9, 0, 0, Math.PI); cx.fill();
     cx.fillStyle = '#fff4f0'; cx.beginPath();
@@ -19407,75 +19415,118 @@ window.TRAUMSPRUNG_ZIEL = function (fx, fy) {
   }
   function koerper(F, y0, y1) { const g = cx.createLinearGradient(0, y0, 0, y1); g.addColorStop(0, F[0]); g.addColorStop(1, F[1]); return g; }
 
+  // Grundmaß 26 × 20, Ursprung unten Mitte; d = Blickrichtung (±1,6), r = ±1
   const ZEICHNE = {
-    // Schattenkrabbler
+    // Wildschwein – Borstenkamm, Hauer, Rüssel; klein = Frischling mit Streifen
     0(f, d, F, s) {
-      const b = Math.sin(t / 4 + f.x) * .8, schr = Math.floor(t / 6) % 2;
-      // Krallenbeine
-      cx.strokeStyle = F[1]; cx.lineWidth = 2.2; cx.lineCap = 'round';
-      for (let i = 0; i < 4; i++) { const lx = -9 + i * 6, o = (i + schr) % 2 ? 1.6 : -1.6; cx.beginPath(); cx.moveTo(lx, -5); cx.lineTo(lx + o + d * .6, -.6); cx.stroke(); }
-      // Hörner
-      cx.fillStyle = F[1];
-      for (const sx of [-1, 1]) { cx.beginPath(); cx.moveTo(sx * 6, -15 + b); cx.quadraticCurveTo(sx * 11, -22 + b, sx * 8, -26 + b); cx.quadraticCurveTo(sx * 8, -19 + b, sx * 3, -16 + b); cx.fill(); }
-      // zotteliger Körper
-      cx.fillStyle = koerper(F, -20, -2); cx.beginPath(); cx.moveTo(-13, -4);
-      for (let i = 0; i <= 10; i++) { const a = Math.PI + i / 10 * Math.PI, r = i % 2 ? 13 : 15.5; cx.lineTo(Math.cos(a) * r, -8 + Math.sin(a) * r * .82 + b); }
-      cx.lineTo(13, -4); cx.quadraticCurveTo(0, 0, -13, -4); cx.fill(); cx.strokeStyle = OL; cx.lineWidth = 1.4; cx.stroke();
-      augen(0, -12 + b, d, F, .9);
-      zaehne(d * 1.2, -6.5 + b, 11, 5);
+      const r = Math.sign(d) || 1, b = Math.sin(t / 4 + f.x) * .6, schr = Math.floor(t / 5) % 2, klein = f.groesse === 'klein';
+      const fell = F.alb ? '#3a1a24' : klein ? '#a8784a' : '#6e4a2e', dunkel = F.alb ? '#1a0810' : '#3e2616';
+      // Beine
+      cx.fillStyle = dunkel;
+      for (const [lx, ph] of [[-8, 0], [-4, 1], [4, 0], [8, 1]]) cx.fillRect(lx - 1.4, -6 + ((ph + schr) % 2 ? -.8 : 0), 2.8, 6);
+      // Körper
+      cx.fillStyle = fell; cx.beginPath(); cx.ellipse(-r * 1, -9 + b, 11.5, 7.5, 0, 0, 7); cx.fill(); cx.strokeStyle = OL; cx.lineWidth = 1.3; cx.stroke();
+      if (klein) { cx.strokeStyle = 'rgba(255,230,190,.55)'; cx.lineWidth = 1.2; for (let i = -1; i <= 1; i++) { cx.beginPath(); cx.moveTo(-r * 8, -9 + i * 3 + b); cx.lineTo(r * 4, -9 + i * 3 + b); cx.stroke(); } }
+      // Borstenkamm
+      cx.fillStyle = dunkel; cx.beginPath(); cx.moveTo(-r * 10, -13 + b);
+      for (let i = 0; i <= 8; i++) cx.lineTo(-r * 10 + r * i * 2.4, -16 - (i % 2 ? 3 : 0) + b - Math.sin(i / 8 * Math.PI) * 1.5);
+      cx.lineTo(r * 9, -12 + b); cx.closePath(); cx.fill();
+      // Ringelschwanz
+      cx.strokeStyle = dunkel; cx.lineWidth = 1.2; cx.beginPath(); cx.arc(-r * 13, -11 + b, 2, 0, 5); cx.stroke();
+      // Kopf
+      cx.fillStyle = fell; cx.beginPath(); cx.ellipse(r * 9, -9 + b, 6.5, 6, r * .3, 0, 7); cx.fill(); cx.strokeStyle = OL; cx.lineWidth = 1.3; cx.stroke();
+      // Ohr
+      cx.fillStyle = dunkel; cx.beginPath(); cx.moveTo(r * 6, -13 + b); cx.lineTo(r * 4.5, -19 + b); cx.lineTo(r * 9, -14 + b); cx.fill();
+      // Rüssel
+      E(r * 14.5, -7.5 + b, 3, 3.2, F.alb ? '#7a3a4a' : '#c8907a'); E(r * 15.2, -8.2 + b, .7, 1, OL); E(r * 15.2, -6.6 + b, .7, 1, OL);
+      // Hauer
+      if (!klein) { cx.fillStyle = '#fff6e8'; cx.beginPath(); cx.moveTo(r * 11.5, -5.5 + b); cx.quadraticCurveTo(r * 14, -6 + b, r * 13.5, -10 + b); cx.lineTo(r * 12.4, -6.6 + b); cx.fill(); }
+      // Auge mit Braue
+      auge(r * 9.5, -11 + b, r, F, .9);
     },
-    // Springzahn
+    // Heuschrecke – großes Sprungbein, Fühler, Facettenauge
     1(f, d, F, s, luft) {
-      const st = luft ? 1.18 : .94 + Math.abs(Math.sin(t / 7 + f.x)) * .06;
-      // Federbeine
-      cx.strokeStyle = '#8a8aa8'; cx.lineWidth = 1.6;
-      for (const sx of [-5, 5]) { cx.beginPath(); for (let i = 0; i <= 6; i++) cx.lineTo(sx + (i % 2 ? 2.2 : -2.2), -6 + i * (luft ? 1.2 : .9)); cx.stroke(); }
-      cx.save(); cx.scale(1, st);
-      cx.fillStyle = koerper(F, -22, -5); cx.beginPath(); cx.moveTo(0, -23); cx.bezierCurveTo(13, -21, 13, -6, 0, -5); cx.bezierCurveTo(-13, -6, -13, -21, 0, -23); cx.fill();
-      cx.strokeStyle = OL; cx.lineWidth = 1.4; cx.stroke();
-      // Stachelkamm
-      cx.fillStyle = F[1]; for (let i = -1; i <= 1; i++) { cx.beginPath(); cx.moveTo(i * 4 - 2, -21); cx.lineTo(i * 4, -26); cx.lineTo(i * 4 + 2, -21); cx.fill(); }
-      // ein großes Auge
-      const ax = d * 1.4; glueh(ax, -16, 9, F[2], .5); E(ax, -16, 5, 4.2, '#fff6e0'); E(ax + d * .9, -16, 2.6, 3.4, F[2]); E(ax + d * 1.1, -16, 1, 2.6, OL);
-      cx.strokeStyle = OL; cx.lineWidth = 1.8; cx.beginPath(); cx.moveTo(ax - 6, -22); cx.lineTo(ax + 5, -19.5); cx.stroke();
-      zaehne(d, -10, 14, 6, 3);
-      cx.restore();
+      const r = Math.sign(d) || 1, gr = F.alb ? '#5a2a3a' : '#6abf3a', gd = F.alb ? '#2a0c18' : '#3a7a1e';
+      const bein = luft ? 1 : 0;
+      // Fühler
+      cx.strokeStyle = gd; cx.lineWidth = 1; cx.beginPath(); cx.moveTo(r * 10, -13); cx.quadraticCurveTo(r * 16, -22, r * 20, -19 + Math.sin(t / 6) * 2); cx.moveTo(r * 9, -13); cx.quadraticCurveTo(r * 12, -24, r * 17, -24 + Math.sin(t / 7) * 2); cx.stroke();
+      // Vorderbeine
+      cx.strokeStyle = gd; cx.lineWidth = 1.6; cx.beginPath(); cx.moveTo(r * 6, -7); cx.lineTo(r * 8, -3); cx.lineTo(r * 7, 0); cx.moveTo(r * 2, -7); cx.lineTo(r * 3, -3); cx.lineTo(r * 1, 0); cx.stroke();
+      // Körper (Hinterleib gestreift)
+      cx.fillStyle = gr; cx.beginPath(); cx.ellipse(-r * 2, -9, 11, 5, -r * .08, 0, 7); cx.fill(); cx.strokeStyle = OL; cx.lineWidth = 1.2; cx.stroke();
+      cx.strokeStyle = gd; cx.lineWidth = 1; for (let i = 0; i < 4; i++) { cx.beginPath(); cx.moveTo(-r * (5 + i * 2.6), -13); cx.lineTo(-r * (5 + i * 2.6), -5); cx.stroke(); }
+      // Flügeldecke
+      cx.fillStyle = gd; cx.beginPath(); cx.ellipse(-r * 3, -12, 8, 2.6, -r * .1, 0, 7); cx.fill();
+      // Sprungbein
+      cx.strokeStyle = gd; cx.lineWidth = 3; cx.lineCap = 'round'; cx.beginPath();
+      if (bein) { cx.moveTo(-r * 2, -10); cx.lineTo(-r * 10, -13); cx.lineTo(-r * 16, -3); }
+      else { cx.moveTo(-r * 2, -10); cx.lineTo(-r * 9, -19); cx.lineTo(-r * 12, -1); }
+      cx.stroke(); cx.strokeStyle = '#ff6a3a'; cx.lineWidth = 1; cx.stroke();
+      // Kopf
+      cx.fillStyle = gr; cx.beginPath(); cx.ellipse(r * 10, -10, 5, 5.5, 0, 0, 7); cx.fill(); cx.strokeStyle = OL; cx.lineWidth = 1.2; cx.stroke();
+      E(r * 13, -6.5, 1.6, 1.3, gd);
+      auge(r * 11, -11.5, r, F, .85, true);
     },
-    // Dornling – darf man nicht treten
+    // Nashornkäfer – gepanzert, Horn und Dornenkamm: darf man nicht treten
     2(f, d, F, s) {
-      const p = Math.sin(t / 5 + f.x) * .6;
-      for (let i = 0; i < 11; i++) {
-        const a = Math.PI * 1.02 + i / 10 * Math.PI * .96, lang = 9 + (i % 2) * 3 + p;
-        const bx = Math.cos(a) * 10, by = -9 + Math.sin(a) * 8, sx = Math.cos(a) * (10 + lang), sy = -9 + Math.sin(a) * (8 + lang);
-        cx.fillStyle = OL; cx.beginPath(); cx.moveTo(bx - Math.sin(a) * 2.6, by + Math.cos(a) * 2.6); cx.lineTo(sx, sy); cx.lineTo(bx + Math.sin(a) * 2.6, by - Math.cos(a) * 2.6); cx.fill();
-        E(sx - Math.cos(a) * 1.5, sy - Math.sin(a) * 1.5, 1.4, 1.4, '#ff3a4e');
-      }
-      cx.fillStyle = koerper(F, -18, -1); cx.beginPath(); cx.ellipse(0, -8, 12, 8.5, 0, 0, 7); cx.fill(); cx.strokeStyle = OL; cx.lineWidth = 1.4; cx.stroke();
-      augen(0, -9, d, ['', '', '#ff4a3a'], .8);
-      zaehne(d, -4.5, 9, 4, 2);
-      const fs = Math.floor(t / 7) % 2 ? 1 : 0; E(-6, -.8 + fs * .4, 3.6, 1.6, OL); E(6, -.8 - fs * .4, 3.6, 1.6, OL);
+      const r = Math.sign(d) || 1, schr = Math.floor(t / 6) % 2;
+      const panz = F.alb ? '#4a1424' : '#5a3420', hell = F.alb ? '#8a2a40' : '#9a6a40';
+      cx.strokeStyle = '#2a1608'; cx.lineWidth = 1.4;
+      for (let i = 0; i < 3; i++) { const lx = -7 + i * 6, o = (i + schr) % 2 ? 1.5 : -1.5; cx.beginPath(); cx.moveTo(lx, -5); cx.lineTo(lx + o - 2, -2); cx.lineTo(lx + o - 3, 0); cx.stroke(); }
+      // Dornen auf dem Panzer
+      cx.fillStyle = '#2a1608';
+      for (let i = 0; i < 6; i++) { const a = Math.PI * 1.15 + i / 5 * Math.PI * .7, bx = -r * 1 + Math.cos(a) * 10, by = -8 + Math.sin(a) * 8.5;
+        cx.beginPath(); cx.moveTo(bx - 2, by + 1); cx.lineTo(bx + Math.cos(a) * 6, by + Math.sin(a) * 6); cx.lineTo(bx + 2, by + 1); cx.fill();
+        E(bx + Math.cos(a) * 5.4, by + Math.sin(a) * 5.4, 1, 1, '#ff5a3a'); }
+      // Panzer
+      const g = cx.createLinearGradient(0, -17, 0, -2); g.addColorStop(0, hell); g.addColorStop(1, panz);
+      cx.fillStyle = g; cx.beginPath(); cx.ellipse(-r * 1, -8, 11, 8, 0, Math.PI, 0); cx.lineTo(10 - r, -3); cx.quadraticCurveTo(0, 0, -12 - r, -3); cx.closePath(); cx.fill();
+      cx.strokeStyle = OL; cx.lineWidth = 1.3; cx.stroke();
+      cx.strokeStyle = 'rgba(0,0,0,.35)'; cx.beginPath(); cx.moveTo(-r * 1, -16); cx.lineTo(-r * 1, -3); cx.stroke();
+      E(-r * 5, -12, 3, 1.4, 'rgba(255,255,255,.35)', -.4);
+      // Kopf mit Horn
+      cx.fillStyle = panz; cx.beginPath(); cx.ellipse(r * 11, -6, 4.5, 4, 0, 0, 7); cx.fill(); cx.strokeStyle = OL; cx.stroke();
+      cx.fillStyle = '#2a1608'; cx.beginPath(); cx.moveTo(r * 12, -8); cx.quadraticCurveTo(r * 17, -12, r * 15, -21); cx.quadraticCurveTo(r * 13.5, -13, r * 10, -9); cx.fill();
+      auge(r * 12, -6.5, r, { 2: '#ff4a3a' }, .7);
     },
-    // Nachtflatterer
+    // Hornisse – gestreift, Stachel, schwirrende Flügel
     3(f, d, F, s) {
-      const fl = Math.sin(t / 3 + f.x) * 7;
-      cx.fillStyle = F[1];
-      for (const sx of [-1, 1]) {
-        cx.beginPath(); cx.moveTo(sx * 4, -13); cx.lineTo(sx * 19, -19 + fl); cx.lineTo(sx * 16, -12 + fl * .5); cx.lineTo(sx * 13, -14 + fl * .4);
-        cx.lineTo(sx * 11, -8 + fl * .3); cx.lineTo(sx * 8, -10); cx.lineTo(sx * 5, -6); cx.closePath(); cx.fill();
-      }
-      cx.fillStyle = koerper(F, -20, -2); cx.beginPath(); cx.ellipse(0, -11, 7.5, 8, 0, 0, 7); cx.fill(); cx.strokeStyle = OL; cx.lineWidth = 1.3; cx.stroke();
-      cx.fillStyle = F[1]; for (const sx of [-1, 1]) { cx.beginPath(); cx.moveTo(sx * 2.5, -17); cx.lineTo(sx * 5.5, -23); cx.lineTo(sx * 6.5, -15); cx.fill(); }
-      augen(0, -12, d, F, .62);
-      cx.fillStyle = '#fff4f0'; for (const sx of [-2, 2]) { cx.beginPath(); cx.moveTo(sx - 1, -7); cx.lineTo(sx, -4); cx.lineTo(sx + 1, -7); cx.fill(); }
+      const r = Math.sign(d) || 1, fl = Math.sin(t * 1.3 + f.x) * 4;
+      const gelb = F.alb ? '#c83a4a' : '#ffc21a', schw = '#2a1a10';
+      cx.globalAlpha = .55; E(-r * 1, -17 + fl * .3, 7, 3.2 + Math.abs(fl) * .4, '#e8f4ff', -r * .5); E(r * 3, -17 - fl * .3, 6, 2.8 + Math.abs(fl) * .3, '#e8f4ff', r * .4); cx.globalAlpha = 1;
+      // Hinterleib mit Stachel
+      cx.fillStyle = schw; cx.beginPath(); cx.moveTo(-r * 12, -7); cx.lineTo(-r * 16, -5); cx.lineTo(-r * 12, -9); cx.fill();
+      cx.fillStyle = gelb; cx.beginPath(); cx.ellipse(-r * 5, -9, 7.5, 5.5, r * .25, 0, 7); cx.fill();
+      cx.save(); cx.clip(); cx.fillStyle = schw; for (let i = 0; i < 3; i++) cx.fillRect(-r * (2 + i * 3.6) - 1.1, -16, 2.2, 14); cx.restore();
+      cx.strokeStyle = OL; cx.lineWidth = 1.2; cx.beginPath(); cx.ellipse(-r * 5, -9, 7.5, 5.5, r * .25, 0, 7); cx.stroke();
+      // Brust und Kopf
+      E(r * 3, -11, 4, 3.6, '#7a3a1a');
+      cx.fillStyle = gelb; cx.beginPath(); cx.ellipse(r * 8.5, -11, 4.6, 4.4, 0, 0, 7); cx.fill(); cx.strokeStyle = OL; cx.stroke();
+      // Zangen
+      cx.strokeStyle = schw; cx.lineWidth = 1.2; cx.beginPath(); cx.moveTo(r * 11, -8.5); cx.lineTo(r * 13.5, -7); cx.moveTo(r * 11, -9.5); cx.lineTo(r * 13.8, -10); cx.stroke();
+      // Beine
+      cx.beginPath(); for (let i = 0; i < 3; i++) { cx.moveTo(r * (1 + i * 2.4), -8); cx.lineTo(r * (i * 2.4 - 1), -3.5); } cx.stroke();
+      auge(r * 9.5, -12, r, F, .7, true);
     },
-    // Funkenspucker
+    // Spinne – acht Beine, mehrere rote Augen, Giftzähne; wirft Netzkugeln
     4(f, d, F, s) {
-      const b = Math.sin(t / 6 + f.x) * .8, auf = (t + f.x) % 60 < 14;
-      cx.fillStyle = koerper(F, -26, 0); cx.beginPath(); cx.moveTo(-12, 0); cx.quadraticCurveTo(-13, -16 + b, -3 - d * 2, -27 + b); cx.quadraticCurveTo(10, -22 + b, 12, 0);
-      for (let i = 0; i < 4; i++) cx.lineTo(12 - i * 6 - 3, -2 - (i % 2) * 2); cx.closePath(); cx.fill(); cx.strokeStyle = OL; cx.lineWidth = 1.4; cx.stroke();
-      E(d * 2, -15 + b, 7, 6.5, OL);
-      augen(d * 2, -17 + b, d, F, .6);
-      glueh(d * 2.4, -11 + b, auf ? 9 : 5, F[2], auf ? .8 : .4); E(d * 2.4, -11 + b, auf ? 3 : 1.8, auf ? 2.4 : 1.2, F[2]);
+      const r = Math.sign(d) || 1, schr = Math.floor(t / 5) % 2, b = Math.sin(t / 6 + f.x) * .6;
+      const k = F.alb ? '#2a0a18' : '#3a2a30', h = F.alb ? '#6a1a30' : '#6a5050';
+      cx.strokeStyle = k; cx.lineWidth = 1.6; cx.lineCap = 'round';
+      for (const sx of [-1, 1]) for (let i = 0; i < 4; i++) {
+        const o = (i + schr) % 2 ? 1.2 : -1.2, wx = sx * (5 + i * 1.8);
+        cx.beginPath(); cx.moveTo(sx * 2, -9 + b); cx.lineTo(wx + sx * 3, -15 + i * 1.5 + o + b); cx.lineTo(wx + sx * 6, 0); cx.stroke();
+      }
+      // Hinterleib
+      const g = cx.createRadialGradient(-r * 5, -12, 1, -r * 4, -10, 9); g.addColorStop(0, h); g.addColorStop(1, k);
+      cx.fillStyle = g; cx.beginPath(); cx.ellipse(-r * 4, -10 + b, 8, 7, 0, 0, 7); cx.fill(); cx.strokeStyle = OL; cx.lineWidth = 1.2; cx.stroke();
+      cx.fillStyle = F.alb ? '#ff3a4e' : '#e8c040'; cx.beginPath(); cx.moveTo(-r * 4, -14 + b); cx.lineTo(-r * 2.5, -11 + b); cx.lineTo(-r * 4, -8 + b); cx.lineTo(-r * 5.5, -11 + b); cx.fill();
+      // Kopf
+      cx.fillStyle = k; cx.beginPath(); cx.ellipse(r * 5, -8 + b, 5, 4.4, 0, 0, 7); cx.fill(); cx.strokeStyle = OL; cx.stroke();
+      // viele Augen
+      for (const [ex, ey, rr] of [[4.5, -9.5, 1.3], [7, -9.2, 1.3], [5.5, -11.4, .8], [7.8, -11, .8]]) { glueh(r * ex, ey + b, 3, '#ff3a3a', .35); E(r * ex, ey + b, rr, rr, '#ff4a3a'); }
+      // Giftzähne
+      cx.fillStyle = '#fff4f0'; for (const ex of [7, 9]) { cx.beginPath(); cx.moveTo(r * ex - .8, -5.5 + b); cx.lineTo(r * ex, -2.6 + b); cx.lineTo(r * ex + .8, -5.5 + b); cx.fill(); }
     }
   };
 
@@ -19483,7 +19534,7 @@ window.TRAUMSPRUNG_ZIEL = function (fx, fy) {
   window.TRAUMSPRUNG_FOESKIN = (f, x) => {
     const k = f.k | 0;
     if (!HM() || f.waechter || !ZEICHNE[k]) return priorSkin ? priorSkin(f, x) : false;
-    const F = dreamPhase === 2 || f.nm ? ALB : (FARBE[welt()] || FARBE[1]);
+    const F = dreamPhase === 2 || f.nm ? { ...ALB, alb: true } : (FARBE[welt()] || FARBE[1]);
     const d = f.vx > 0 ? 1.6 : -1.6, sx = (f.w || 26) / 26, sy = (f.h || 20) / 20;
     cx.save();
     if (f.dead) {
@@ -19515,7 +19566,7 @@ window.TRAUMSPRUNG_ZIEL = function (fx, fy) {
     };
   }
 
-  window.TRAUMSPRUNG_ALBWESEN = {
+  window.TRAUMSPRUNG_WILDTIERE = {
     zaehlen: () => { const z = { gross: 0, normal: 0, klein: 0 }; for (const f of foes || []) if (f.groesse) z[f.groesse]++; return z; }
   };
 })();
@@ -19530,15 +19581,19 @@ window.TRAUMSPRUNG_ZIEL = function (fx, fy) {
  *   Stufen     kleine Pyramide 1-2-2-1
  *   Dorn       ein einzelnes Stachelfeld mit Perle darüber (ab Level 3), passt auch unter Ziegelreihen
  *   Stein      ein Block hoch, passt auch unter Ziegelreihen
+ *   Grube      2 Felder breit mit Perlenbogen (ab Level 2) – sicher springbar, Anlauf und Landeplatz auf gleicher Höhe
  *   Ziegel     Ziegelreihe mit zwei Fragezeichen auf Reihe 8
  *   Kletterpfad drei schwebende Felsen aufwärts mit Perlen, darunter ein Dorn (ab Level 3)
  *   Fels       schwebender Fels (Reihe 8) mit Perlen darauf
  *   Himmelspfad Feder schleudert auf drei schwebende Felsen in Reihe 7 (oberer Weg mit Perlen)
  *   Feder      Sprungfeder mit Perlensäule darüber
+ * Dazu Luftstücke über festem Boden: schwebender Fels, Wackelwolken (ab Level 2), Felsentreppe aufwärts – jeweils mit Perlen.
  * Sicherheit (gemessen an der Spielphysik: Sprung ca. 2,6 Felder hoch, ca. 2,5 Felder weit):
- *   - nie Gruben, nur fester Boden; Mauern höchstens 2 hoch; Dorn immer nur 1 Feld breit mit Anlauf
+ *   - Gruben höchstens 2 Felder breit, nur zwischen festem, ebenem Boden; Mauern höchstens 2 hoch; Dorn immer nur 1 Feld breit mit Anlauf
  *   - der Bodenweg bleibt immer schaffbar, Felsen sind von unten durchspringbar
  *   - nicht in Boss-Leveln, Verfolgungsleveln (Schattenwand), Wasserstrecken, am Start und vor dem Ziel
+ * Parkour-Abschnitt: jedes normale Level bekommt vor der letzten Strecke zum Ziel 36 neu gebaute Felder
+ * (Felsensprung, Federturm oder Wolkenbrücke) mit Gruben, Mauern, Felsen, Wackelwolken, Federn, Ziegeln und Gegnern.
  * Gleiches Level = gleiche Stücke (fester Zufall je Level). Abschaltbar: window.TRAUMSPRUNG_PARKOUR_OFF = true
  */
 'use strict';
@@ -19599,6 +19654,8 @@ window.TRAUMSPRUNG_ZIEL = function (fx, fy) {
     mauer: { vor: 2, w: 1, nach: 2, ab: 1, oben: 6, bau(x) { grid[10][x] = '#'; grid[11][x] = '#'; perle(x - 1, 8); perle(x, 7); perle(x + 1, 8); } },
     stufen: { vor: 2, w: 4, nach: 2, ab: 1, oben: 6, bau(x) { grid[11][x] = '#'; grid[10][x + 1] = grid[11][x + 1] = '#'; grid[10][x + 2] = grid[11][x + 2] = '#'; grid[11][x + 3] = '#'; perle(x + 1, 8); perle(x + 2, 8); } },
     dorn: { vor: 3, w: 1, nach: 2, ab: 3, oben: 9, bau(x) { grid[11][x] = 'S'; perle(x, 9); } },
+    // Grube: 2 Felder breit (Sprungweite ca. 2,5 Felder) mit Perlenbogen, Anlauf 3 und Landeplatz 3 auf gleicher Höhe
+    grube: { vor: 3, w: 2, nach: 3, ab: 2, oben: 6, bau(x) { for (const i of [x, x + 1]) { grid[12][i] = ' '; grid[13][i] = ' '; } perle(x - 1, 9); perle(x, 8); perle(x + 1, 8); perle(x + 2, 9); } },
     // Stein: ein Block hoch – passt auch unter Ziegelreihen (Reihe 8)
     stein: { vor: 2, w: 1, nach: 2, ab: 1, oben: 9, bau(x) { grid[11][x] = '#'; } },
     ziegel: { vor: 0, w: 5, nach: 0, ab: 1, oben: 4, bau(x) { const s = 'B?BB?'; for (let i = 0; i < 5; i++) grid[8][x + i] = s[i]; } },
@@ -19621,10 +19678,37 @@ window.TRAUMSPRUNG_ZIEL = function (fx, fy) {
     feder: { vor: 2, w: 1, nach: 4, ab: 2, oben: 2, bau(x) { grid[11][x] = 'J'; for (let r = 5; r <= 7; r++) perle(x, r); } }
   };
 
+  // ── Luftstücke: schwebende Felsen und Wolken über festem Boden (Bodenweg darunter bleibt frei begehbar) ──
+  function luftFrei(x, z, oben, unten) {
+    if (z.has(x) || x < 1 || x >= W - 1 || grid[12][x] !== '#') return false;
+    for (let r = oben; r <= unten; r++) if (!leer(grid[r][x])) return false;
+    for (const g of gems || []) if (Math.abs(Math.floor(g.x / T) - x) <= 1) { const gr = Math.floor(g.y / T); if (gr >= oben - 1 && gr <= unten + 1) return false; }
+    return true;
+  }
+  const spalten = (a, b, z, o, u) => { for (let i = a; i <= b; i++) if (!luftFrei(i, z, o, u)) return false; return true; };
+  const LUFT = {
+    fels: { w: 5, ab: 1, pruef: (p, z) => spalten(p, p + 4, z, 4, 9), bau(p) { fels(p + 1, 8, 3); for (let i = 1; i <= 3; i++) perle(p + i, 7); } },
+    wolken: { w: 5, ab: 2, pruef: (p, z) => spalten(p, p + 4, z, 4, 9), bau(p) { for (let i = 1; i <= 3; i++) { grid[8][p + i] = 'C'; perle(p + i, 7); } } },
+    treppe: { w: 9, ab: 1, pruef: (p, z) => spalten(p, p + 4, z, 5, 9) && spalten(p + 5, p + 8, z, 2, 7),
+      bau(p) { fels(p + 1, 9, 3); fels(p + 5, 6, 3); for (let i = 0; i < 3; i++) { perle(p + 1 + i, 8); perle(p + 5 + i, 5); } } }
+  };
+  function luftSetzen(z, r, start, ende) {
+    const namen = Object.keys(LUFT).filter(n => level >= LUFT[n].ab);
+    let p = start;
+    while (p < ende) {
+      const reihe = namen.slice().sort(() => r() - .5);
+      const name = reihe.find(n => p + LUFT[n].w <= ende && LUFT[n].pruef(p, z));
+      if (!name) { p++; continue; }
+      LUFT[name].bau(p); gesetzt.push({ name, x: p + 1, luft: true });
+      p += LUFT[name].w + 4 + Math.floor(r() * 6);
+    }
+  }
+
   function setzen() {
     gesetzt = [];
     if (!AN() || !grid || window.TRAUMSPRUNG_SCENE?.chase) return;
     const z = belegt(), r = rng(level * 7919 + 17);
+    if (abschnitt) for (let x = abschnitt.von - 3; x <= abschnitt.bis + 3; x++) z.add(x);
     const start = 15, ende = (typeof goalTile === 'number' ? goalTile : W) - 14;
     const namen = Object.keys(STUECK).filter(n => level >= STUECK[n].ab);
     let p = start, n = 0;
@@ -19643,12 +19727,103 @@ window.TRAUMSPRUNG_ZIEL = function (fx, fy) {
       wahl.S.bau(wahl.a); gesetzt.push({ name: wahl.name, x: wahl.a }); n++;
       p = wahl.b + 3 + Math.floor(r() * 5);
     }
+    luftSetzen(z, r, start, ende);
+  }
+
+
+  // ── Parkour-Abschnitt: ein neu gebautes Stück Level (36 Felder) kurz vor dem Ziel ─────────────────────
+  // Die Level sind am Boden schon dicht gebaut; statt Lücken zu suchen, wird vor der letzten freien Strecke
+  // zum Ziel ein eigener Abschnitt eingeschoben. Alles dahinter (Ziel, Perlen, Gegner) rückt nach rechts.
+  // Gruben höchstens 2 Felder (aus dem Stand über 3 nur von erhöhter Mauer), Neustartpunkt am Anfang.
+  // Jeder Abschnitt enthält einen Blasenblock (w) – so bleibt der Traumwechsel im Takt (höchstens 70 Felder ohne Wechselmoment)
+  const N = 36;
+  const VORLAGEN = [
+    // A Felsensprung
+    (a, o, lv) => {
+      a.pit(o + 5, o + 6); a.arc(o + 4, [9, 8, 8, 9]);
+      a.column(o + 10, 1); a.column(o + 11, 2); a.pearls(9, o + 11, o + 11);
+      a.pit(o + 14, o + 15); a.island(o + 13, 8, 4); a.pearls(7, o + 13, o + 16);
+      a.tiles(8, o + 19, 'BwB?B'); a.foe(o + 21, 0);
+      a.pit(o + 25, o + 26); a.arc(o + 24, [9, 8, 8, 9]);
+      if (lv >= 3) { a.tiles(11, o + 30, 'S'); a.arc(o + 29, [10, 9, 10]); }
+      a.column(o + 33, 2);
+    },
+    // B Federturm
+    (a, o, lv) => {
+      a.tiles(11, o + 4, 'J'); a.pearls(5, o + 4, o + 4); a.pearls(6, o + 4, o + 4);
+      a.column(o + 7, 1); a.column(o + 8, 3); a.column(o + 9, 3); a.pearls(8, o + 8, o + 9);
+      a.pit(o + 10, o + 12); a.arc(o + 10, [8, 8, 9]);
+      a.tiles(8, o + 13, 'BwB'); a.island(o + 16, 9, 3); a.island(o + 20, 7, 3); a.pearls(8, o + 16, o + 18); a.pearls(6, o + 20, o + 22);
+      if (lv >= 3) a.tiles(11, o + 19, 'S');
+      a.pit(o + 25, o + 26); a.arc(o + 24, [9, 8, 8, 9]);
+      a.tiles(8, o + 29, 'B?BB'); a.foe(o + 31, 1);
+    },
+    // C Wolkenbrücke
+    (a, o, lv) => {
+      a.pit(o + 4, o + 9); a.tiles(11, o + 6, 'CC'); a.pearls(10, o + 6, o + 7);
+      a.tiles(8, o + 11, 'BwB'); a.foe(o + 13, lv >= 2 ? 1 : 0);
+      a.column(o + 16, 2); a.arc(o + 15, [8, 7, 8]);
+      a.pit(o + 20, o + 21); a.island(o + 19, 9, 4); a.pearls(8, o + 19, o + 22);
+      a.tiles(11, o + 25, 'J'); for (let r = 5; r <= 7; r++) a.pearls(r, o + 25, o + 25);
+      a.tiles(8, o + 28, 'B?B?B'); a.foe(o + 30, 0);
+    }
+  ];
+  let abschnitt = null;
+  function hatBei(o, ab, altW, tiefe = 0, gesehen = new Set()) {
+    if (!o || typeof o !== 'object' || tiefe > 5 || gesehen.has(o)) return false; gesehen.add(o);
+    const px = v => v > altW + 2 ? v / T : v;
+    if (o instanceof Map || o instanceof Set) { for (const v of o.values()) if (hatBei(v, ab, altW, tiefe + 1, gesehen)) return true; return false; }
+    if (Array.isArray(o)) { for (const v of o) if (typeof v === 'number' ? px(v) >= ab : hatBei(v, ab, altW, tiefe + 1, gesehen)) return true; return false; }
+    for (const k of ['x', 'x0', 'x1', 'x2', 'von', 'bis', 'a', 'b', 'ab', 'at', 'bei']) if (typeof o[k] === 'number' && px(o[k]) >= ab) return true;
+    for (const k of Object.keys(o)) if (o[k] && typeof o[k] === 'object' && hatBei(o[k], ab, altW, tiefe + 1, gesehen)) return true;
+    return false;
+  }
+  function einschieben(a, def) {
+    abschnitt = null;
+    if (!AN() || def.scene?.chase || typeof goalTile !== 'number') return;
+    const altW = W;
+    const leerSp = c => { for (let r = 0; r <= 11; r++) if (grid[r][c] !== ' ') return false; return grid[12][c] === '#' && grid[13][c] === '#'; };
+    let ins = goalTile; while (ins > 20 && leerSp(ins - 1)) ins--;
+    if (WZ && WZ[1] >= ins - 2) return;
+    // Sonderobjekte hinter der Einschubstelle? Dann dieses Level nicht verändern.
+    const H_ = k => window['TRAUMSPRUNG_HM_' + k];
+    for (const k of ['FAM', 'W3', 'W4', 'W5', 'W6', 'W7', 'W8', 'W9', 'W10', 'BUBBLES', 'GLUT', 'NMSPAWN', 'EISGEGNER', 'FUNKENTUER'])
+      if (hatBei(H_(k), ins - 1, altW)) return;
+    for (const k of ['HIDDEN', 'GHOSTS', 'NMISLES']) { const v = H_(k); if (v) for (const key of v.keys()) if (+String(key).split(',')[0] >= ins) return; }
+    // verschieben
+    for (let r = 0; r < H; r++) grid[r].splice(ins, 0, ...Array.from({ length: N }, () => r >= 12 ? '#' : ' '));
+    W += N; goalTile += N;
+    const dx = N * T, schieb = q => { if (q && typeof q.x === 'number' && q.x >= ins * T) q.x += dx; };
+    for (const g of gems) schieb(g);
+    for (const f of foes) { if (f.x >= ins * T) { f.x += dx; if (typeof f.x0 === 'number') f.x0 += dx; } }
+    for (const q of dreamSeals || []) schieb(q);
+    for (const q of levelDreamOrbs || []) schieb(q);
+    for (const q of H_('CRYSTALS') || []) schieb(q);
+    for (const k of ['RESTART', 'NMRESTART']) { const v = H_(k); if (v) for (let i = 0; i < v.length; i++) if (v[i] >= ins) v[i] += N; }
+    for (let i = 0; i < cpTiles.length; i++) if (cpTiles[i] >= ins) cpTiles[i] += N;
+    const schluessel = m => { if (!m) return m; const neu = m instanceof Map ? new Map() : new Set();
+      for (const e of (m instanceof Map ? m.entries() : m.values())) { const k = m instanceof Map ? e[0] : e; const [x, r] = String(k).split(','); const nk = +x >= ins ? (+x + N) + ',' + r : k; m instanceof Map ? neu.set(nk, e[1]) : neu.add(nk); }
+      return neu; };
+    hmRewards = schluessel(hmRewards); hmBricks = schluessel(hmBricks);
+    window.TRAUMSPRUNG_HM_BRICKITEMS = schluessel(H_('BRICKITEMS')); window.TRAUMSPRUNG_HM_ISLES = schluessel(H_('ISLES'));
+    // bauen
+    a.restart(ins + 1);
+    const v = (level * 5 + 1) % VORLAGEN.length;
+    VORLAGEN[v](a, ins, level);
+    abschnitt = { von: ins, bis: ins + N - 1, vorlage: 'ABC'[v] };
+  }
+  function einhaengen() {
+    const def = window.TRAUMSPRUNG_HANDMADE?.[level];
+    if (!def || def.__parkour || typeof def.build !== 'function') return;
+    const orig = def.build;
+    def.build = function (a) { const r = orig.apply(this, arguments); try { einschieben(a, def); } catch (e) { window.TRAUMSPRUNG_PARKOUR_FEHLER = String(e && e.stack || e); } return r; };
+    def.__parkour = true;
   }
 
   const priorBuild = build;
-  build = function () { const o = priorBuild.apply(this, arguments); try { setzen(); } catch (e) { gesetzt = []; window.TRAUMSPRUNG_PARKOUR_FEHLER = String(e && e.stack || e); } return o; };
+  build = function () { abschnitt = null; try { einhaengen(); } catch (_) { } const o = priorBuild.apply(this, arguments); try { setzen(); } catch (e) { gesetzt = []; window.TRAUMSPRUNG_PARKOUR_FEHLER = String(e && e.stack || e); } return o; };
 
-  window.TRAUMSPRUNG_PARKOUR = { stuecke: () => gesetzt.slice(), belegt: () => [...belegt()].filter(x => x >= 0 && x < W).length };
+  window.TRAUMSPRUNG_PARKOUR = { stuecke: () => gesetzt.slice(), abschnitt: () => abschnitt, belegt: () => [...belegt()].filter(x => x >= 0 && x < W).sort((a, b) => a - b) };
 })();
 
 </script><script>/* src/systems/kulissen-40.js */
