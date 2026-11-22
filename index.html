@@ -7960,7 +7960,7 @@ setLang();menuSignature='';updateInterface();
     return;
   }
   window.__traumsprungDreamGateInstalled=true;
-  const VERSION='1.0 (Build 77)';
+  const VERSION='1.0 (Build 78)';
   const KEY_TIME='traumsprung-playtime-v1';
   const KEY_NAME='traumsprung-menu-nickname-v1';
   const KEY_DREAM='traumsprung-menu-realm-v1';
@@ -16632,7 +16632,7 @@ setLang();menuSignature='';updateInterface();
         }
       }
       // im freiwilligen Albtraum zählt jede Perle doppelt
-      if (freiwillig && dreamPhase === 2 && gemsN > letzteGems) { const d = gemsN - letzteGems; for (let i = 0; i < d; i++) gain(); }
+      if (freiwillig && dreamPhase === 2 && gemsN > letzteGems) { const d = Math.min(30, gemsN - letzteGems); for (let i = 0; i < d; i++) gain(); }
       letzteGems = gemsN;
     }
     return r;
@@ -19427,6 +19427,7 @@ window.TRAUMSPRUNG_ZIEL = function (fx, fy) {
  *               Nähe fliegen von selbst heran. Läuft die Kette weiter, verlängert sich der Rausch.
  *  Sprungkette: Mehrere Gegner hintereinander besiegen, ohne den Boden zu berühren: „Doppelsprung!“, „Dreifach!“ …
  *               mit Bonusperlen (2, 3, 4 …) und größer werdendem Lichtring.
+ * p39: Kette zählt nur echte Perlen; Bonus höchstens 20 (vorher Endlosschleife im freiwilligen Albtraum).
  * Keine Auswirkung auf Schwierigkeit oder Erreichbarkeit – nur Belohnung. Abschaltbar: window.TRAUMSPRUNG_RAUSCH_OFF = true
  */
 'use strict';
@@ -19448,16 +19449,18 @@ window.TRAUMSPRUNG_ZIEL = function (fx, fy) {
   const priorUpd = upd;
   upd = function () {
     const vorLeben = AN() && foes ? foes.filter(f => !f.dead) : null;
+    // nur wirklich eingesammelte Perlen zählen für die Kette (nicht Bonus- oder Doppelperlen, sonst schaukelt es sich auf)
+    const offen = AN() && Array.isArray(gems) ? gems.filter(g => !g.got) : null;
     const r = priorUpd.apply(this, arguments);
     if (!AN() || !P) { letzte = typeof gemsN === 'number' ? gemsN : null; return r; }
     if (letzte === null || state !== 'play') { letzte = gemsN; if (state !== 'play' && state !== 'morph') { kette = 0; rausch = 0; sprung = 0; } return r; }
     // Perlenkette
-    const neu = gemsN - letzte;
+    const neu = offen ? Math.min(5, offen.filter(g => g.got).length) : 0;
     if (neu > 0) {
       for (let i = 0; i < neu; i++) {
         kette++; uhr = PAUSE; puls = 10; ton(kette - 1);
         if (kette >= 10 && kette % 10 === 0) {
-          bonus(kette / 2, P.x + 11, P.y - 20);
+          bonus(Math.min(20, kette / 2), P.x + 11, P.y - 20);
           if (!rausch) { banner = { txt: 'TRAUMRAUSCH!', life: 80 }; if (typeof snd === 'function') { snd(523, .12, 'sine', .05); snd(784, .16, 'sine', .05); snd(1046, .3, 'sine', .05); } for (let k = 0; k < 30; k++) spark(P.x + 11, P.y + 14, k % 2 ? '#ffe27a' : '#fff6c8', 1); }
           rausch = RAUSCH;
         }
