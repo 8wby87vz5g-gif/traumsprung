@@ -774,6 +774,24 @@ body.ts-titel #menu.menu-layer:not(.ts8-menu){
  * Für Tests: window.TRAUMSPRUNG_FEHLER.liste()
  */
 'use strict';
+// 4.0-p48: Ersatz für neuere Funktionen, die ältere iPhones (Safari vor iOS 15.4 bzw. 16) nicht kennen.
+// Ohne sie bricht das Spiel dort mit einem Fehler ab (Spielstatistik, Schattenjäger, abgerundete Rechtecke).
+(function () {
+  try {
+    if (!Object.hasOwn) Object.defineProperty(Object, 'hasOwn', { value: (o, k) => Object.prototype.hasOwnProperty.call(o, k), configurable: true, writable: true });
+    const at = function (n) { n = Math.trunc(n) || 0; if (n < 0) n += this.length; return n < 0 || n >= this.length ? undefined : this[n]; };
+    if (!Array.prototype.at) Object.defineProperty(Array.prototype, 'at', { value: at, configurable: true, writable: true });
+    if (!String.prototype.at) Object.defineProperty(String.prototype, 'at', { value: at, configurable: true, writable: true });
+    const C = window.CanvasRenderingContext2D && CanvasRenderingContext2D.prototype;
+    if (C && !C.roundRect) C.roundRect = function (x, y, w, h, r) {
+      let rr = Array.isArray(r) ? r : [r || 0]; const q = i => Math.min(Math.abs(+rr[i % rr.length] || 0), Math.abs(w) / 2, Math.abs(h) / 2);
+      const [a, b, c, d] = rr.length === 4 ? [q(0), q(1), q(2), q(3)] : rr.length === 2 ? [q(0), q(1), q(0), q(1)] : [q(0), q(0), q(0), q(0)];
+      this.moveTo(x + a, y); this.lineTo(x + w - b, y); this.quadraticCurveTo(x + w, y, x + w, y + b); this.lineTo(x + w, y + h - c);
+      this.quadraticCurveTo(x + w, y + h, x + w - c, y + h); this.lineTo(x + d, y + h); this.quadraticCurveTo(x, y + h, x, y + h - d);
+      this.lineTo(x, y + a); this.quadraticCurveTo(x, y, x + a, y); this.closePath();
+    };
+  } catch (_) { }
+})();
 (function () {
   const KEY = 'ts-fehlerbericht', liste = [], gesehen = new Set();
   let kasten = null;
@@ -7965,7 +7983,7 @@ setLang();menuSignature='';updateInterface();
     return;
   }
   window.__traumsprungDreamGateInstalled=true;
-  const VERSION='1.0 (Build 86)';
+  const VERSION='1.0 (Build 87)';
   const KEY_TIME='traumsprung-playtime-v1';
   const KEY_NAME='traumsprung-menu-nickname-v1';
   const KEY_DREAM='traumsprung-menu-realm-v1';
@@ -8029,7 +8047,8 @@ setLang();menuSignature='';updateInterface();
   function action(a,i,s){
     const resume=a.id==='continue'&&s.hasProgress;
     const name=resume?`Fortsetzen · Level ${typeof shortLevel==="function"?shortLevel(s.reached):s.reached}`:a.name;
-    const info=a.id==='continue'&&!s.hasProgress?'Deine erste Reise wartet':a.info;
+    // 4.0-p48: Die Geschichte läuft nicht mehr vor dem ersten Sprung (17 s Wartezeit) – im Menü als „Neu“ markiert
+    const info=a.id==='continue'&&!s.hasProgress?'Deine erste Reise wartet':a.id==='story'&&!read(KEY_INTRO,'')?'✦ Neu · Wie alles begann':a.info;
     return `<button type="button" class="ts8-action ${a.className||''}" style="--order:${i}" data-ts8-action="${a.id}" aria-label="${html(name)}">
       <span class="ts8-action-symbol" aria-hidden="true">${a.icon}</span><span class="ts8-action-label">${html(name)}</span><small class="ts8-action-info">${html(info)}</small>
       <span class="ts8-action-arrow" aria-hidden="true">›</span></button>`;
@@ -8172,8 +8191,8 @@ setLang();menuSignature='';updateInterface();
   function chooseHero(h){
     window.TRAUMSPRUNG_HERO=h;write(KEY_HERO,h);
     const go=heroPending;heroPending=null;
-    if(go){sessionGate=true;const seen=!!read(KEY_INTRO,'');write(KEY_INTRO,'1');
-      if(window.TRAUMSPRUNG_INTRO&&!seen)window.TRAUMSPRUNG_INTRO.play(go);else go();return;}
+    // 4.0-p48: nach der Figurenwahl sofort ins Spiel (Ziel: in unter 10 s spielen); die Geschichte gibt es im Menü
+    if(go){sessionGate=true;go();return;}
     return openView('ts8-profile');
   }
   function renderProfile(){
@@ -8233,7 +8252,7 @@ setLang();menuSignature='';updateInterface();
     if(a==='play')return startAt(tut?1:0);
     if(a==='continue')return startAt(Math.min(maxL,LV));
     if(a==='hero'){heroPending=null;return openView('ts8-hero');}
-    if(a==='story'){window.TRAUMSPRUNG_INTRO?.play(()=>{});return;}
+    if(a==='story'){write(KEY_INTRO,'1');menuSignature='';window.TRAUMSPRUNG_INTRO?.play(()=>{menuSignature='';updateInterface();});return;}
     if(a==='hero-w'||a==='hero-m')return chooseHero(a.slice(5));
     if(a==='worlds')return openView('levels');
     if(a==='collection')return openView('ts8-collection');
@@ -20640,6 +20659,160 @@ window.TRAUMSPRUNG_ZIEL = function (fx, fy) {
   };
 
   window.TRAUMSPRUNG_STERBEN = { aktiv: () => !!A, erwachen: () => !!E, funken: () => funken.length, phase: () => A ? A.f / A.d0 : -1 };
+})();
+
+</script><script>/* src/systems/einstieg-40.js */
+/* Traumsprung 4.0-p48 – Geführter Einstieg: Erfolgserlebnisse in der ersten Minute (Sprint A).
+ *
+ * Nur beim allerersten Spielen von Level 1 (bis die drei Aufgaben erledigt sind):
+ *  1) Hinweise ohne Text (Kinder lesen nicht): Handy quer – leuchtender Daumenpunkt links mit Pfeil → (halten =
+ *     laufen), rechts ein tippender Punkt mit ↑ (springen). Am Computer: Tasten → und Leertaste. Verschwinden,
+ *     sobald man es einmal gemacht hat.
+ *  2) „Erste Schritte“: drei Abzeichen oben in der Mitte – 3× springen, 10 Perlen, 1 Tier besiegen. Jedes füllt
+ *     einen Ring; fertig = Häkchen, Konfetti, Glockenspiel.
+ *  3) Alle drei geschafft (in Level 1 nach etwa 15–25 s): eine Schatztruhe hüpft ins Bild, springt auf, Strahlen,
+ *     30 Perlen fliegen heraus. Das Spiel hält dabei nie an.
+ * Gespeichert: localStorage 'traumsprung-einstieg' = '1'. Abschaltbar: window.TRAUMSPRUNG_EINSTIEG_OFF = true
+ */
+'use strict';
+(function () {
+  if (typeof upd !== 'function' || typeof draw !== 'function') return;
+  const KEY = 'traumsprung-einstieg';
+  let fertig = false; try { fertig = localStorage.getItem(KEY) === '1'; } catch (_) { }
+  const AN = () => !fertig && !window.TRAUMSPRUNG_EINSTIEG_OFF && level === 1 && (typeof DAILY === 'undefined' || !DAILY) && (!window.QA_STEP_MODE || window.QA_EINSTIEG);
+  const ZIEL = { sprung: 3, perlen: 10, tier: 1 };
+  let stand = { sprung: 0, perlen: 0, tier: 0 }, pop = { sprung: 0, perlen: 0, tier: 0 };
+  let startX = null, uhr = 0, gelaufen = false, gesprungen = false, warBoden = true, truhe = null, konfetti = [], perlenFlug = [], sichtbar = 0;
+
+  function glocke(n) { if (typeof snd !== 'function') return; const T0 = [523, 659, 784, 1046]; for (let i = 0; i < n; i++) setTimeout(() => { try { snd(T0[i % 4], .14, 'sine', .05); } catch (_) { } }, i * 70); }
+  function erledigt(k) {
+    pop[k] = 30; glocke(3); window.TRAUMSPRUNG_HAPTIC?.('light');
+    for (let i = 0; i < 26; i++) konfetti.push({ k, a: Math.random() * Math.PI * 2, v: 1.5 + Math.random() * 3.5, l: 40 + Math.random() * 20, f: `hsl(${Math.random() * 360 | 0},95%,65%)`, d: 0 });
+    if (Object.keys(ZIEL).every(z => stand[z] >= ZIEL[z])) truhe = { t: 0 };
+  }
+
+  const priorUpd = upd;
+  upd = function () {
+    const an = AN() && state === 'play' && P;
+    const offen = an && Array.isArray(gems) ? gems.filter(g => !g.got) : null;
+    const lebend = an && foes ? foes.filter(f => !f.dead) : null;
+    const r = priorUpd.apply(this, arguments);
+    if (!AN() || !P) return r;
+    if (state === 'play') {
+      if (startX === null) startX = P.x;
+      uhr++; sichtbar = Math.min(1, sichtbar + .05);
+      if (!gelaufen && P.x > startX + 2 * T) gelaufen = true;
+      // Sprung: vom Boden abgehoben mit Schwung nach oben
+      if (warBoden && !P.ground && P.vy < -5) { gesprungen = true; if (stand.sprung < ZIEL.sprung && ++stand.sprung === ZIEL.sprung) erledigt('sprung'); }
+      warBoden = !!P.ground;
+      if (offen) { const n = offen.filter(g => g.got).length; if (n && stand.perlen < ZIEL.perlen) { stand.perlen = Math.min(ZIEL.perlen, stand.perlen + n); if (stand.perlen === ZIEL.perlen) erledigt('perlen'); } }
+      if (lebend) { const n = lebend.filter(f => f.dead).length; if (n && stand.tier < ZIEL.tier) { stand.tier = Math.min(ZIEL.tier, stand.tier + n); if (stand.tier === ZIEL.tier) erledigt('tier'); } }
+    }
+    for (const k in pop) if (pop[k] > 0) pop[k]--;
+    for (const c of konfetti) { c.d += c.v; c.v *= .95; c.l--; }
+    konfetti = konfetti.filter(c => c.l > 0);
+    if (truhe) {
+      truhe.t++;
+      if (truhe.t > 150) truhe = null;
+    }
+    if (truhe) {
+      if (truhe.t === 40) { glocke(4); if (typeof snd === 'function') snd(1320, .3, 'triangle', .04); for (let i = 0; i < 30; i++) perlenFlug.push({ i, t: -i * 2 }); }
+      if (truhe.t === 150) { fertig = true; truhe = null; try { localStorage.setItem(KEY, '1'); } catch (_) { } }
+    }
+    for (const q of perlenFlug) { q.t++; if (q.t === 34 && typeof gain === 'function') { gain(); if (typeof snd === 'function' && q.i % 3 === 0) snd(990 + q.i * 12, .04, 'sine', .02); } }
+    perlenFlug = perlenFlug.filter(q => q.t < 36);
+    return r;
+  };
+
+  // ── Zeichnen im Bildschirmraum ──
+  const E = (x, y, rx, ry, c) => { cx.fillStyle = c; cx.beginPath(); cx.ellipse(x, y, Math.max(.1, rx), Math.max(.1, ry), 0, 0, 7); cx.fill(); };
+  function symbol(k, x, y, s) {
+    cx.save(); cx.translate(x, y); cx.scale(s, s); cx.lineCap = 'round'; cx.lineJoin = 'round';
+    if (k === 'sprung') { cx.strokeStyle = '#fff'; cx.lineWidth = 2.6; cx.beginPath(); cx.moveTo(-6, 7); cx.lineTo(6, 7); cx.moveTo(0, 4); cx.lineTo(0, -6); cx.moveTo(-4, -2); cx.lineTo(0, -7); cx.lineTo(4, -2); cx.stroke(); }
+    else if (k === 'perlen') { const g = cx.createRadialGradient(-2, -2, 1, 0, 0, 7); g.addColorStop(0, '#ffffff'); g.addColorStop(1, '#5fe8ff'); cx.fillStyle = g; cx.beginPath(); cx.moveTo(0, -7); cx.lineTo(6, 0); cx.lineTo(0, 7); cx.lineTo(-6, 0); cx.closePath(); cx.fill(); }
+    else { // Tatze
+      cx.fillStyle = '#fff'; E(0, 3, 4.6, 3.8, '#fff'); for (const [px, py] of [[-5, -2], [-2, -6], [2, -6], [5, -2]]) E(px, py, 1.8, 2.2, '#fff');
+    }
+    cx.restore();
+  }
+  const priorDraw = draw;
+  draw = function () {
+    const r = priorDraw.apply(this, arguments);
+    if (!(AN() || truhe || konfetti.length) || !P || state !== 'play' && state !== 'morph') return r;
+    const Wd = cv.width, Hd = cv.height, s = RENDER_SCALE;
+    cx.save(); cx.setTransform(1, 0, 0, 1, 0, 0); cx.globalAlpha = sichtbar;
+    // 1) Hinweise
+    const handy = matchMedia('(pointer:coarse)').matches, quer = matchMedia('(orientation:landscape)').matches;
+    const puls = .5 + .5 * Math.sin(uhr / 8);
+    if (!fertig && uhr > 70 && (!gelaufen || !gesprungen)) {
+      if (handy && quer) {
+        if (!gelaufen) {   // links: Daumen halten → laufen
+          const x = Wd * .16 + ((uhr % 60) / 60) * 26 * s, y = Hd * .72;
+          cx.fillStyle = `rgba(255,255,255,${.25 + .2 * puls})`; cx.beginPath(); cx.arc(x, y, 26 * s, 0, 7); cx.fill();
+          cx.strokeStyle = 'rgba(255,255,255,.9)'; cx.lineWidth = 3 * s; cx.beginPath(); cx.arc(x, y, 16 * s, 0, 7); cx.stroke();
+          cx.beginPath(); cx.moveTo(x + 26 * s, y); cx.lineTo(x + 52 * s, y); cx.moveTo(x + 44 * s, y - 8 * s); cx.lineTo(x + 52 * s, y); cx.lineTo(x + 44 * s, y + 8 * s); cx.stroke();
+        } else if (!gesprungen) {   // rechts: tippen → springen
+          const x = Wd * .82, y = Hd * .72, ring = (uhr % 40) / 40;
+          cx.strokeStyle = `rgba(255,255,255,${1 - ring})`; cx.lineWidth = 3 * s; cx.beginPath(); cx.arc(x, y, (14 + ring * 26) * s, 0, 7); cx.stroke();
+          cx.fillStyle = 'rgba(255,255,255,.85)'; cx.beginPath(); cx.arc(x, y, 12 * s, 0, 7); cx.fill();
+          cx.strokeStyle = 'rgba(255,255,255,.95)'; cx.beginPath(); cx.moveTo(x, y - 30 * s); cx.lineTo(x, y - 58 * s); cx.moveTo(x - 9 * s, y - 49 * s); cx.lineTo(x, y - 58 * s); cx.lineTo(x + 9 * s, y - 49 * s); cx.stroke();
+        }
+      } else if (!handy) {   // Tasten
+        const taste = (x, y, w, txt) => { cx.fillStyle = 'rgba(255,255,255,.92)'; cx.beginPath(); cx.roundRect(x, y, w, 34 * s, 8 * s); cx.fill(); cx.fillStyle = '#3a2350'; cx.font = `800 ${16 * s | 0}px system-ui,sans-serif`; cx.textAlign = 'center'; cx.textBaseline = 'middle'; CanvasRenderingContext2D.prototype.fillText.call(cx, txt, x + w / 2, y + 17 * s); };
+        const y = Hd * .62 - puls * 4 * s;
+        if (!gelaufen) taste(Wd / 2 - 22 * s, y, 44 * s, '→'); else taste(Wd / 2 - 70 * s, y, 140 * s, 'Leertaste');
+      }
+    }
+    // 2) Abzeichen
+    if (!fertig || truhe) {
+      const keys = ['sprung', 'perlen', 'tier'], R = 17 * s, gap = 50 * s, y0 = 30 * s;
+      keys.forEach((k, i) => {
+        const x = Wd / 2 + (i - 1) * gap, done = stand[k] >= ZIEL[k], q = stand[k] / ZIEL[k], sc = 1 + (pop[k] > 0 ? Math.sin(pop[k] / 30 * Math.PI) * .45 : 0);
+        cx.save(); cx.translate(x, y0); cx.scale(sc, sc);
+        cx.fillStyle = done ? 'rgba(80,200,120,.95)' : 'rgba(40,20,70,.75)'; cx.beginPath(); cx.arc(0, 0, R, 0, 7); cx.fill();
+        cx.strokeStyle = 'rgba(255,255,255,.25)'; cx.lineWidth = 3.5 * s; cx.beginPath(); cx.arc(0, 0, R, 0, 7); cx.stroke();
+        cx.strokeStyle = done ? '#fff' : '#ffd34a'; cx.beginPath(); cx.arc(0, 0, R, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * q); cx.stroke();
+        cx.restore();
+        if (done) { cx.strokeStyle = '#fff'; cx.lineWidth = 3.4 * s; cx.lineCap = 'round'; cx.beginPath(); cx.moveTo(x - 7 * s * sc, y0); cx.lineTo(x - 2 * s * sc, y0 + 5 * s * sc); cx.lineTo(x + 8 * s * sc, y0 - 6 * s * sc); cx.stroke(); }
+        else symbol(k, x, y0, s * sc);
+      });
+      for (const c of konfetti) { const i = keys.indexOf(c.k); const x = Wd / 2 + (i - 1) * gap + Math.cos(c.a) * c.d * s * 4, y = y0 + Math.sin(c.a) * c.d * s * 4 + (60 - c.l) * .3 * s; cx.globalAlpha = Math.min(1, c.l / 20); cx.fillStyle = c.f; cx.fillRect(x, y, 4 * s, 4 * s); }
+      cx.globalAlpha = sichtbar;
+    }
+    // 3) Schatztruhe
+    if (truhe) {
+      const k = truhe.t, x = Wd / 2, ein = Math.min(1, k / 18), y = Hd * .42 + (1 - ein) * -Hd * .4 + (k < 40 ? Math.abs(Math.sin(k / 4)) * -6 * s : 0);
+      const aus = k > 120 ? Math.max(0, 1 - (k - 120) / 30) : 1; cx.globalAlpha = aus;
+      const S2 = 2.2 * s;
+      if (k >= 40) {   // Strahlen
+        cx.save(); cx.translate(x, y - 6 * S2); cx.rotate(k / 40);
+        for (let i = 0; i < 12; i++) { cx.rotate(Math.PI / 6); cx.fillStyle = 'rgba(255,230,140,.35)'; cx.beginPath(); cx.moveTo(0, 0); cx.lineTo(-6 * S2, -40 * S2); cx.lineTo(6 * S2, -40 * S2); cx.closePath(); cx.fill(); }
+        cx.restore();
+      }
+      cx.save(); cx.translate(x, y); cx.scale(S2, S2);
+      // Kiste
+      cx.fillStyle = '#b8642a'; cx.strokeStyle = '#4a2010'; cx.lineWidth = 1.4; cx.beginPath(); cx.roundRect(-16, -8, 32, 18, 3); cx.fill(); cx.stroke();
+      cx.fillStyle = '#ffd34a'; cx.fillRect(-16, -2, 32, 3); cx.fillRect(-2.5, -8, 5, 18);
+      // Deckel
+      cx.save(); cx.translate(-16, -8); cx.rotate(k >= 40 ? -Math.min(1.9, (k - 40) / 6) : 0);
+      cx.fillStyle = '#d07a34'; cx.beginPath(); cx.moveTo(0, 0); cx.lineTo(0, -6); cx.quadraticCurveTo(16, -14, 32, -6); cx.lineTo(32, 0); cx.closePath(); cx.fill(); cx.stroke();
+      cx.fillStyle = '#ffd34a'; cx.fillRect(13.5, -11, 5, 11);
+      cx.restore();
+      if (k >= 40) { const g = cx.createRadialGradient(0, -8, 1, 0, -8, 18); g.addColorStop(0, 'rgba(255,250,200,.95)'); g.addColorStop(1, 'rgba(255,220,120,0)'); cx.fillStyle = g; cx.beginPath(); cx.arc(0, -8, 18, 0, 7); cx.fill(); }
+      cx.restore();
+      // Perlen fliegen nach oben links (Perlenzähler)
+      for (const q of perlenFlug) if (q.t > 0) {
+        const p = Math.min(1, q.t / 34), sx = x + Math.cos(q.i * 2.4) * 30 * s * (1 - p), sy = y - 20 * s;
+        const px = sx + (Wd * .08 - sx) * p * p, py = sy - Math.sin(p * Math.PI) * 60 * s + (Hd * .06 - sy) * p * p;
+        cx.fillStyle = '#8ff6ff'; cx.beginPath(); cx.arc(px, py, 4.5 * s, 0, 7); cx.fill(); cx.fillStyle = '#fff'; cx.beginPath(); cx.arc(px - 1.4 * s, py - 1.4 * s, 1.6 * s, 0, 7); cx.fill();
+      }
+      if (k > 44 && k < 130) { cx.fillStyle = '#fff6c8'; cx.font = `900 ${26 * s | 0}px Georgia,serif`; cx.textAlign = 'center'; cx.textBaseline = 'middle'; cx.shadowColor = 'rgba(255,190,60,.9)'; cx.shadowBlur = 16 * s; CanvasRenderingContext2D.prototype.fillText.call(cx, 'Super! +30', x, y - 52 * s); cx.shadowBlur = 0; }
+    }
+    cx.restore();
+    return r;
+  };
+
+  window.TRAUMSPRUNG_EINSTIEG = { stand: () => ({ ...stand }), fertig: () => fertig, truhe: () => truhe ? truhe.t : -1, reset: () => { fertig = false; stand = { sprung: 0, perlen: 0, tier: 0 }; truhe = null; startX = null; uhr = 0; gelaufen = gesprungen = false; } };
 })();
 
 </script>
