@@ -7964,7 +7964,7 @@ setLang();menuSignature='';updateInterface();
     return;
   }
   window.__traumsprungDreamGateInstalled=true;
-  const VERSION='1.0 (Build 83)';
+  const VERSION='1.0 (Build 84)';
   const KEY_TIME='traumsprung-playtime-v1';
   const KEY_NAME='traumsprung-menu-nickname-v1';
   const KEY_DREAM='traumsprung-menu-realm-v1';
@@ -17610,20 +17610,24 @@ setLang();menuSignature='';updateInterface();
  *  - kleine Laterne in der Hand – sie ist das Licht im Albtraum: leuchtet dort hell, flackert bei wenig Licht
  *  - Stern-Form: Mütze und Umhang werden golden, Sternbommel strahlt
  * Etwas größer gezeichnet (10 %), Trefferfläche und Fußpunkt unverändert.
+ * 4.0-p45: Beine mit Knie und Armen mit Ellbogen (Zwei-Gelenk-Kette), echter Laufzyklus an die gelaufene Strecke gekoppelt
+ *   (Füße setzen auf und rutschen nicht), Körper federt und lehnt sich in Laufrichtung, Arme schwingen gegengleich,
+ *   eigene Hosenfarbe, längerer Rumpf und etwas kleinerer Kopf; eigene Haltungen für Absprung und Fallen.
  * engine.js drawP ruft TRAUMSPRUNG_HELD_NEU auf; Abschalten (alte Figur): window.TRAUMSPRUNG_HELD_ALT = true
  */
 'use strict';
 (function () {
   const OL = '#2a0f3a';
   const FARBEN = {
-    w: { muetze: ['#ff8fc8', '#ffd6ec'], decke: ['#a978e0', '#c9a6f2', '#7a4ab8'], pyjama: ['#ffb8d8', '#ff8fbf'], haar: ['#b4582e', '#d77a42', '#7a3418'], puschen: ['#ffffff', '#ffd6ec'], laterne: '#ffd27a' },
-    m: { muetze: ['#5fb8ff', '#d6f0ff'], decke: ['#3fbfa8', '#7ee0cc', '#227a6c'], pyjama: ['#8ab8ff', '#5a8ae0'], haar: ['#3a2a1a', '#5a4028', '#20140a'], puschen: ['#ffffff', '#d6f0ff'], laterne: '#a9fff0' }
+    w: { muetze: ['#ff8fc8', '#ffd6ec'], decke: ['#a978e0', '#c9a6f2', '#7a4ab8'], pyjama: ['#ffb8d8', '#ff8fbf'], hose: ['#e0609a', '#b8437a'], haar: ['#b4582e', '#d77a42', '#7a3418'], puschen: ['#ffffff', '#ffd6ec'], laterne: '#ffd27a' },
+    m: { muetze: ['#5fb8ff', '#d6f0ff'], decke: ['#3fbfa8', '#7ee0cc', '#227a6c'], pyjama: ['#8ab8ff', '#5a8ae0'], hose: ['#3e66c8', '#2a4898'], haar: ['#3a2a1a', '#5a4028', '#20140a'], puschen: ['#ffffff', '#d6f0ff'], laterne: '#a9fff0' }
   };
   const GOLD = { muetze: ['#ffd34a', '#fff6c8'], decke: ['#ffcf4a', '#fff0a0', '#d9a020'] };
   const el = (x, y, rx, ry, c, r = 0, o = 1) => { cx.fillStyle = c; cx.beginPath(); cx.ellipse(x, y, rx, ry, r, 0, 7); cx.fill(); if (o) { cx.strokeStyle = OL; cx.lineWidth = 1.2; cx.stroke(); } };
   const vg = (y0, y1, a, b) => { const g = cx.createLinearGradient(0, y0, 0, y1); g.addColorStop(0, a); g.addColorStop(1, b); return g; };
   function stern(x, y, r, c) { cx.fillStyle = c; cx.beginPath(); for (let k = 0; k < 10; k++) { const a = k / 10 * Math.PI * 2 - Math.PI / 2, q = k % 2 ? r * .45 : r; cx.lineTo(x + Math.cos(a) * q, y + Math.sin(a) * q); } cx.closePath(); cx.fill(); }
 
+  let zyklus = 0, letzteX = 0;
   window.TRAUMSPRUNG_HELD_NEU = function (x, y) {
     if (window.TRAUMSPRUNG_HELD_ALT || !P) return false;
     const M = window.TRAUMSPRUNG_HERO === 'm', F = FARBEN[M ? 'm' : 'w'];
@@ -17641,39 +17645,105 @@ setLang();menuSignature='';updateInterface();
 
     // ── Umhang (hinten) ──
     const flatter = air ? -P.vy * .6 : 0, weh = 4 + tempo * 7 + Math.sin(t / 6) * 1.2;
-    cx.beginPath(); cx.moveTo(-3, -17 + yb);
-    cx.quadraticCurveTo(-7 - weh * .6, -12 + yb + flatter * .3, -6 - weh, -3 + flatter);
-    cx.lineTo(-2 - weh * .7, 0 + flatter * .6); cx.quadraticCurveTo(-3, -5 + yb, 3, -15 + yb); cx.closePath();
-    cx.fillStyle = vg(-18 + yb, 0, de[1], de[0]); cx.fill(); cx.strokeStyle = OL; cx.lineWidth = 1.2; cx.stroke();
+    cx.beginPath(); cx.moveTo(-3, -19.8 + yb);
+    cx.quadraticCurveTo(-7 - weh * .6, -14 + yb + flatter * .3, -6 - weh, -3 + flatter);
+    cx.lineTo(-2 - weh * .7, 0 + flatter * .6); cx.quadraticCurveTo(-3, -6 + yb, 3, -18 + yb); cx.closePath();
+    cx.fillStyle = vg(-20 + yb, 0, de[1], de[0]); cx.fill(); cx.strokeStyle = OL; cx.lineWidth = 1.2; cx.stroke();
     cx.strokeStyle = de[2]; cx.globalAlpha *= .5; cx.lineWidth = .8;   // Steppnähte
     cx.beginPath(); cx.moveTo(-4 - weh * .3, -13 + yb); cx.lineTo(-4 - weh * .7, -2 + flatter * .5); cx.moveTo(-1 - weh * .25, -14 + yb); cx.lineTo(-1 - weh * .5, -1 + flatter * .5); cx.stroke();
     cx.globalAlpha = P.inv > 0 && Math.floor(t / 4) % 2 ? .35 : 1;
 
-    // ── Beine + Puschen ──
-    const s1 = lauf ? Math.sin(ph) * 3 : 0;
-    const bein = (bx, swing, hinten) => {
-      const fx = bx + swing, fy = air ? -3 + (hinten ? -1 : 1) : 0;
-      el(bx + swing * .5, -6 + (air ? -1 : 0), 2.4, 3.6, hinten ? F.pyjama[1] : F.pyjama[0]);
-      el(fx + 1, fy - 1.8, 4.2, 2.6, vg(fy - 4, fy, F.puschen[0], F.puschen[1]));
-      cx.fillStyle = F.muetze[0]; cx.beginPath(); cx.arc(fx + 4.2, fy - 3, 1.3, 0, 7); cx.fill();   // Bommel am Puschen
+    // ── Gliedmaßen (4.0-p45): Ober-/Unterschenkel mit Knie, Ober-/Unterarm mit Ellbogen, echter Laufzyklus ──
+    // Phase wächst mit der gelaufenen Strecke – so rutschen die Füße nicht über den Boden.
+    const A = 2 + tempo * 3.6, HUB = 1.4 + tempo * 3.4;   // Schrittweite, Fußhub
+    if (lauf) zyklus += Math.abs(P.x - letzteX) / (2 * A * 1.1) * Math.PI; else if (!air) zyklus = 0;
+    letzteX = P.x;
+    const th = zyklus % (Math.PI * 2);
+    // Fußziel je Bein: Standphase (0..π) – Fuß am Boden, wandert nach hinten; Schwungphase (π..2π) – Fuß hebt ab und schwingt vor
+    const fuss = (ph0) => {
+      const q = (th + ph0) % (Math.PI * 2);
+      if (lauf) return [A * Math.cos(q), q < Math.PI ? 0 : -HUB * Math.sin(q - Math.PI) - (Math.sin(q - Math.PI) > .6 ? 1 : 0)];
+      return null;
     };
-    bein(-2.5, -s1, true); bein(2.5, s1, false);
+    const vorn = fuss(0), hinten = fuss(Math.PI);
+    // Körperhaltung: im Lauf federt er (tief in der Standmitte) und lehnt sich in Laufrichtung
+    const federn = lauf ? -Math.cos(2 * th) * 1.1 : 0;
+    const yk = yb + federn;
+    const lehne = lauf ? tempo * .16 : air ? (P.vy < 0 ? .08 : -.04) : 0;
+    // Zwei-Gelenk-Kette (Hüfte→Knie→Fuß / Schulter→Ellbogen→Hand); knick = +1 Knie nach vorn, -1 Ellbogen nach hinten
+    const kette = (ax, ay, zx, zy, l1, l2, knick) => {
+      let dx = zx - ax, dy = zy - ay, d = Math.hypot(dx, dy); const max = l1 + l2 - .05;
+      if (d > max) { zx = ax + dx / d * max; zy = ay + dy / d * max; dx = zx - ax; dy = zy - ay; d = max; }
+      const basis = Math.atan2(dy, dx), al = Math.acos(Math.max(-1, Math.min(1, (l1 * l1 + d * d - l2 * l2) / (2 * l1 * Math.max(d, .01)))));
+      const w = basis - knick * al;
+      return [ax + Math.cos(w) * l1, ay + Math.sin(w) * l1, zx, zy];
+    };
+    // Glied mit Umriss: erst dunkel breit, dann Farbe – runde Gelenke
+    const glied = (pts, breite, farbe) => {
+      cx.lineCap = 'round'; cx.lineJoin = 'round';
+      cx.strokeStyle = OL; cx.lineWidth = breite + 2.2; cx.beginPath(); cx.moveTo(pts[0], pts[1]); for (let i = 2; i < pts.length; i += 2) cx.lineTo(pts[i], pts[i + 1]); cx.stroke();
+      cx.strokeStyle = farbe; cx.lineWidth = breite; cx.stroke();
+    };
+    const puschen = (fx, fy, winkel, hell) => {
+      cx.save(); cx.translate(fx, fy); cx.rotate(winkel);
+      el(1.6, -1.6, 4.3, 2.5, vg(-4, 0, F.puschen[0], F.puschen[1]));
+      cx.fillStyle = 'rgba(0,0,0,.12)'; cx.beginPath(); cx.ellipse(1.8, -.4, 3.6, .9, 0, 0, 7); cx.fill();   // Sohle
+      cx.fillStyle = hell ? F.muetze[0] : F.muetze[1]; cx.beginPath(); cx.arc(5.2, -2.6, 1.35, 0, 7); cx.fill();   // Bommel
+      cx.restore();
+    };
+    const huefte = -10.4 + yk, OS = 5.4, US = 5.3;
+    const bein = (bx, ziel, standard, hintenLiegend) => {
+      let [zx, zy] = ziel || standard;
+      zx += bx;
+      const [kx, ky, fx, fy] = kette(bx * .6, huefte, zx, zy, OS, US, 1);
+      // Pyjamahose in eigener, dunklerer Farbe – so heben sich die Beine vom Oberteil ab
+      glied([bx * .6, huefte, kx, ky, fx, fy - 1.2], 3.8, hintenLiegend ? F.hose[1] : F.hose[0]);
+      // Hosenbund am Knöchel
+      cx.fillStyle = F.pyjama[0]; cx.beginPath(); cx.arc(fx, fy - 1.9, 1.5, 0, 7); cx.fill();
+      // Fuß: in der Schwungphase leicht nach unten geneigt, beim Aufsetzen flach
+      const neig = fy < -.3 ? Math.min(.5, -fy * .12) : 0;
+      puschen(fx, fy, neig, !hintenLiegend);
+    };
+    // Haltungen außerhalb des Laufens
+    let sVorn = [1.6, 0], sHinten = [-2.2, 0];
+    if (air && P.vy < 0) { sVorn = [3.4, -5.2]; sHinten = [-4.2, -1.2]; }          // Absprung: vorderes Knie hoch
+    else if (air) { sVorn = [2.6, -.6]; sHinten = [-2.8, -2.4]; }                   // Fallen: Beine strecken sich zur Landung
+    cx.save(); cx.translate(0, 0); cx.rotate(lehne);
+    // hinteres Bein
+    bein(-1.2, hinten, sHinten, true);
+    // ── hinterer Arm (Schulter→Ellbogen→Hand), schwingt gegengleich zum hinteren Bein ──
+    const schwingH = lauf ? Math.cos(th) * (.6 + tempo * .5) : air ? (P.vy < 0 ? -1.1 : -1.5) : .15;
+    const schH = [-3.8, -18.4 + yk], handH = [schH[0] + Math.sin(schwingH) * 8, schH[1] + Math.cos(schwingH) * 8];
+    const [ehx, ehy] = kette(schH[0], schH[1], handH[0], handH[1], 4.3, 4.1, -1);
+    glied([schH[0], schH[1], ehx, ehy, handH[0], handH[1]], 2.9, F.pyjama[1]);
+    el(handH[0], handH[1], 1.6, 1.6, '#f6c8a4');
 
-    // ── Körper (Pyjama) ──
-    cx.beginPath(); cx.moveTo(-6, -8 + yb); cx.quadraticCurveTo(-7, -16 + yb, -2, -17.5 + yb); cx.lineTo(3, -17.5 + yb); cx.quadraticCurveTo(7.5, -16 + yb, 6.5, -8 + yb); cx.closePath();
-    cx.fillStyle = vg(-18 + yb, -7 + yb, F.pyjama[0], F.pyjama[1]); cx.fill(); cx.strokeStyle = OL; cx.lineWidth = 1.2; cx.stroke();
-    // Punkte / Streifen
+    // ── Körper (Pyjama-Oberteil, leicht tailliert, Saum) ──
+    cx.beginPath(); cx.moveTo(-5.4, -8.6 + yk); cx.quadraticCurveTo(-7, -15 + yk, -5.2, -19.4 + yk); cx.quadraticCurveTo(-2, -21.4 + yk, 1, -21.2 + yk);
+    cx.quadraticCurveTo(5.4, -20.8 + yk, 6.4, -16.4 + yk); cx.quadraticCurveTo(7.2, -11.6 + yk, 6, -8.6 + yk); cx.quadraticCurveTo(.3, -7.2 + yk, -5.4, -8.6 + yk); cx.closePath();
+    cx.fillStyle = vg(-21 + yk, -8 + yk, F.pyjama[0], F.pyjama[1]); cx.fill(); cx.strokeStyle = OL; cx.lineWidth = 1.2; cx.stroke();
+    // Schatten unten, Licht oben links
+    cx.save(); cx.clip();
+    cx.fillStyle = 'rgba(80,20,80,.14)'; cx.beginPath(); cx.ellipse(1, -7.8 + yk, 8, 2.6, 0, 0, 7); cx.fill();
+    cx.fillStyle = 'rgba(255,255,255,.22)'; cx.beginPath(); cx.ellipse(-2.6, -18.4 + yk, 3.4, 1.8, -.4, 0, 7); cx.fill();
+    cx.restore();
+    // Muster
     cx.fillStyle = 'rgba(255,255,255,.55)';
-    if (M) { cx.fillRect(-5, -13 + yb, 11, 1.2); cx.fillRect(-5.5, -10.5 + yb, 12, 1.2); }
-    else for (const [px, py] of [[-3.5, -14], [1.5, -11.5], [4, -15], [-1, -9.5]]) { cx.beginPath(); cx.arc(px, py + yb, .9, 0, 7); cx.fill(); }
-    stern(.5, -13.2 + yb, 2.2, SS ? '#fff' : '#ffe14a');
-
-    // ── hinterer Arm ──
-    const armS = lauf ? -Math.sin(ph) * 2.5 : air ? -3 : 0;
-    el(-4.5 + armS * .3, -12 + yb + Math.abs(armS) * .2, 2, 3.2, F.pyjama[1]);
+    if (M) { cx.fillRect(-5.4, -15.4 + yk, 11.6, 1.2); cx.fillRect(-5.8, -12.4 + yk, 12.2, 1.2); }
+    else for (const [px, py] of [[-3.5, -16.5], [1.5, -13.5], [4, -18], [-1, -11]]) { cx.beginPath(); cx.arc(px, py + yk, .9, 0, 7); cx.fill(); }
+    // Knopfleiste und Kragen
+    cx.fillStyle = 'rgba(255,255,255,.8)'; for (const by of [-14.6, -11.6]) { cx.beginPath(); cx.arc(2.6, by + yk, .7, 0, 7); cx.fill(); }
+    cx.fillStyle = F.pyjama[1]; cx.beginPath(); cx.moveTo(-3, -20.8 + yk); cx.lineTo(.6, -18.2 + yk); cx.lineTo(3.8, -20.8 + yk); cx.closePath(); cx.fill();
+    stern(-1.4, -15 + yk, 2.1, SS ? '#fff' : '#ffe14a');
+    // vorderes Bein vor dem Körper
+    bein(1.2, vorn, sVorn, false);
+    cx.restore();
 
     // ── Kopf ──
-    const hy = -24 + yb;
+    const hy = -27.6 + yk;
+    cx.save(); cx.translate(Math.sin(lehne) * 21, 0);
+    // Kopf etwas kleiner (0,9) – schlankere, erwachsenere Proportionen
+    cx.translate(0, hy + 6); cx.scale(.9, .9); cx.translate(0, -(hy + 6));
     // Haare hinten
     if (!M) { el(-6.5, hy + 4, 3, 4.2, F.haar[0], .4); el(6.8, hy + 4, 2.4, 3.6, F.haar[0], -.3); }
     el(0, hy, 8.4, 7.8, vg(hy - 8, hy + 8, '#ffe6d0', '#f6c8a4'));
@@ -17714,10 +17784,13 @@ setLang();menuSignature='';updateInterface();
     cx.fillStyle = gl; cx.beginPath(); cx.arc(spX, spY, 8, 0, 7); cx.fill();
     stern(spX, spY, 3.4 + (SS ? 1 : 0) + Math.sin(t / 8) * .3, SS ? '#ffffff' : '#ffe27a');
 
-    // ── vorderer Arm mit Laterne ──
-    const lx = 7.5 + (lauf ? Math.sin(ph) * 1.2 : 0), ly = -10.5 + yb + (air ? -3 : 0) + Math.sin(t / 7) * .4;
-    el(5.6, -12.4 + yb, 2, 3, F.pyjama[0]);
-    cx.strokeStyle = '#5a3a28'; cx.lineWidth = 1; cx.beginPath(); cx.moveTo(6.2, -10 + yb); cx.lineTo(lx, ly - 3.2); cx.stroke();
+    // ── vorderer Arm mit Laterne: schwingt gegengleich zum vorderen Bein, Ellbogen nach hinten ──
+    const schwingV = lauf ? -Math.cos(th) * (.3 + tempo * .25) - .25 : air ? (P.vy < 0 ? -1.1 : -1.5) : .05;
+    const schV = [4, -18.2 + yk], handV = [schV[0] + 3 + Math.sin(schwingV) * 7.6, schV[1] + Math.cos(schwingV) * 7.6];
+    const [evx, evy] = kette(schV[0], schV[1], handV[0], handV[1], 4.3, 4.1, -1);
+    glied([schV[0], schV[1], evx, evy, handV[0], handV[1]], 2.9, F.pyjama[0]);
+    const lx = handV[0] + .6, ly = handV[1] + 3.8 + Math.sin(t / 7) * .3;
+    cx.strokeStyle = '#5a3a28'; cx.lineWidth = 1; cx.beginPath(); cx.moveTo(handV[0], handV[1]); cx.lineTo(lx, ly - 3.2); cx.stroke();
     const L = window.TRAUMSPRUNG_LICHT, nm = dreamPhase === 2, licht = nm && L ? Math.max(0, Math.min(1, L.light())) : .6;
     const flacker = nm && licht < .3 ? (Math.random() < .25 ? .3 : 1) : 1;
     const hell = (nm ? .55 + .45 * licht : .45) * flacker;
@@ -17728,7 +17801,8 @@ setLang();menuSignature='';updateInterface();
     cx.fillStyle = `rgba(255,${nm ? 236 : 226},${nm ? 150 : 140},${.65 + .35 * hell})`; cx.fillRect(lx - 1.9, ly - 2.6, 3.8, 5.2);
     cx.fillStyle = F.laterne; cx.beginPath(); cx.ellipse(lx, ly, .9, 1.6, 0, 0, 7); cx.fill();
     cx.strokeStyle = '#4a2a3a'; cx.lineWidth = .8; cx.strokeRect(lx - 1.9, ly - 2.6, 3.8, 5.2);
-    el(lx - .3, ly - 3.6, 1.6, 1.2, '#ffe6d0', 0, 1);   // Hand
+    el(handV[0], handV[1], 1.7, 1.7, '#ffe6d0', 0, 1);   // Hand
+    cx.restore();
 
     // Stern-Form: Funkenkranz
     if (SS) for (let i = 0; i < 6; i++) { const a = t / 10 + i * Math.PI / 3; stern(Math.cos(a) * 13, -14 + Math.sin(a) * 13, 1.6, `hsl(${(t * 8 + i * 60) % 360},95%,72%)`); }
