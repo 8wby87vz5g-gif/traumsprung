@@ -7964,7 +7964,7 @@ setLang();menuSignature='';updateInterface();
     return;
   }
   window.__traumsprungDreamGateInstalled=true;
-  const VERSION='1.0 (Build 82)';
+  const VERSION='1.0 (Build 83)';
   const KEY_TIME='traumsprung-playtime-v1';
   const KEY_NAME='traumsprung-menu-nickname-v1';
   const KEY_DREAM='traumsprung-menu-realm-v1';
@@ -17390,6 +17390,10 @@ setLang();menuSignature='';updateInterface();
     for (const c of window.TRAUMSPRUNG_HM_CRYSTALS || []) add(tx(c.x), tx(c.x), 4);
     for (const b of window.TRAUMSPRUNG_HM_BUBBLES || []) add(tx(b.x), tx(b.x), 3);
     for (const c of (typeof cpTiles !== 'undefined' ? cpTiles : [])) add(c, c, 4);
+    // 4.0-p44: nie eine Grube auf einen Neustartpunkt (man würde nach dem Tod in die Grube gesetzt) und nicht in den Parkour-Abschnitt
+    for (const x of window.TRAUMSPRUNG_HM_RESTART || []) add(x, x, 4);
+    for (const x of window.TRAUMSPRUNG_HM_NMRESTART || []) add(x, x, 4);
+    { const A = window.TRAUMSPRUNG_PARKOUR?.abschnitt?.(); if (A) add(A.von, A.bis, 2); }
     quelle = 'foes'; if (mitGegnern) for (const f of foes || []) add(tx(f.x), tx(f.x) + 1, 1);
     // fliegende Gegner und Gegner direkt an der Grube: immer meiden
     for (const f of foes || []) add(tx(f.x), tx(f.x) + 1, 0);
@@ -19357,7 +19361,13 @@ window.TRAUMSPRUNG_ZIEL = function (fx, fy) {
       if (f.k === 3 && typeof f.by === 'number') f.by += 6;
     }
   }
-  function verteilen() { if (HM() && foes) for (const f of foes) groesse(f); }
+  // Gegner, die beim Levelbau in einem Block stecken (z. B. 3-1, Feld 197: Boden steigt dort an), auf den Block heben
+  function befreien(f) {
+    if (f.befreit || f.k === 3 || typeof tileHit !== 'function') return; f.befreit = true;
+    const box = () => ({ x: f.x + 2, y: f.y + 2, w: f.w - 4, h: f.h - 4, vy: 0 });
+    for (let i = 0; i < 6 && tileHit(box(), 'x'); i++) f.y -= T;
+  }
+  function verteilen() { if (HM() && foes) for (const f of foes) { befreien(f); groesse(f); } }
   const priorBuild = build;
   build = function () { const o = priorBuild.apply(this, arguments); try { verteilen(); } catch (_) { } return o; };
 
@@ -19784,6 +19794,9 @@ window.TRAUMSPRUNG_ZIEL = function (fx, fy) {
     const altW = W;
     const leerSp = c => { for (let r = 0; r <= 11; r++) if (grid[r][c] !== ' ') return false; return grid[12][c] === '#' && grid[13][c] === '#'; };
     let ins = goalTile; while (ins > 20 && leerSp(ins - 1)) ins--;
+    // die Strecke hinter dem Abschnitt muss auf Bodenhöhe liegen (sonst stünde am Ende eine unüberwindbare Wand)
+    for (let r = 9; r <= 11; r++) if (grid[r][ins] !== ' ') return;
+    if (grid[12][ins] !== '#') return;
     if (WZ && WZ[1] >= ins - 2) return;
     // Sonderobjekte hinter der Einschubstelle? Dann dieses Level nicht verändern.
     const H_ = k => window['TRAUMSPRUNG_HM_' + k];
