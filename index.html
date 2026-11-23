@@ -929,7 +929,7 @@ let VW=640,W=110,VH=448;
 // Mobile-first raster density: never silently allocate 3x-4x phone buffers.
 let RENDER_SCALE=Math.min(Math.max(1,window.devicePixelRatio||1),2);
 let grid,gems,foes,P,cam=0,score=0,lives=3,gemsN=0,state='title',t=0,jb=0,dt=0,ac,level=1,items=[],balls=[],pops=[],pt=[],arrows=[],at=200,boss=null,waves=[],shake=0,stick=null,hi=0,maxL=1,sel=1,full=false,buying=false,sOn=1,inMus=false,msg='',msgUntil=0,time=6000,WZ=null,mOn=1,mStep=0,mT=0,ST=[],BT=[],ach=0,kos=0,lang='de',asp=0,god=0,toast=null,lastRes=null,lvGot=0,lvDeaths=0,lvFrames=0,cpReached=false,cpX=3000,RESP=false,DAILY=0,signs=[],dayK=Math.floor(Date.now()/864e5),dBest=0,dStreak=0,dLast=0,tut=0;const SHARE_URL='';/* hier die Adresse deiner Spielseite eintragen */
-const PRIVACY_URL='';/* P0-GATE: vor Store-Einreichung eine freigegebene HTTPS-Datenschutzadresse setzen */
+const PRIVACY_URL='./datenschutz.html';/* 4.0-p55: Datenschutzerklärung liegt neben dem Spiel (Web und App-Paket); Store-URL: dieselbe Seite auf der Website */
 const LV=50,FREE=10,TEST_MODE=false; /* 3.0: 50 Premium-Level, Welt 1 kostenlos */ // Store-Version: TEST_MODE=false setzen und window.Purchases anbinden (siehe Anleitung)
 const keys={l:0,r:0,j:0};
 const SKINS=[
@@ -4701,7 +4701,8 @@ const weltIndex=n=>Math.min(WELTEN.length-1,Math.max(0,Math.floor((n-1)/5)));
 const weltName=n=>WELTEN[weltIndex(n)].name;
 window.TRAUMSPRUNG_WELTEN=WELTEN;
 // Werkstatt-Vorschau (#werkstatt an der Adresse): Welten im Bau mit ihren schon gebauten Level spielbar – zum Testen, ohne Kauf, ohne Fortschritt-Sperre.
-const WERKSTATT=/werkstatt/.test(location.hash||'');
+// 4.0-p55: im Verkaufsbuild (tools/build_play.py --verkauf setzt TRAUMSPRUNG_VERKAUF) gibt es keine Werkstatt-Freigabe
+const WERKSTATT=!window.TRAUMSPRUNG_VERKAUF&&/werkstatt/.test(location.hash||'');
 const werkLevel=n=>WERKSTATT&&!!WELTEN[weltIndex(n)]?.werkstatt&&!!window.TRAUMSPRUNG_HANDMADE?.[n];
 const levelPlan=n=>LEVEL_PLAN[n]||null;
 const levelName=n=>levelPlan(n)?.name||'';
@@ -8000,7 +8001,7 @@ setLang();menuSignature='';updateInterface();
     return;
   }
   window.__traumsprungDreamGateInstalled=true;
-  const VERSION='1.0 (Build 93)';
+  const VERSION='1.0 (Build 94)';
   const KEY_TIME='traumsprung-playtime-v1';
   const KEY_NAME='traumsprung-menu-nickname-v1';
   const KEY_DREAM='traumsprung-menu-realm-v1';
@@ -8231,7 +8232,8 @@ setLang();menuSignature='';updateInterface();
       <div class="ts8-data-grid">${tile('Aktuelle Welt',`${s.worldNumber} · ${s.world}`)}${tile("Freigeschaltet",`Level ${typeof shortLevel==="function"?shortLevel(s.reached):s.reached}`)}
         ${tile('Abgeschlossen',`${s.finished} / ${s.total}`)}${tile('Traumfunken',`${s.funken}`)}${tile('Erinnerungen',`${s.bilder} / 10`)}${tile('Erfasste Spielzeit',timeString(seconds))}</div>
       <div class="ts8-cloud-note"><b>◌ Nur lokal gespeichert</b><span>Es findet keine Online-Synchronisierung statt. Die Spielzeit wird erst seit Menüversion 2.7 erfasst.</span></div>
-      <button class="ts8-secondary" data-action="studio-export">Spielstand als Datei sichern</button><button class="ts8-secondary" data-action="studio-import">Spielstand wiederherstellen</button>${back()}`);
+      <button class="ts8-secondary" data-action="studio-export">Spielstand als Datei sichern</button><button class="ts8-secondary" data-action="studio-import">Spielstand wiederherstellen</button>
+      <div class="ts8-link-grid"><a class="ts8-secondary" href="./datenschutz.html" target="_blank" rel="noopener">Datenschutz</a><a class="ts8-secondary" href="./impressum.html" target="_blank" rel="noopener">Impressum</a></div>${back()}`);
   }
   // Gameplay is never reimplemented by the menu. The main world/skills/settings
   // screens are delegated to the last installed campaign renderer.
@@ -17088,7 +17090,15 @@ setLang();menuSignature='';updateInterface();
     async freigeschaltet() { try { const r = await RC().getCustomerInfo(); return !!r?.customerInfo?.entitlements?.active?.[ENTITLEMENT]; } catch (_) { return false; } }
   };
 
-  const aktiv = ECHT_FREIGEGEBEN && RC() ? Echt : Test;
+  // 4.0-p55: Im Verkaufsbuild gibt es keine simulierten Käufe – ohne freigegebenen echten Kauf bleibt der Kauf gesperrt
+  // (so kann eine Store-Version nie per Testkauf kostenlos freigeschaltet werden).
+  const Gesperrt = {
+    // ohne buyFull zeigt die Kaufseite: „Kaufabwicklung auf dieser Plattform nicht verfügbar. Level 1–10 bleiben kostenlos spielbar.“
+    modus: 'gesperrt', price: '',
+    async restore() { return false; },
+    async freigeschaltet() { return false; }
+  };
+  const aktiv = ECHT_FREIGEGEBEN && RC() ? Echt : window.TRAUMSPRUNG_VERKAUF ? Gesperrt : Test;
   window.Purchases = aktiv;
   // Beim Start: Berechtigung lesen und die Vollversion setzen (nach dem Laden des Spielstands)
   async function pruefen() {
@@ -21778,6 +21788,118 @@ window.TRAUMSPRUNG_ZIEL = function (fx, fy) {
   // Das Hauptmenü wurde evtl. schon vor diesem Modul gezeichnet: neu zeichnen, damit „Geschenk wartet“ sichtbar ist
   const neu = () => { try { if (typeof menuSignature !== 'undefined') menuSignature = ''; if (typeof updateInterface === 'function') updateInterface(); } catch (_) { } };
   if (document.readyState === 'complete') setTimeout(neu, 0); else addEventListener('load', neu, { once: true });
+})();
+
+</script><script>/* src/systems/neustart-40.js */
+/* Traumsprung 4.0-p55 – Faire Neustartpunkte in allen Leveln.
+ *
+ * Nach dem Aufbau eines Hand-Levels wird geprüft, wie weit die (unsichtbaren) Neustartpunkte auseinanderliegen.
+ * Liegen mehr als 46 Felder dazwischen, kommen zusätzliche Punkte dazu (Ziel: höchstens ~42 Felder, also etwa
+ * 10–12 s Spielzeit, die man nach einem Fehler wiederholt). Ein neuer Punkt kommt nur auf sicheren Boden:
+ *   – drei Spalten fester Boden (#) in Reihe 12, darüber vier Reihen frei (kein Block, keine Brücke, kein Wasser)
+ *   – keine Stacheln in der Nähe, nicht in Sonderzonen einer Welt (Wasser, Lava, Wind, Bänder …), nicht in der Boss-Arena
+ * Gegner im Umkreis werden beim Neustart ohnehin entfernt (Wiedereinstieg in campaign.js/gameplay-director.js).
+ * Abschaltbar: window.TRAUMSPRUNG_NEUSTART_OFF = true
+ */
+'use strict';
+(function () {
+  if (typeof build !== 'function') return;
+  const MAX = 46, ZIEL = 42;
+  // nur Zonen, in denen ein Neustart unfair wäre (Wasser, Lava, Lawinen, Stampfer, Laser, Gewitter); Wind oder Bänder sind kein Problem
+  const GEFAHR = new Set(['seen', 'fluten', 'laven', 'lavaflut', 'ausbrueche', 'faelle', 'lawine', 'seeschatten', 'stampfer', 'laser', 'gewitter', 'blitzwolken', 'fluechtig', 'tore', 'saeulen', 'schalter', 'baender', 'raeder']);
+  // Parkour-Stücke (parkour-40.js) bleiben frei – kein Neustart direkt auf oder neben einem Hindernis
+  function beiParkour(x) {
+    try { return (window.TRAUMSPRUNG_PARKOUR?.stuecke?.() || []).some(st => Math.abs(x - st.x) < 4); } catch (_) { return false; }
+  }
+  function inSonderzone(x) {
+    if (beiParkour(x)) return true;
+    for (const k of ['W3', 'W4', 'W5', 'W6', 'W7', 'W8', 'W9', 'W10']) {
+      const o = window['TRAUMSPRUNG_HM_' + k]; if (!o) continue;
+      for (const [name, v] of Object.entries(o)) if (Array.isArray(v) && GEFAHR.has(name)) for (const z of v) {
+        if (!z || typeof z !== 'object') continue;
+        const a = z.von ?? z.x0 ?? z.x, b = z.bis ?? z.x1 ?? (z.x !== undefined ? z.x + (z.w || 2) : undefined);
+        if (typeof a === 'number' && typeof b === 'number' && x >= a - 2 && x <= b + 2) return true;
+      }
+    }
+    try { if (window.TRAUMSPRUNG_WASSER?.zoneAt?.(x * T + 16)) return true; } catch (_) { }
+    return false;
+  }
+  function sicher(x) {
+    if (x < 6 || x > W - 6) return false;
+    if (level % 5 === 0 && x > goalTile - 46) return false;
+    if (x > goalTile - 4) return false;
+    for (let c = x - 1; c <= x + 1; c++) {
+      if (grid[12]?.[c] !== '#' || grid[13]?.[c] === ' ') return false;
+      for (let r = 8; r <= 11; r++) if (grid[r]?.[c] !== ' ') return false;
+    }
+    for (let c = x - 3; c <= x + 3; c++) if (grid[11]?.[c] === 'S' || grid[12]?.[c] === 'S') return false;
+    if (inSonderzone(x)) return false;
+    return true;
+  }
+  // Erhöhter Neustart (Wolken, Lava, Inseln): Plattform aus festen Kacheln in Reihe 4–11, drei Spalten breit,
+  // darüber vier Reihen frei. Liefert die Fußhöhe (y) oder null.
+  function erhoeht(x) {
+    if (x < 6 || x > W - 6 || x > goalTile - 4 || (level % 5 === 0 && x > goalTile - 46) || inSonderzone(x)) return null;
+    const nmi = window.TRAUMSPRUNG_HM_NMISLES || new Set(), brueckel = window.TRAUMSPRUNG_HM_FAM?.crumble || new Map();
+    // oberste belegte Reihe jeder der drei Spalten muss dieselbe sein und aus festen Kacheln bestehen
+    let r0 = null;
+    for (let c = x - 1; c <= x + 1; c++) {
+      let r = 0; while (r < H && grid[r]?.[c] === ' ') r++;
+      if (r0 === null) r0 = r; else if (r !== r0) return null;
+    }
+    if (r0 === null || r0 < 4 || r0 > 11) return null;
+    for (let c = x - 1; c <= x + 1; c++) {
+      const g = grid[r0][c];
+      if (!'#KXP'.includes(g) || nmi.has(c + ',' + r0) || brueckel.has?.(c + ',' + r0)) return null;
+    }
+    return r0 * T - 28;
+    return null;
+  }
+  // Stehprobe: 90 Bilder ohne Eingabe stehen (mit Wind) – bleibt die Figur auf ihrem Platz?
+  function stehprobe(x, y) {
+    if (typeof move !== 'function') return true;
+    const altP = P, q = { x: x * T + 5, y, w: 22, h: 28, vx: 0, vy: 0, ground: false };
+    try {
+      P = q;
+      for (let i = 0; i < 90; i++) { window.TRAUMSPRUNG_WIND?.push?.(q, 0); move(q); if (q.y > H * T) return false; }
+      return q.ground && Math.abs(q.x - (x * T + 5)) < T && Math.abs(q.y - y) < 4;
+    } catch (_) { return false; } finally { P = altP; }
+  }
+  const priorBuild = build;
+  build = function () {
+    const r = priorBuild.apply(this, arguments);
+    if (window.TRAUMSPRUNG_NEUSTART_OFF || !(level > 0) || !window.TRAUMSPRUNG_LEVEL_HANDMADE || !Array.isArray(window.TRAUMSPRUNG_HM_RESTART)) return r;
+    const R = window.TRAUMSPRUNG_HM_RESTART, neu = [], hoch = {};
+    window.TRAUMSPRUNG_HM_RESTART_Y = hoch;
+    const ende = level % 5 === 0 ? goalTile - 42 : goalTile;
+    for (let runde = 0; runde < 20; runde++) {
+      const pts = [...new Set([0, ...R.filter(x => x < ende), ende])].sort((a, b) => a - b);
+      let gesetzt = false;
+      for (let i = 1; i < pts.length && !gesetzt; i++) {
+        const a = pts[i - 1], b = pts[i]; if (b - a <= MAX) continue;
+        const ziel = a + Math.min(ZIEL, Math.round((b - a) / 2));
+        for (let d = 0; d <= 14 && !gesetzt; d++) for (const x of d ? [ziel - d, ziel + d] : [ziel]) {
+          if (x <= a + 12 || x >= b - 8) continue;
+          if (sicher(x) && stehprobe(x, 12 * T - 28)) { R.push(x); neu.push(x); gesetzt = true; break; }
+          const y = erhoeht(x); if (y !== null && stehprobe(x, y)) { R.push(x); neu.push(x); hoch[x] = y; gesetzt = true; break; }
+        }
+      }
+      if (!gesetzt) break;
+    }
+    window.TRAUMSPRUNG_NEUSTART_NEU = neu;
+    return r;
+  };
+  // Wiedereinstieg an einem erhöhten Punkt: genau auf der Plattform (sonst sucht die Kamera-Regie Boden in Reihe 12)
+  if (typeof respawn === 'function') {
+    const priorRespawn = respawn;
+    respawn = function () {
+      const r = priorRespawn.apply(this, arguments);
+      const hoch = window.TRAUMSPRUNG_HM_RESTART_Y || {}, x = cpReached ? Math.round(cpX / T) : null;
+      if (x !== null && hoch[x] !== undefined && P) { P.x = x * T + 5; P.y = hoch[x]; P.vx = P.vy = 0; P.sx = P.x; P.sy = P.y; }
+      return r;
+    };
+  }
+  window.TRAUMSPRUNG_NEUSTART = { neu: () => window.TRAUMSPRUNG_NEUSTART_NEU || [] };
 })();
 
 </script>
