@@ -5047,7 +5047,7 @@ let hmRewards=new Map(),hmBricks=new Set();
 function buildHandmade(def){
   window.TRAUMSPRUNG_LEVEL_HANDMADE=true;window.TRAUMSPRUNG_SCENE=def.scene||null;
   window.TRAUMSPRUNG_LEVEL_MOTIF={name:'hand',world:worldIndex(),types:[],blocks:1,vanish:0,spring:0,pits:0,mood:levelPlan(level)?.mood};
-  W=def.width;goalTile=def.goal;hmRewards=new Map();hmBricks=new Set();dreamPhase=0;window.TRAUMSPRUNG_HM_CRYSTALS=[];window.TRAUMSPRUNG_HM_ISLES=new Set();window.TRAUMSPRUNG_HM_RESTART=[];window.TRAUMSPRUNG_HM_HIDDEN=new Map();window.TRAUMSPRUNG_HM_GHOSTS=new Set();window.TRAUMSPRUNG_HM_NMISLES=new Set();window.TRAUMSPRUNG_HM_RELIC=def.relic;window.TRAUMSPRUNG_HM_BRICKITEMS=new Map();window.TRAUMSPRUNG_HM_BUBBLES=[];window.TRAUMSPRUNG_HM_GLUT=[];window.TRAUMSPRUNG_HM_NMRESTART=[];window.TRAUMSPRUNG_HM_NMSPAWN=[];window.TRAUMSPRUNG_HM_MARKS=[];window.TRAUMSPRUNG_HM_DIEB=null;window.TRAUMSPRUNG_HM_FUNKENTUER=null;window.TRAUMSPRUNG_HM_WAECHTER=null;window.TRAUMSPRUNG_HM_GLOCKE=null;window.TRAUMSPRUNG_HM_GLUTSCHLUND=null;window.TRAUMSPRUNG_HM_HIMMELSKOENIG=null;window.TRAUMSPRUNG_HM_TAKTGEBER=null;window.TRAUMSPRUNG_HM_EISGEGNER=[];window.TRAUMSPRUNG_HM_W3={kb:[],lawine:[],spiegel:[],seeschatten:[]};window.TRAUMSPRUNG_HM_W4={seen:[],saeulen:[],fische:[],tore:[],muscheln:[],fluten:[]};window.TRAUMSPRUNG_HM_W5={laven:[],kaefer:[],geister:[],regen:[],glutziegel:[],lavaflut:[],ausbrueche:[],inseln:[],floesse:[],faelle:[]};window.TRAUMSPRUNG_HM_W6={winde:[],kobolde:[],gewitter:[],fluechtig:[],muehlen:[],blitzwolken:[]};window.TRAUMSPRUNG_HM_W7={baender:[],stampfer:[],laser:[],raeder:[],maeuse:[],augen:[]};window.TRAUMSPRUNG_HM_W8={schalter:[],ruestungen:[],kraehen:[]};window.TRAUMSPRUNG_HM_SPIEGEL=null;window.TRAUMSPRUNG_HM_W9={schwebe:[],scherblinge:[]};window.TRAUMSPRUNG_HM_SCHATTEN=null;window.TRAUMSPRUNG_HM_W10={erinnerungen:[]};window.TRAUMSPRUNG_HM_KOENIG=null;window.TRAUMSPRUNG_HM_FAM={crumble:new Map(),roots:[],thorns:[],aval:[],pend:[],geys:[],traps:[],pops:[]};
+  W=def.width;goalTile=def.goal;hmRewards=new Map();hmBricks=new Set();dreamPhase=0;window.TRAUMSPRUNG_HM_CRYSTALS=[];window.TRAUMSPRUNG_HM_EXPORTALE=[];window.TRAUMSPRUNG_HM_ISLES=new Set();window.TRAUMSPRUNG_HM_RESTART=[];window.TRAUMSPRUNG_HM_HIDDEN=new Map();window.TRAUMSPRUNG_HM_GHOSTS=new Set();window.TRAUMSPRUNG_HM_NMISLES=new Set();window.TRAUMSPRUNG_HM_RELIC=def.relic;window.TRAUMSPRUNG_HM_BRICKITEMS=new Map();window.TRAUMSPRUNG_HM_BUBBLES=[];window.TRAUMSPRUNG_HM_GLUT=[];window.TRAUMSPRUNG_HM_NMRESTART=[];window.TRAUMSPRUNG_HM_NMSPAWN=[];window.TRAUMSPRUNG_HM_MARKS=[];window.TRAUMSPRUNG_HM_DIEB=null;window.TRAUMSPRUNG_HM_FUNKENTUER=null;window.TRAUMSPRUNG_HM_WAECHTER=null;window.TRAUMSPRUNG_HM_GLOCKE=null;window.TRAUMSPRUNG_HM_GLUTSCHLUND=null;window.TRAUMSPRUNG_HM_HIMMELSKOENIG=null;window.TRAUMSPRUNG_HM_TAKTGEBER=null;window.TRAUMSPRUNG_HM_EISGEGNER=[];window.TRAUMSPRUNG_HM_W3={kb:[],lawine:[],spiegel:[],seeschatten:[]};window.TRAUMSPRUNG_HM_W4={seen:[],saeulen:[],fische:[],tore:[],muscheln:[],fluten:[]};window.TRAUMSPRUNG_HM_W5={laven:[],kaefer:[],geister:[],regen:[],glutziegel:[],lavaflut:[],ausbrueche:[],inseln:[],floesse:[],faelle:[]};window.TRAUMSPRUNG_HM_W6={winde:[],kobolde:[],gewitter:[],fluechtig:[],muehlen:[],blitzwolken:[]};window.TRAUMSPRUNG_HM_W7={baender:[],stampfer:[],laser:[],raeder:[],maeuse:[],augen:[]};window.TRAUMSPRUNG_HM_W8={schalter:[],ruestungen:[],kraehen:[]};window.TRAUMSPRUNG_HM_SPIEGEL=null;window.TRAUMSPRUNG_HM_W9={schwebe:[],scherblinge:[]};window.TRAUMSPRUNG_HM_SCHATTEN=null;window.TRAUMSPRUNG_HM_W10={erinnerungen:[]};window.TRAUMSPRUNG_HM_KOENIG=null;window.TRAUMSPRUNG_HM_FAM={crumble:new Map(),roots:[],thorns:[],aval:[],pend:[],geys:[],traps:[],pops:[]};
   grid=Array.from({length:H},()=>Array(W).fill(' '));gems=[];foes=[];dreamSeals=[];levelDreamOrbs=[];zones=[{x:0,name:def.name||''}];cpTiles=[];WZ=null;boss=null;pitBeams=[];
   let sealN=0;
   const gem=(x,row)=>gems.push({x:x*T+16,y:row*T+16,got:0});
@@ -5086,7 +5086,9 @@ function buildHandmade(def){
     // Bosskampf am Levelende (Arena = letzte 34 Spalten), Boss aus boss-v2.js
     boss:()=>{bossArenaStart=(W-34)*T;bossArenaEnd=(W-2)*T;boss={x:(W-20)*T,y:328,w:64,h:56,vx:0,vy:0,hp:3,max:3,act:0,inv:0,t:0,face:-1,ground:0,dead:0,pattern:0};},
     // Schattenkristall (dark) → Albtraumwelt · Lichtkristall (light) → zurück in den Traum
-    crystal:(x,row,kind,o={})=>window.TRAUMSPRUNG_HM_CRYSTALS.push({x:x*T+16,y:row*T+16,kind,used:false,...o}),
+    // 4.0-p52: keine Albtraum-Portale mehr (Wunsch) – Schatten- und Lichtkristalle werden nur noch vermerkt;
+    // in den Albtraum geht es freiwillig über den Schattenmond (weltwechsel-40.js). Traumblumen bleiben.
+    crystal:(x,row,kind,o={})=>{const c={x:x*T+16,y:row*T+16,kind,used:false,...o};if((kind==='dark'||kind==='light')&&!window.TRAUMSPRUNG_PORTALE_AN){window.TRAUMSPRUNG_HM_EXPORTALE.push(c);return;}window.TRAUMSPRUNG_HM_CRYSTALS.push(c);},
     // Schwebender Fels (wie auf der Startseite): von unten durchspringbar, oben begehbar
     island:(x,row,w)=>{for(let i=0;i<w;i++){grid[row][x+i]='P';window.TRAUMSPRUNG_HM_ISLES.add((x+i)+','+row);}},
     // Unsichtbarer Neustartpunkt: keine Fahne, kein Text, kein Effekt – nur kein langer Rückweg
@@ -7985,7 +7987,7 @@ setLang();menuSignature='';updateInterface();
     return;
   }
   window.__traumsprungDreamGateInstalled=true;
-  const VERSION='1.0 (Build 90)';
+  const VERSION='1.0 (Build 91)';
   const KEY_TIME='traumsprung-playtime-v1';
   const KEY_NAME='traumsprung-menu-nickname-v1';
   const KEY_DREAM='traumsprung-menu-realm-v1';
@@ -13541,7 +13543,7 @@ setLang();menuSignature='';updateInterface();
  *    Reihe je „rate“ Bilder). Im Flutwasser frisst die Dunkelheit das Licht viermal so schnell – kein Sofort-Tod:
  *    man schwimmt und springt am Rand heraus. Nach dem Albtraum weicht die Flut zurück. Nach einem Neustart beginnt
  *    sie von vorn. {frisst:false}: ohne schnelleren Lichtverlust (Tempel: die Flut trägt einen hinaus), {sog}: Strömung.
- * 4) LEUCHTTURM  scene.leuchtturm = {x0, x1, reihe}   Sobald der Albtraum vorbei ist, geht oben das Licht an und streicht
+ * 4) LEUCHTTURM  scene.leuchtturm = {x0, x1, reihe}   Sobald der Albtraum vorbei ist (oder die Heldin den Ausgang der Flut erreicht, 4.0-p52), geht oben das Licht an und streicht
  *    über die Stadt (die Flut weicht im selben Moment zurück).
  */
 'use strict';
@@ -13598,12 +13600,20 @@ setLang();menuSignature='';updateInterface();
       }
     }
   }
+  // Ausgang einer Flut: die erste frühere Lichtsäule hinter ihrem Beginn
+  function flutAusgang(s) {
+    const xs = (window.TRAUMSPRUNG_HM_EXPORTALE || []).filter(c => c.kind === 'light' && c.x > s.ab * T).map(c => c.x);
+    return xs.length ? Math.min(...xs) : null;
+  }
   function flutStep() {
     for (const z of D4().fluten || []) {
       const s = z.steigt;
       if (P.dead) { z.flut = 0; s.t = 0; continue; }
-      if (dreamPhase === 2 && P.x > s.ab * T) { s.t++; z.flut = Math.min(s.max, s.t / s.rate); }
-      else if (dreamPhase !== 2 && z.flut > 0) { z.flut = Math.max(0, z.flut - .05); s.t = Math.round(z.flut * s.rate); }
+      // 4.0-p52: ohne Albtraum-Portale steigt die Flut als Spannungsmoment des Levels selbst (in jeder Welt-Phase),
+      // bis die Heldin den Ausgang erreicht (früher: Lichtsäule) – dann weicht sie zurück.
+      const aus = flutAusgang(s), geschafft = aus !== null && P.x + P.w >= aus - 16;
+      if (P.x > s.ab * T && !geschafft && turm === 0) { s.t++; z.flut = Math.min(s.max, s.t / s.rate); }
+      else if ((geschafft || turm > 0) && z.flut > 0) { z.flut = Math.max(0, z.flut - .05); s.t = Math.round(z.flut * s.rate); }
       // im Flutwasser frisst die Dunkelheit das Licht schneller
       if (z.frisst && dreamPhase === 2 && window.TRAUMSPRUNG_WASSER?.inside?.(P) && window.TRAUMSPRUNG_WASSER.zoneAt(P.x + P.w / 2) === z) {
         const L = window.TRAUMSPRUNG_LICHT; if (L) L.set(L.light() - 3 / 960);
@@ -13621,7 +13631,7 @@ setLang();menuSignature='';updateInterface();
     if (schwung > 0) schwung--;
     if (!HM() || state !== 'play' || !P) return r;
     torStep(); muschelStep(); flutStep();
-    if (SC().leuchtturm) { if (dreamPhase === 2) warDunkel = true; if (warDunkel && dreamPhase !== 2 && turm === 0) { turm = 1; if (typeof snd === 'function') { snd(523, .4, 'sine', .05); snd(659, .4, 'sine', .04); snd(784, .7, 'sine', .04); } } if (turm > 0) turm++; }
+    if (SC().leuchtturm) { if (dreamPhase === 2) warDunkel = true; const amZiel = (D4().fluten || []).some(z => { const a = flutAusgang(z.steigt); return a !== null && P.x + P.w >= a - 16; }); if (((warDunkel && dreamPhase !== 2) || amZiel) && turm === 0) { turm = 1; if (typeof snd === 'function') { snd(523, .4, 'sine', .05); snd(659, .4, 'sine', .04); snd(784, .7, 'sine', .04); } } if (turm > 0) turm++; }
     return r;
   };
 
@@ -16614,6 +16624,18 @@ setLang();menuSignature='';updateInterface();
     }
     if (von !== null) zwang.push([von - 3, W]);
     const frei = x => !zwang.some(([a, b]) => x >= a && x <= b) && !(level % 5 === 0 && x > goalTile - 46);
+    // Funken auf Albtraum-Felsen (nur im Albtraum begehbar): ein schwebender Schattenmond kurz davor, in Sprunghöhe
+    const nmi = [...(window.TRAUMSPRUNG_HM_NMISLES || [])].map(k => k.split(',').map(Number));
+    for (const sl of (typeof dreamSeals !== 'undefined' ? dreamSeals : [])) {
+      const sx = Math.floor(sl.x / T), sy = Math.floor(sl.y / T);
+      if (!nmi.some(([x, y]) => Math.abs(x - sx) <= 3 && y > sy && y - sy <= 4)) continue;
+      for (const d of [20, 16, 24, 12, 28]) {
+        const mx = sx - d; let boden = -1;
+        for (let r = 6; r < H; r++) if (grid[r]?.[mx] && grid[r][mx] !== ' ') { boden = r; break; }
+        if (boden < 9 || [boden - 1, boden - 2, boden - 3].some(r => grid[r]?.[mx] !== ' ')) continue;
+        const y = (boden - 2) * T + 16; monde.push({ x: mx * T + 16, y, ziel: y, got: false, frei: true }); break;
+      }
+    }
     const kandidaten = [...hmRewards].filter(([k, v]) => v === 3).map(([k]) => k.split(',').map(Number)).filter(([x]) => frei(x)).sort((a, b) => a[0] - b[0]);
     if (!kandidaten.length) return;
     const gewaehlt = [];
@@ -16623,6 +16645,13 @@ setLang();menuSignature='';updateInterface();
       const k = kandidaten.filter(([x]) => x >= sx - 30 && x <= sx - 2 && !gewaehlt.includes(x)).pop();
       if (k) gewaehlt.push(k[0]), hmRewards.set(k[0] + ',' + k[1], 16);
       if (gewaehlt.length >= 3) break;
+    }
+    // 4.0-p52: wo früher ein Albtraum-Portal stand, liegt jetzt ein Schattenmond kurz davor (freiwillig statt Zwang)
+    for (const c of window.TRAUMSPRUNG_HM_EXPORTALE || []) {
+      if (c.kind !== 'dark') continue; const px = c.x / T;
+      if (gewaehlt.some(x => x >= px - 30 && x <= px + 4)) continue;
+      const k = kandidaten.filter(([x]) => x >= px - 30 && x <= px + 4 && !gewaehlt.includes(x)).pop();
+      if (k) gewaehlt.push(k[0]), hmRewards.set(k[0] + ',' + k[1], 16);
     }
     if (!gewaehlt.length) { const mitte = W * .45; const k = kandidaten.reduce((b, c) => Math.abs(c[0] - mitte) < Math.abs(b[0] - mitte) ? c : b); hmRewards.set(k[0] + ',' + k[1], 16); }
   }
@@ -16636,15 +16665,56 @@ setLang();menuSignature='';updateInterface();
       if (typeof snd === 'function') { snd(330, .3, 'sine', .04); snd(247, .4, 'triangle', .03); }
     };
   }
+  // 4.0-p52: Wo früher ein Pflicht-Albtraum lag, fehlen Wechselmomente. Damit der Takt bleibt (höchstens ~70 Felder
+  // ohne Traumblase, Mond oder Ranke), schweben dort zusätzliche Traumblasen in Sprunghöhe – mitnehmen ist freiwillig.
+  function fuelleTakt() {
+    const ex = (window.TRAUMSPRUNG_HM_EXPORTALE || []).slice().sort((a, b) => a.x - b.x), zonen = [];
+    let von = null;
+    for (const c of ex) { if (c.kind === 'dark' && von === null) von = c.x / T; if (c.kind === 'light' && von !== null) { zonen.push([von, c.x / T]); von = null; } }
+    if (von !== null) zonen.push([von, goalTile]);
+    if (!zonen.length || !window.TRAUMSPRUNG_HM_BUBBLES) return;
+    const ende = level % 5 === 0 ? goalTile - 42 : goalTile;
+    const pts = () => {
+      const p = [0, ende];
+      for (const b of window.TRAUMSPRUNG_HM_BUBBLES) p.push(Math.floor(b.x / T));
+      for (const [k, v] of hmRewards) if (v === 15 || v === 16) p.push(+k.split(',')[0]);
+      for (const m of monde) p.push(Math.floor(m.x / T));
+      for (let r = 0; r < H; r++) for (let x = 0; x < W; x++) if (grid[r][x] === 'V') p.push(x);
+      return [...new Set(p)].filter(x => x <= ende).sort((a, b) => a - b);
+    };
+    const platz = x => {
+      for (const dx of [0, 2, -2, 4, -4, 6, -6, 9, -9, 12, -12, 15, -15, 18, -18]) {
+        const c = x + dx; let boden = -1;
+        for (let r = 3; r < H; r++) if (grid[r]?.[c] && grid[r][c] !== ' ') { boden = r; break; }
+        if (boden >= 4 && [boden - 1, boden - 2, boden - 3].every(r => grid[r]?.[c] === ' ')) return [c, boden - 2];
+      }
+      return null;
+    };
+    for (let runde = 0; runde < 12; runde++) {
+      const p = pts(); let neu = false;
+      for (let i = 1; i < p.length; i++) {
+        const a = p[i - 1], b = p[i]; if (b - a <= 70) continue;
+        if (!zonen.some(([s, e]) => a < e && b > s)) continue;
+        const ort = platz(Math.round(a + Math.min(55, (b - a) / 2)));
+        if (ort) { window.TRAUMSPRUNG_HM_BUBBLES.push({ x: ort[0] * T + 16, y: ort[1] * T + 16, time: 600, once: false, got: false, back: 0, takt: true }); neu = true; break; }
+      }
+      if (!neu) break;
+    }
+  }
   const priorBuild = build;
   build = function () {
     const out = priorBuild.apply(this, arguments);
     freiwillig = false; cd = 0; dunkleGesehen = new Set();
     monde = [];
-    if (HM()) { baueSchatten(); setzeMonde(); } else schatten = [];
+    if (HM()) { baueSchatten(); setzeMonde(); fuelleTakt(); } else schatten = [];
     return out;
   };
 
+  // schwebende Monde (vor Funken auf Albtraum-Felsen) sind nach einem Neustart wieder da
+  if (typeof respawn === 'function') {
+    const priorRespawn = respawn;
+    respawn = function () { const r = priorRespawn.apply(this, arguments); for (const m of monde) if (m.frei) m.got = false; return r; };
+  }
   const priorUpd = upd;
   upd = function () {
     const r = priorUpd.apply(this, arguments);
