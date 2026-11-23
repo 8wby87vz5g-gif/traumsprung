@@ -945,7 +945,24 @@ function toastMsg(m){toast={s:m,until:t+200}}
 function unlock(i){if(ach>>i&1)return;ach|=1<<i;sv();toastMsg(L('Erfolg: ','Achievement: ')+ACH[i][lang==='de'?0:1]);snd(1100,.15)}
 const HINT={de:(document.querySelector?document.querySelector('p').textContent:''),en:'On phones: swipe on the left of the screen to run, hold on the right to jump. On a computer: arrow keys or A/D to run, Space to jump, P to pause. Jump on enemies (not spiky ones!) and bump blocks from below. Stars make you invincible, boots jump higher, the fire flower shoots fireballs (X). Swim with the jump key. M toggles music. Watch out for arrows: a red ! shows where they come from.'};
 function setLang(){if(!document.querySelector)return;document.querySelector('p').textContent=HINT[lang];document.querySelectorAll('button[data-k]').forEach(b=>{const k=b.dataset.k;if(k==='f')b.textContent=L('Feuer','Fire');if(k==='j')b.textContent=L('Sprung','Jump');if(k==='t')b.textContent=L('Teilen','Share')})}
-function snd(f,d=.08,ty='square',v=.04){if(!sOn&&!inMus)return;try{ac=ac||new AudioContext();const o=ac.createOscillator(),g=ac.createGain();o.type=ty;o.frequency.value=f;g.gain.value=v;o.connect(g);g.connect(ac.destination);o.start();o.stop(ac.currentTime+d)}catch(e){}}
+// 4.0-p56: weiche Hüllkurve (5 ms Einschwingen, sanftes Ausklingen) – vorher hartes An/Aus, das knackte und kratzig klang
+function snd(f,d=.08,ty='square',v=.04){if(!sOn&&!inMus)return;try{ac=ac||new AudioContext();const o=ac.createOscillator(),g=ac.createGain(),n=ac.currentTime;o.type=ty;o.frequency.value=f;
+  g.gain.setValueAtTime(0,n);g.gain.linearRampToValueAtTime(v,n+.005);g.gain.setValueAtTime(v,n+Math.max(.006,d*.55));g.gain.linearRampToValueAtTime(0,n+d);
+  o.connect(g);g.connect(ac.destination);o.start(n);o.stop(n+d+.01)}catch(e){}}
+// Ton, der in der Tonhöhe gleitet (Sprung, Abprall), mit weicher Hüllkurve; z = Verzögerung in s
+function sndGleit(f0,f1,d,ty='triangle',v=.04,z=0){if(!sOn)return;try{ac=ac||new AudioContext();const o=ac.createOscillator(),g=ac.createGain(),n=ac.currentTime+z;o.type=ty;
+  o.frequency.setValueAtTime(f0,n);o.frequency.exponentialRampToValueAtTime(Math.max(20,f1),n+d);g.gain.setValueAtTime(0,n);g.gain.linearRampToValueAtTime(v,n+.006);g.gain.exponentialRampToValueAtTime(.0008,n+d);
+  o.connect(g);g.connect(ac.destination);o.start(n);o.stop(n+d+.02)}catch(e){}}
+// Klänge (4.0-p56): Perlen klingen wie ein kleines Glöckchen, in schneller Folge steigt die Tonleiter (zurück nach 0,7 s Pause)
+let klangKette=0,klangZeit=-99;
+const KLANG_LEITER=[0,2,4,7,9,12,14,16,19,21,24];
+function klangPerle(){const jetzt=t;klangKette=jetzt-klangZeit<42?Math.min(KLANG_LEITER.length-1,klangKette+1):0;klangZeit=jetzt;
+  const f=1046*2**(KLANG_LEITER[klangKette]/12);sndGleit(f,f*1.005,.16,'sine',.05);sndGleit(f*2,f*2,.09,'sine',.018);}
+function klangSprung(){sndGleit(300,560,.11,'triangle',.05);}
+function klangAbprall(){sndGleit(700,360,.12,'square',.03);sndGleit(140,70,.09,'sine',.07);}
+function klangTreffer(){sndGleit(420,180,.22,'triangle',.06);sndGleit(90,50,.18,'sine',.08);}
+function klangFunke(){[0,4,7,12].forEach((s,i)=>sndGleit(784*2**(s/12),784*2**(s/12),.22,'sine',.045,i*.07));}
+function klangBlock(){sndGleit(240,150,.08,'square',.03);sndGleit(60,40,.08,'sine',.06);}
 function build1(){
   grid=[...Array(H)].map(()=>Array(W).fill(' '));
   const gaps=[[22,24],[47,50],[71,73],[90,93]];
@@ -1248,7 +1265,7 @@ function upd(){
   P.coy=P.ground?7:P.coy-1;jb--;
   if(!P.ground&&jb>0&&P.wallTime>0&&!P.sw){const wallPlus=window.TRAUMSPRUNG_RPG?.has("wallJump");P.vy=wallPlus?-10.3:-8.8;P.vx=-P.wallSide*(wallPlus?5.8:5.2);P.wallLock=wallPlus?9:12;P.wallTime=0;jb=0;snd(610,.12)}
   if(P.sw&&jb>0){P.vy=window.TRAUMSPRUNG_WASSER?.stroke?.(P)??-4.2;jb=0;snd(520,.05)}   /* 4.0: an der Oberfläche springt man aus dem Wasser */
-  else if(jb>0&&P.coy>0){P.vy=P.star>0?-12.1:(P.boots?-11.5:-9.6);P.coy=0;jb=0;P.jt=0;snd(440,.1)}
+  else if(jb>0&&P.coy>0){P.vy=P.star>0?-12.1:(P.boots?-11.5:-9.6);P.coy=0;jb=0;P.jt=0;klangSprung()}
   else if(jb>0&&!P.ground&&!P.sw&&(P.airJumps||0)>0){
     P.airJumps--;P.vy=-9.0;P.coy=0;jb=0;P.dashTicks=0;
     spark(P.x+11,P.y+26,'#a9fff0',12);snd(760,.10,'triangle',.045);
@@ -1263,10 +1280,10 @@ function upd(){
     const c=grid[ty][tx];
     if(c==='?'&&window.TRAUMSPRUNG_DREAMWORLD?.canOpenQuestion?.(tx,ty)===false){snd(185,.08,'triangle',.026);}
     else if(c==='?'){grid[ty][tx]='X';rememberBlock(tx,ty,'X');award('blocks',60,tx*T+16,ty*T+16);const m=window.TRAUMSPRUNG_HANDMADE_REWARD?.(tx,ty)??window.TRAUMSPRUNG_DREAMWORLD?.rewardKind?.(tx,ty)??(tx+ty+level)%4,it=k=>items.push({x:tx*T+8,y:ty*T+8,w:16,h:16,vx:0,vy:0,k,rise:24,by:ty*T});if(m===0)it('s');else if(m===1&&!P.boots)it('b');else if(m===2)it('f');else if(m>=10&&window.TRAUMSPRUNG_ITEMS)window.TRAUMSPRUNG_ITEMS.spawn(m,tx,ty);else{gain();award('pearls',50,tx*T+16,ty*T);pops.push({x:tx*T+16,y:ty*T,vx:0,vy:-7,life:34,g:1});pops.push({x:tx*T+16,y:ty*T-8,vy:-.8,life:40,s:'+50'})}snd(880,.12)}
-    else if(c==='B'){grid[ty][tx]=' ';rememberBlock(tx,ty,' ');award('blocks',40,tx*T+16,ty*T+16);snd(200,.1);spark(tx*T+16,ty*T+16,'#c4604a',10);window.TRAUMSPRUNG_HANDMADE_BRICK?.(tx,ty)}
+    else if(c==='B'){grid[ty][tx]=' ';rememberBlock(tx,ty,' ');award('blocks',40,tx*T+16,ty*T+16);klangBlock();spark(tx*T+16,ty*T+16,'#c4604a',10);window.TRAUMSPRUNG_HANDMADE_BRICK?.(tx,ty)}
   }
   for(let tx=fl(P.x/T);tx<=fl((P.x+P.w-1)/T);tx++)if(grid[11][tx]==='S'&&P.y+P.h>11*T+14){hurt();P.vy=-8;break}
-  for(const g of gems)if(!g.got&&Math.abs(P.x+11-g.x)<20&&Math.abs(P.y+14-g.y)<22){g.got=1;collectedGems.add(g.id);gain();lvGot++;award('pearls',30,g.x,g.y);spark(g.x,g.y,'#8ff6ff',8);snd(990,.06)}
+  for(const g of gems)if(!g.got&&Math.abs(P.x+11-g.x)<20&&Math.abs(P.y+14-g.y)<22){g.got=1;collectedGems.add(g.id);gain();lvGot++;award('pearls',30,g.x,g.y);spark(g.x,g.y,'#8ff6ff',8);klangPerle()}
   const rpgWorldScale=window.TRAUMSPRUNG_RPG?.worldScale||1;
   for(const f of foes){
     if(f.dead){f.t--;continue}
@@ -1280,13 +1297,13 @@ function upd(){
     if(collided)f.vx=-f.vx}
     if(f.y>H*T){f.dead=1;f.t=0;continue}
     if(P.x<f.x+f.w&&P.x+P.w>f.x&&P.y<f.y+f.h&&P.y+P.h>f.y){
-      if(P.star>0){f.dead=1;f.t=20;award('enemies',150,f.x+13,f.y);snd(660,.1)}else if(P.vy>0&&P.y+P.h-f.y<18&&f.k!==2){f.dead=1;f.t=20;P.vy=keys.j?-10.2:-8;award('enemies',150,f.x+13,f.y);snd(660,.1)}else hurt();
+      if(P.star>0){f.dead=1;f.t=20;award('enemies',150,f.x+13,f.y);snd(660,.1)}else if(P.vy>0&&P.y+P.h-f.y<18&&f.k!==2){f.dead=1;f.t=20;P.vy=keys.j?-10.2:-8;award('enemies',150,f.x+13,f.y);klangAbprall()}else hurt();
     }
   }
   foes=foes.filter(f=>!f.dead||f.t>0);
   if(P.star>0){P.star--;if(!P.star)spark(P.x+11,P.y+14,'#fff6c0',14)}if(P.tf>0)P.tf--;if(P.inv>0)P.inv--;if(--time<=0&&!god&&!(level>0&&window.TRAUMSPRUNG_LEVEL_HANDMADE))die();   /* 3.7: Hand-Level ohne Zeitlimit – in Ruhe sammeln */
   balls=balls.filter(b=>{b.life--;b.vy+=.45;b.x+=b.vx;if(sol(fl(b.x/T),fl(b.y/T))){const bx=fl(b.x/T),by=fl(b.y/T);if(by>=0&&by<H&&grid[by][bx]==='B'){grid[by][bx]=' ';rememberBlock(bx,by,' ');award('blocks',40,bx*T+16,by*T+16);spark(bx*T+16,by*T+16,'#ffb36b',9);snd(320,.08)}return false}b.y+=b.vy;if(b.vy>0&&sol(fl(b.x/T),fl((b.y+5)/T)))b.vy=-6;
-    for(const f of foes)if(!f.dead&&Math.abs(b.x-f.x-13)<18&&Math.abs(b.y-f.y-10)<16){f.dead=1;f.t=20;award('enemies',150,f.x+13,f.y);snd(660,.1);unlock(2);return false}
+    for(const f of foes)if(!f.dead&&Math.abs(b.x-f.x-13)<18&&Math.abs(b.y-f.y-10)<16){f.dead=1;f.t=20;award('enemies',150,f.x+13,f.y);klangAbprall();unlock(2);return false}
     return b.life>0&&b.y<H*T});
   for(const f of foes)if(f.dead&&f.t===20){pops.push({x:f.x+13,y:f.y-4,vy:-.9,life:40,s:'+150'});spark(f.x+13,f.y+10,'#ffb36b',10)}
   pops=pops.filter(p=>{p.x+=p.vx||0;p.y+=p.vy;if(p.g)p.vy+=.35;return --p.life>0});
@@ -5185,7 +5202,7 @@ window.TRAUMSPRUNG_HANDMADE_REWARD=(tx,ty)=>window.TRAUMSPRUNG_LEVEL_HANDMADE?hm
 window.TRAUMSPRUNG_HANDMADE_BRICK=(tx,ty)=>{
   if(!window.TRAUMSPRUNG_LEVEL_HANDMADE||!hmBricks.has(tx+','+ty))return;
   hmBricks.delete(tx+','+ty);gain();award('pearls',50,tx*T+16,ty*T);
-  pops.push({x:tx*T+16,y:ty*T,vx:0,vy:-7,life:34,g:1});snd(990,.08);
+  pops.push({x:tx*T+16,y:ty*T,vx:0,vy:-7,life:34,g:1});klangPerle();
 };
 function makeCampaign(){
   const hm=window.TRAUMSPRUNG_HANDMADE?.[level];
@@ -5349,7 +5366,7 @@ upd=function(){
     for(const tile of cpTiles){const x=tile*T;if(P.x>x&&(!cpReached||x>cpX)){cpX=x;cpReached=true;runCheckpoints++;P.inv=Math.max(P.inv,50);tell('Traumfahne erreicht. Dein Schutz ist wiederhergestellt.');}}
     const z=zones.findIndex((q,i)=>P.x>=q.x&&(!zones[i+1]||P.x<zones[i+1].x));
     if(z>=0&&z!==lastZone){lastZone=z;} // Abschnittswechsel ohne Texteinblendung
-    for(const seal of dreamSeals)if(!seal.got&&Math.abs(P.x+11-seal.x)<24&&Math.abs(P.y+14-seal.y)<28){seal.got=1;collectedSeals.add(seal.id);runVisitedSecret=true;award('seals',300,seal.x,seal.y);spark(seal.x,seal.y,'#ffe29a',24);snd(1320,.2);tell(`Traumfunke ${collectedSeals.size}/3 gefunden!`,240);}
+    for(const seal of dreamSeals)if(!seal.got&&Math.abs(P.x+11-seal.x)<24&&Math.abs(P.y+14-seal.y)<28){seal.got=1;collectedSeals.add(seal.id);runVisitedSecret=true;award('seals',300,seal.x,seal.y);spark(seal.x,seal.y,'#ffe29a',24);klangFunke();tell(`Traumfunke ${collectedSeals.size}/3 gefunden!`,240);}
     for(const orb of levelDreamOrbs){
       if(orb.got||Math.abs(P.x+11-orb.x)>24||Math.abs(P.y+14-orb.y)>28)continue;
       orb.got=true;dreamOrbFlags[orb.index]=true;runVisitedSecret=true;
@@ -5397,7 +5414,7 @@ upd=function(){
   for(const f of foes)if(!f.dead&&f.minX!=null){if(f.x<f.minX){f.x=f.minX;f.vx=Math.abs(f.vx);}if(f.x>f.maxX){f.x=f.maxX;f.vx=-Math.abs(f.vx);}}
   sceneY=calculateSceneY();
 };
-hurt=function(){if(P.dead||P.inv>0||P.star>0||god)return;if(P.fire){P.fire=0;P.inv=110;tell('Traumstab verloren. Du kannst weiter!');return;}if(levelHP>1){levelHP--;P.inv=110;shake=4;snd(180,.15);tell('Dein Schutz ist weg. Die nächste Traumfahne ist ein sicherer Neustart.');return;}die();};
+hurt=function(){if(P.dead||P.inv>0||P.star>0||god)return;if(P.fire){P.fire=0;P.inv=110;tell('Traumstab verloren. Du kannst weiter!');return;}if(levelHP>1){levelHP--;P.inv=110;shake=4;klangTreffer();tell('Dein Schutz ist weg. Die nächste Traumfahne ist ein sicherer Neustart.');return;}die();};
 die=function(){if(level===0){if(P.dead)return;P.dead=1;lvDeaths++;state='dead';dt=35;P.vy=-7;snd(180,.2);return;}baseDie();};
 respawn=function(){
   const hit=cpReached,x0=hit?cpX:64,tm=time,dd=lvDeaths,fr=lvFrames,mode=runAssisted,visited=runVisitedSecret,savedStats={...levelStats},savedCombo=enemyCombo,savedEnemyFrame=lastEnemyFrame;
@@ -7318,7 +7335,7 @@ setLang();menuSignature='';updateInterface();
   if (typeof build !== 'function' || typeof hitB !== 'function') return;
   const BASE_Y=12*32, clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
   const C=[
-    {id:'root',level:10,name:'Hüter des Waldes',title:'Der letzte Hüter des Traumbaums',color:'#78e7a5',dark:'#245938',weak:[1,0,1],hp:4,bpm:112,root:196,notes:[0,3,7,10,7,3,2,-2],attacks:['roots','seedFan','vineCircle'],reward:'Wurzelkrone'},
+    {id:'root',level:10,name:'Hüter des Waldes',title:'Der letzte Hüter des Traumbaums',color:'#78e7a5',dark:'#245938',weak:[1,0,1],hp:5,bpm:112,root:196,notes:[0,3,7,10,7,3,2,-2],attacks:['roots','seedFan','vineCircle'],reward:'Wurzelkrone'},
     {id:'crystal',level:20,name:'Kristallwächter',title:'Der zerbrochene Hüter der Erinnerungen',color:'#91edff',dark:'#285a95',weak:[0,1,0],hp:5,bpm:98,root:220,notes:[0,5,7,12,10,5,3,-2],attacks:['prism','shards','prism'],reward:'Prismensiegel'},
     {id:'sky',level:30,name:'Himmelskönig',title:'Der zerzauste Herr der Windpfade',color:'#e5ecff',dark:'#4c75ca',weak:[1,0,1],hp:5,bpm:132,root:247,notes:[0,2,7,9,12,9,5,2],attacks:['gust','dive','lightning'],reward:'Sturmfeder'},
     {id:'shadow',level:40,name:'Schattenfürst',title:'Der Herr der gespaltenen Wahrheit',color:'#c09bff',dark:'#4d276d',weak:[1,0,1],hp:6,bpm:105,root:185,notes:[0,1,5,8,7,3,1,-4],attacks:['clones','shadeFloor','mirrorRain'],reward:'Spiegelkrone'},
@@ -8001,7 +8018,7 @@ setLang();menuSignature='';updateInterface();
     return;
   }
   window.__traumsprungDreamGateInstalled=true;
-  const VERSION='1.0 (Build 94)';
+  const VERSION='1.0 (Build 95)';
   const KEY_TIME='traumsprung-playtime-v1';
   const KEY_NAME='traumsprung-menu-nickname-v1';
   const KEY_DREAM='traumsprung-menu-realm-v1';
@@ -10888,7 +10905,7 @@ setLang();menuSignature='';updateInterface();
   function pearlPop(tx, ty) {
     gain(); award('pearls', 50, tx * T + 16, ty * T);
     pops.push({ x: tx * T + 16, y: ty * T, vx: 0, vy: -7, life: 34, g: 1 });
-    snd(990, .06);
+    (typeof klangPerle === 'function' ? klangPerle() : snd(990, .06));
   }
   function spawn(m, tx, ty) {
     if (m === 10) {   // Mehrfachblock: bis zu 5 Perlen, solange man schnell weiter anstößt
@@ -21805,23 +21822,30 @@ window.TRAUMSPRUNG_ZIEL = function (fx, fy) {
 (function () {
   if (typeof build !== 'function') return;
   const MAX = 46, ZIEL = 42;
-  // nur Zonen, in denen ein Neustart unfair wäre (Wasser, Lava, Lawinen, Stampfer, Laser, Gewitter); Wind oder Bänder sind kein Problem
-  const GEFAHR = new Set(['seen', 'fluten', 'laven', 'lavaflut', 'ausbrueche', 'faelle', 'lawine', 'seeschatten', 'stampfer', 'laser', 'gewitter', 'blitzwolken', 'fluechtig', 'tore', 'saeulen', 'schalter', 'baender', 'raeder']);
+  // Zonen, in denen ein Neustart unfair wäre (immer gesperrt)
+  const HART = new Set(['ausbrueche', 'faelle', 'seeschatten', 'stampfer', 'laser', 'fluechtig', 'tore', 'saeulen', 'schalter', 'baender', 'raeder']);
+  // 4.0-p56: steigende Fluten und Lava nur auf erhöhten Plätzen erlaubt (beides beginnt nach einem Neustart wieder von unten);
+  // Seen nur, wenn man über der Wasseroberfläche steht. Lawinen (starten 6 Felder hinter der Figur, langsam) und Gewitter
+  // (nur im freiwilligen Albtraum) sperren nicht mehr.
+  const HOCH = new Set(['fluten', 'lavaflut', 'laven']);
   // Parkour-Stücke (parkour-40.js) bleiben frei – kein Neustart direkt auf oder neben einem Hindernis
   function beiParkour(x) {
     try { return (window.TRAUMSPRUNG_PARKOUR?.stuecke?.() || []).some(st => Math.abs(x - st.x) < 4); } catch (_) { return false; }
   }
-  function inSonderzone(x) {
+  // r0 = Reihe der Kachel, auf der die Figur steht (12 = Boden)
+  function inSonderzone(x, r0 = 12) {
     if (beiParkour(x)) return true;
     for (const k of ['W3', 'W4', 'W5', 'W6', 'W7', 'W8', 'W9', 'W10']) {
       const o = window['TRAUMSPRUNG_HM_' + k]; if (!o) continue;
-      for (const [name, v] of Object.entries(o)) if (Array.isArray(v) && GEFAHR.has(name)) for (const z of v) {
+      for (const [name, v] of Object.entries(o)) if (Array.isArray(v) && (HART.has(name) || HOCH.has(name) || name === 'seen')) for (const z of v) {
         if (!z || typeof z !== 'object') continue;
         const a = z.von ?? z.x0 ?? z.x, b = z.bis ?? z.x1 ?? (z.x !== undefined ? z.x + (z.w || 2) : undefined);
-        if (typeof a === 'number' && typeof b === 'number' && x >= a - 2 && x <= b + 2) return true;
+        if (typeof a !== 'number' || typeof b !== 'number' || x < a - 2 || x > b + 2) continue;
+        if (HART.has(name)) return true;
+        if (HOCH.has(name) && r0 >= 11) return true;
+        if (name === 'seen' && r0 > Math.min(z.wach ?? 7, z.traum ?? 12)) return true;
       }
     }
-    try { if (window.TRAUMSPRUNG_WASSER?.zoneAt?.(x * T + 16)) return true; } catch (_) { }
     return false;
   }
   function sicher(x) {
@@ -21839,19 +21863,23 @@ window.TRAUMSPRUNG_ZIEL = function (fx, fy) {
   // Erhöhter Neustart (Wolken, Lava, Inseln): Plattform aus festen Kacheln in Reihe 4–11, drei Spalten breit,
   // darüber vier Reihen frei. Liefert die Fußhöhe (y) oder null.
   function erhoeht(x) {
-    if (x < 6 || x > W - 6 || x > goalTile - 4 || (level % 5 === 0 && x > goalTile - 46) || inSonderzone(x)) return null;
+    if (x < 6 || x > W - 6 || x > goalTile - 4 || (level % 5 === 0 && x > goalTile - 46)) return null;
     const nmi = window.TRAUMSPRUNG_HM_NMISLES || new Set(), brueckel = window.TRAUMSPRUNG_HM_FAM?.crumble || new Map();
     // oberste belegte Reihe jeder der drei Spalten muss dieselbe sein und aus festen Kacheln bestehen
+    // 4.0-p56: zwei Spalten genügen (Figur 22 px breit, Kachel 32 px) – viele Inseln und Wolken sind nur zwei Felder breit
     let r0 = null;
-    for (let c = x - 1; c <= x + 1; c++) {
+    for (let c = x; c <= x + 1; c++) {
       let r = 0; while (r < H && grid[r]?.[c] === ' ') r++;
       if (r0 === null) r0 = r; else if (r !== r0) return null;
     }
     if (r0 === null || r0 < 4 || r0 > 11) return null;
-    for (let c = x - 1; c <= x + 1; c++) {
+    for (let c = x; c <= x + 1; c++) {
       const g = grid[r0][c];
       if (!'#KXP'.includes(g) || nmi.has(c + ',' + r0) || brueckel.has?.(c + ',' + r0)) return null;
     }
+    // keine Stacheln unter oder neben der Plattform (ein Fehltritt direkt nach dem Neustart wäre unfair)
+    for (let c = x - 2; c <= x + 3; c++) for (let r = r0 - 1; r <= 12; r++) if (grid[r]?.[c] === 'S') return null;
+    if (inSonderzone(x, r0)) return null;
     return r0 * T - 28;
     return null;
   }
@@ -21878,8 +21906,8 @@ window.TRAUMSPRUNG_ZIEL = function (fx, fy) {
       for (let i = 1; i < pts.length && !gesetzt; i++) {
         const a = pts[i - 1], b = pts[i]; if (b - a <= MAX) continue;
         const ziel = a + Math.min(ZIEL, Math.round((b - a) / 2));
-        for (let d = 0; d <= 14 && !gesetzt; d++) for (const x of d ? [ziel - d, ziel + d] : [ziel]) {
-          if (x <= a + 12 || x >= b - 8) continue;
+        for (let d = 0; d <= Math.max(14, b - a) && !gesetzt; d++) for (const x of d ? [ziel - d, ziel + d] : [ziel]) {
+          if (x <= a + 8 || x >= b - 5) continue;
           if (sicher(x) && stehprobe(x, 12 * T - 28)) { R.push(x); neu.push(x); gesetzt = true; break; }
           const y = erhoeht(x); if (y !== null && stehprobe(x, y)) { R.push(x); neu.push(x); hoch[x] = y; gesetzt = true; break; }
         }
@@ -21899,7 +21927,325 @@ window.TRAUMSPRUNG_ZIEL = function (fx, fy) {
       return r;
     };
   }
-  window.TRAUMSPRUNG_NEUSTART = { neu: () => window.TRAUMSPRUNG_NEUSTART_NEU || [] };
+  // Prüfhilfe: warum ist Spalte x kein Neustartpunkt?
+  function grund(x) {
+    if (beiParkour(x)) return 'parkour';
+    if (inSonderzone(x)) return 'zone';
+    if (sicher(x)) return stehprobe(x, 12 * T - 28) ? 'ok-boden' : 'steht-nicht';
+    const y = erhoeht(x); if (y !== null) return stehprobe(x, y) ? 'ok-hoch' : 'steht-nicht-hoch';
+    return 'kein-boden';
+  }
+  window.TRAUMSPRUNG_NEUSTART = { neu: () => window.TRAUMSPRUNG_NEUSTART_NEU || [], grund };
+})();
+
+</script><script>/* src/i18n/en.js */
+/* Traumsprung 4.0-p56 – Englische Texte (Wörterbuch Deutsch → Englisch). Wird von src/systems/sprache-40.js benutzt.
+ * Schlüssel = deutscher Text genau wie im Spiel (Leerzeichen zusammengefasst). Muster mit Zahlen stehen in sprache-40.js.
+ */
+'use strict';
+window.TRAUMSPRUNG_EN = {
+  // Titel, Geschichte
+  'Die fünf Traumfunken': 'The Five Dream Sparks',
+  'Traumsprung Hauptmenü': 'Traumsprung main menu',
+  '✦ EINE REISE ZWISCHEN ZWEI WELTEN ✦': '✦ A JOURNEY BETWEEN TWO WORLDS ✦', '✦ DEINE REISE BEGINNT': '✦ YOUR JOURNEY BEGINS',
+  'Zwei Welten.': 'Two worlds.', 'Ein Geheimnis.': 'One secret.',
+  'Es ist spät. Zeit zu schlafen …': 'It’s late. Time for bed …',
+  'Jede Nacht leuchten die fünf Traumfunken – sie halten die Träume hell.': 'Every night the five dream sparks glow – they keep dreams bright.',
+  'Doch heute Nacht stiehlt der Albtraum die Funken.': 'But tonight the nightmare steals the sparks.',
+  'Hol sie zurück – bevor der Traum zerbricht!': 'Bring them back – before the dream breaks!',
+  'Der Albtraum war nur ein kleiner Schatten, der Angst im Dunkeln hatte.': 'The nightmare was only a little shadow that was afraid of the dark.',
+  'Aus dem Schatten wurde ein Nachtlicht. Ganz dunkel wird es nie mehr.': 'The shadow became a night light. It will never be completely dark again.',
+  ' – jetzt ein Nachtlicht': ' – now a night light',
+  'Die fünf Traumfunken sind wieder zu Hause.': 'The five dream sparks are home again.',
+  'Guten Morgen! Die Träume sind wieder hell.': 'Good morning! Dreams are bright again.',
+  'Schlaf gut und träum schön.': 'Sleep well and sweet dreams.', 'Danke fürs Spielen!': 'Thanks for playing!',
+  'Idee und Spiel': 'Idea and game', 'Dein Traum geht weiter.': 'Your dream goes on.', '…gähn': '…yawn',
+  'Die Reise geht weiter –': 'The journey continues –', 'acht Welten warten.': 'eight worlds are waiting.',
+  'Das Herz der Träume leuchtet!': 'The heart of dreams is glowing!',
+  // Hauptmenü
+  'Spielen': 'Play', 'Fortsetzen': 'Continue', 'Welten': 'Worlds', 'Einstellungen': 'Settings', 'Profil': 'Profile',
+  'Traumhöhle': 'Dream Cave', 'Drachenhöhle': 'Dragon Cave', 'DEIN NÄCHSTES KAPITEL': 'YOUR NEXT CHAPTER', 'Deine Traumreise': 'Your dream journey',
+  'Hauptnavigation': 'Main navigation', 'Aktueller Spielstand': 'Current progress', 'Spielstand und Systemstatus': 'Progress and system status',
+  'ERINNERUNGEN': 'MEMORIES', 'SPIELZEIT': 'PLAY TIME', 'SPEICHERUNG': 'SAVING', 'VERSION': 'VERSION', '◌ Nur lokal': '◌ This device only',
+  'Traumreisende': 'Dream traveller', 'Deine erste Reise wartet': 'Your first journey awaits', '✦ Neu · Geschichte': '✦ New · Story',
+  'Deine Figur auf einer schwebenden Insel': 'Your character on a floating island',
+  'Deine Traumspringer-Figur auf einer schwebenden Trauminsel': 'Your dream leaper on a floating dream island',
+  'Zwischen Abendtraum und Spiegeltraum wechseln': 'Switch between evening dream and mirror dream', 'Abendtraum': 'Evening dream', 'Spiegeltraum': 'Mirror dream',
+  'Traumreise beginnen': 'Start the dream journey', 'Weltkarte': 'World map',
+  // Profil
+  'Dein Traumprofil': 'Your dream profile', 'DEINE REISE AUF DIESEM GERÄT': 'YOUR JOURNEY ON THIS DEVICE',
+  'Dein Fortschritt wird automatisch auf diesem Gerät gespeichert.': 'Your progress is saved automatically on this device.',
+  '✦ Dein Traumbegleiter:': '✦ Your dream companion:', 'Spielername': 'Player name', 'Speichern': 'Save', '♛ Bestenliste': '♛ Leaderboard', '◷ Bestzeiten': '◷ Best times',
+  '📖 Geschichte: Wie alles begann ✦ Neu': '📖 Story: How it all began ✦ New', '📖 Geschichte: Wie alles begann': '📖 Story: How it all began',
+  'Aktuelle Welt': 'Current world', 'Freigeschaltet': 'Unlocked', 'Abgeschlossen': 'Completed', 'Traumfunken': 'Dream sparks', 'Erinnerungen': 'Memories',
+  'Erfasste Spielzeit': 'Recorded play time', '◌ Nur lokal gespeichert': '◌ Saved on this device only',
+  'Es findet keine Online-Synchronisierung statt. Die Spielzeit wird erst seit Menüversion 2.7 erfasst.': 'Nothing is synced online. Play time is recorded since menu version 2.7.',
+  'Spielstand als Datei sichern': 'Back up progress as a file', 'Spielstand wiederherstellen': 'Restore progress', 'Datenschutz': 'Privacy', 'Impressum': 'Legal notice',
+  '← Zurück zum Hauptmenü': '← Back to main menu', 'Abgeschlossene Level': 'Completed levels',
+  // Figurenwahl
+  'Wähle deine Figur': 'Choose your character', 'WER SPRINGT DURCH DIE TRÄUME?': 'WHO LEAPS THROUGH THE DREAMS?',
+  'Beide spielen sich gleich. Du kannst die Figur jederzeit im Profil wechseln.': 'Both play the same. You can switch characters any time in your profile.',
+  'Traumwanderin mit dem Traumfunken': 'Dream wanderer with the dream spark', 'Traumwanderer mit dem Traumfunken': 'Dream wanderer with the dream spark',
+  'kleiner Traumdrache mit Sternschweif': 'little dream dragon with a star tail', 'kleiner Feuerdrache mit Sternschweif': 'little fire dragon with a star tail',
+  'Lumi wählen': 'Choose Lumi', 'Pip wählen': 'Choose Pip', 'Wählen': 'Choose',
+  // Traumhöhle
+  'GESCHENKE · AUFGABEN · ALBUM · SCHRANK': 'GIFTS · TASKS · ALBUM · WARDROBE', 'Tagesbonus': 'Daily bonus', 'Tagesaufgaben': 'Daily tasks', 'Tieralbum': 'Animal album',
+  'Kleiderschrank': 'Wardrobe', 'Drachenschrank': 'Dragon wardrobe', 'Traumsterne – nur durchs Spielen, nur fürs Aussehen': 'Dream stars – earned only by playing, only for looks',
+  '🎁 Geschenk abholen': '🎁 Collect gift', 'Abholen': 'Collect', 'Kaufen': 'Get', 'Anlegen': 'Wear', '✓ An': '✓ On', 'An': 'On', 'Aus': 'Off',
+  'Aufgabe geschafft!': 'Task complete!', 'Alle drei geschafft': 'All three done', 'Extra-Belohnung': 'Extra reward',
+  'Farbe': 'Colour', 'Hut': 'Hat', 'Feuer': 'Fire', 'Spur': 'Trail', 'Original': 'Original', 'Minze': 'Mint', 'Mitternacht': 'Midnight', 'Gold': 'Gold', 'Regenbogen': 'Rainbow',
+  'Ohne': 'None', 'keiner': 'none', 'Schlafmütze': 'Nightcap', 'Blumenkranz': 'Flower crown', 'Piratenhut': 'Pirate hat', 'Krone': 'Crown',
+  'Blaues Feuer': 'Blue fire', 'Grünes Feuer': 'Green fire', 'Sterne': 'Stars', 'Herzchen': 'Hearts', 'Funkenregen': 'Spark shower', 'Sternenspur': 'Star trail',
+  'Wildschwein': 'Wild boar', 'Heuschrecke': 'Grasshopper', 'Nashornkäfer': 'Rhino beetle', 'Hornisse': 'Hornet', 'Spinne': 'Spider',
+  'Bronze': 'Bronze', 'Silber': 'Silver',
+  'Schaffe ein Level ohne Herz zu verlieren': 'Finish a level without losing a heart',
+  // Sammlung, Erfolge
+  'Die Sternensammlung': 'The star collection', 'Deine Sternensammlung': 'Your star collection', 'DEINE ENTDECKUNGEN': 'YOUR DISCOVERIES',
+  'Gefundene Schätze bleiben dauerhaft Teil deiner Traumreise. Keine Echtgeldkäufe nötig.': 'Treasures you find stay part of your dream journey. No real-money purchases needed.',
+  'Level geschafft': 'Levels done', '✦ Kostüme': '✦ Outfits', '◇ Traumchronik': '◇ Dream chronicle', 'Traumchronik': 'Dream chronicle', 'Kostüme': 'Outfits', 'Kostüm': 'Outfit',
+  'Deine Erfolge': 'Your achievements', 'DEINE HELDENTATEN': 'YOUR HEROIC DEEDS', 'Erreicht': 'Achieved', 'Noch offen': 'Still open',
+  'SIEBEN TRAUMKUGELN': 'SEVEN DREAM ORBS',
+  'Sieben einzigartige Kugeln sind in versteckten Wegen der fünf Welten verborgen. Spiele die Level erneut, um fehlende Kugeln zu finden.': 'Seven unique orbs are hidden on secret paths. Replay levels to find the missing ones.',
+  // Welten und Level
+  'Der leuchtende Traumwald': 'The Glowing Dream Forest', 'Der Schattenwald': 'The Shadow Forest', 'Das Kristallgebirge': 'The Crystal Mountains',
+  'Die versunkene Traumstadt': 'The Sunken Dream City', 'Das Vulkanreich': 'The Volcano Realm', 'Die Wolkenwelt': 'The Cloud World',
+  'Der mechanische Albtraum': 'The Mechanical Nightmare', 'Das vergessene Königreich': 'The Forgotten Kingdom', 'Die zerbrochene Traumdimension': 'The Shattered Dream Dimension',
+  'Das Herz der fünf Traumfunken': 'The Heart of the Five Dream Sparks',
+  'Erinnerungsdieb': 'Memory Thief', 'Hüter des Waldes': 'Keeper of the Forest', 'Kristallwächter': 'Crystal Guardian', 'Tiefenglocke': 'Deep Bell',
+  'Glutschlund': 'Ember Maw', 'Himmelskönig': 'Sky King', 'Taktgeber': 'Clockmaster', 'Spiegelarchitekt': 'Mirror Architect', 'Schattenfürst': 'Shadow Lord', 'Albtraumkönig': 'Nightmare King',
+  'Im Traumwald erwachst du – und die Reise zu den fünf Traumfunken beginnt.': 'You wake in the dream forest – and the journey to the five dream sparks begins.',
+  'Hinter dem alten Baum wird der Wald dunkel. Hier ist Licht Leben.': 'Beyond the old tree the forest grows dark. Here, light is life.',
+  'Über dem Wald glitzert das Kristallgebirge. Im Traum greift das Eis.': 'Above the forest the crystal mountains glitter. In the dream, the ice holds.',
+  'Unter dem Wasser schläft eine ganze Stadt.': 'A whole city sleeps under the water.', 'Der Boden glüht. Im Traum kühlt die Lava.': 'The ground glows. In the dream, the lava cools.',
+  'Über den Wolken tragen nur Träume.': 'Above the clouds only dreams can carry you.', 'Hier wird der Albtraum gebaut. Der Traum hält die Zeit an.': 'This is where the nightmare is built. The dream stops time.',
+  'Ein Schloss voller Türen. Der Traum ist ein Schlüssel.': 'A castle full of doors. The dream is a key.', 'Die Traumwelt zerbricht in Scherben.': 'The dream world breaks into shards.',
+  'Das Herz wartet auf die fünf Traumfunken.': 'The heart is waiting for the five dream sparks.',
+  'Erwachen': 'Awakening', 'Glühlichtpfad': 'Glowlight Path', 'Verborgene Wurzeln': 'Hidden Roots', 'Raupenhügel': 'Caterpillar Hill', 'Der alte Baum': 'The Old Tree',
+  'Traumschlucht': 'Dream Gorge', 'Nebelpfad': 'Misty Path', 'Verstecktes Dorf': 'Hidden Village', 'Die Traumquelle': 'The Dream Spring',
+  'Erster Frost': 'First Frost', 'Kristallgrotte': 'Crystal Grotto', 'Gletscherwand': 'Glacier Wall', 'Splitterlawine': 'Shard Avalanche', 'Thron aus Eis': 'Throne of Ice',
+  'Stille Straßen': 'Silent Streets', 'Blasengarten': 'Bubble Garden', 'Tempel der Gezeiten': 'Temple of Tides', 'Flutnacht': 'Flood Night', 'Die Tiefenglocke': 'The Deep Bell',
+  'Ascheweg': 'Ash Road', 'Feuerregen': 'Fire Rain', 'Der Schlot': 'The Chimney', 'Glutnacht': 'Ember Night', 'Der Glutschlund': 'The Ember Maw',
+  'Über den Wolken': 'Above the Clouds', 'Flüchtige Wolken': 'Fleeting Clouds', 'Gegenwind': 'Headwind', 'Gewitterfront': 'Storm Front', 'Der Himmelskönig': 'The Sky King',
+  'Werkhalle': 'Workshop', 'Zahnradwerk': 'Gearworks', 'Lasergang': 'Laser Corridor', 'Die große Maschine': 'The Great Machine', 'Der Taktgeber': 'The Clockmaster',
+  'Burgtor': 'Castle Gate', 'Der Wehrgang': 'The Battlements', 'Verschachtelte Hallen': 'Tangled Halls', 'Ruinen im Mondlicht': 'Ruins in Moonlight', 'Der Spiegelarchitekt': 'The Mirror Architect',
+  'Bruchkante': 'Breaking Edge', 'Zwei Wahrheiten': 'Two Truths', 'Schwebende Scherben': 'Floating Shards', 'Zerfall': 'Crumbling', 'Der Schattenfürst': 'The Shadow Lord',
+  'Erinnerungspfad': 'Memory Path', 'Die Traumuhr': 'The Dream Clock', 'Abstieg durch die Träume': 'Descent Through Dreams', 'Die lange Nacht': 'The Long Night', 'Das Herz': 'The Heart',
+  'Boss': 'Boss', 'Level': 'Level', 'Levelauswahl': 'Level select', 'Level auswählen': 'Choose level', 'Zur Levelauswahl': 'To level select',
+  'Zehn Traumwelten, 50 Level und zehn Bosse. Wähle ein Level, das du schon erreicht hast.': 'Ten dream worlds, 50 levels and ten bosses. Choose a level you have already reached.',
+  // Spiel, Steuerung
+  'LAUFEN': 'RUN', 'SPRUNG': 'JUMP', 'Sprung': 'Jump', 'Springen': 'Jump', 'FEUER': 'FIRE', 'WECHSEL': 'SWITCH', 'Wechsel': 'Switch', 'Leertaste': 'Space',
+  'Links': 'Left', 'Rechts': 'Right', 'Spielsteuerung': 'Game controls', 'Spiel pausieren': 'Pause game', 'Pause und Menü': 'Pause and menu', 'Vollbild': 'Fullscreen', 'Vollbild einschalten': 'Turn on fullscreen',
+  'Traum wechseln': 'Switch dream', 'Welt wechseln': 'Switch world', 'Feuerball': 'Fireball', 'Magie': 'Magic', 'Magie wirken': 'Cast magic', 'Feuermagie schießen': 'Shoot fire magic',
+  'Rechts tippen: Springen, halten: höher': 'Tap right: jump, hold: higher',
+  'Linke Spielhälfte: Finger halten zum Laufen, links oder rechts ziehen, kurz nach oben wischen: Traumwechsel': 'Left half: hold to run, drag left or right, swipe up briefly: switch dream',
+  'Traumsprung Spielfeld. Bewegung mit A und D, Sprung mit Leertaste, Traumwechsel mit E.': 'Traumsprung playfield. Move with A and D, jump with Space, switch dream with E.',
+  'A / D oder Pfeiltasten: laufen · Leertaste halten: höher springen · Traumblase einsammeln: Traumkraft – verborgene Brücken erscheinen · P: Pause': 'A / D or arrow keys: run · hold Space: jump higher · collect a dream bubble: dream power – hidden bridges appear · P: pause',
+  'Springe auf orange Gegner. Gegner mit Stacheln lieber umgehen. Sterne schützen kurz und mit der Feuerfähigkeit schießt du mit X. Pause öffnet Einstellungen, Levelauswahl und Vollbild.': 'Jump on orange enemies. Better avoid enemies with spikes. Stars protect you for a moment, and with the fire power you shoot with X. Pause opens settings, level select and fullscreen.',
+  'Steuerung und Tipps': 'Controls and tips', 'Lernen ohne Druck': 'Learn without pressure', 'In Ruhe ausprobieren. Hier verlierst du keine Leben.': 'Try things calmly. You won’t lose lives here.',
+  'Übung · ohne Lebensverlust': 'Practice · no lives lost', 'Üben': 'Practice',
+  // Pause, Ergebnis
+  'Eine kleine Pause': 'A little break', 'Weiterspielen': 'Keep playing', 'Hauptmenü': 'Main menu', 'Zurück': 'Back', 'Abbrechen': 'Cancel',
+  'Noch einmal spielen': 'Play again', 'Noch einmal versuchen': 'Try again', 'Dein Traumergebnis': 'Your dream result', 'Gesamtpunkte': 'Total score',
+  'Ein Stück weiter!': 'A little further!', 'Geheimnisse weitersuchen': 'Look for more secrets', 'Zurück zur Traumreise': 'Back to the dream journey',
+  'Du musst nicht alles neu schaffen. Starte an deiner letzten Traumfahne mit drei neuen Leben.': 'You don’t have to redo everything. Start at your last dream flag with three new lives.',
+  'Dein Schutz ist weg. Die nächste Traumfahne ist ein sicherer Neustart.': 'Your shield is gone. The next dream flag is a safe restart.',
+  'Traumfahne erreicht. Dein Schutz ist wiederhergestellt.': 'Dream flag reached. Your shield is restored.',
+  'Zurück an deiner Traumfahne. Weiter geht’s!': 'Back at your dream flag. Let’s go!', 'Noch einmal. Du schaffst den Sprung!': 'Once more. You can make that jump!',
+  'Traumstab verloren. Du kannst weiter!': 'Dream wand lost. You can keep going!', 'Checkpoint!': 'Checkpoint!',
+  'Schattenkugel! 15 Perlen auf einmal.': 'Shadow orb! 15 pearls at once.',
+  'Ein Geheimblock! Über manchen Pyramiden versteckt sich einer – spring mit dem Kopf dagegen.': 'A secret block! One hides above some pyramids – jump into it with your head.',
+  'Mondkraft! Tippe auf den Mond (oder E), um die Welt zu wechseln – auch mitten im Sprung.': 'Moon power! Tap the moon (or E) to switch worlds – even mid-jump.',
+  '⚠ Wächter lädt einen Bodenschlag auf! Spring über die Welle.': '⚠ The guardian is charging a ground slam! Jump over the wave.',
+  'Deine freigelegte Belohnung findet den Weg zu dir!': 'Your reward is on its way to you!', 'Traumrelikt gefunden:': 'Dream relic found:',
+  'Wunderbar! Alle 50 Level – ein neues Kostüm gehört dir!': 'Wonderful! All 50 levels – a new outfit is yours!',
+  'Erfolg: Erster Sieg': 'Achievement: First victory', 'Erfolg: ': 'Achievement: ',
+  // Bestenliste, Urkunde, Teilen
+  'Bestenliste': 'Leaderboard', 'Bestzeiten': 'Best times', 'Deine Bestzeiten': 'Your best times', 'Deine erste Zeit wartet auf dich.': 'Your first time is waiting for you.',
+  'In die Bestenliste': 'Add to leaderboard', 'Ergebnis eintragen': 'Enter result', 'Name für Bestenliste': 'Name for leaderboard', 'Name oder Spitzname': 'Name or nickname',
+  'Noch kein Eintrag. Schließe ein Level ab!': 'No entry yet. Finish a level!', 'Platz / Name': 'Rank / Name', 'Bitte gib einen Namen ein.': 'Please enter a name.',
+  'Bestenliste auf diesem Gerät. Für eine weltweite Rangliste ist später ein Server nötig. Sortierung: höchste erreichte Stufe, dann gesammelte Bestpunkte aus allen Leveln. Wiederholungen zählen nur bei besserer Leistung.': 'Leaderboard on this device. A worldwide ranking would need a server. Sorted by highest level reached, then best points from all levels. Replays only count if they are better.',
+  'Lokal auf diesem Gerät. Normale Läufe und Hilfsmodus werden getrennt gespeichert. Keine Online-Rangliste.': 'Stored on this device. Normal runs and assist mode are saved separately. No online ranking.',
+  'Dieser Eintrag wird nur in deinem Browser gespeichert.': 'This entry is only saved in your browser.',
+  'Deine Traumurkunde': 'Your dream certificate', 'Deine Urkunde': 'Your certificate', 'Meine Urkunde': 'My certificate', 'Urkunde als Bild speichern': 'Save certificate as image',
+  'Name auf der Urkunde': 'Name on the certificate', 'Dein Name oder Spitzname': 'Your name or nickname',
+  'Dein Name oder Spitzname kommt nur auf das Bild. Die Urkunde wird auf deinem Gerät erstellt.': 'Your name or nickname only goes on the picture. The certificate is made on your device.',
+  'Deine A4-Urkunde wurde als druckbares Bild erstellt.': 'Your A4 certificate was created as a printable image.',
+  'Für die Urkunde fehlen noch Level.': 'A few levels are still missing for the certificate.', 'Für die Urkunde müssen alle 50 Level geschafft sein.': 'All 50 levels must be completed for the certificate.',
+  'Spiele alle 50 Level, dann wartet hier deine Traumwächter-Urkunde.': 'Play all 50 levels and your dream guardian certificate will be waiting here.',
+  'Ergebnis teilen': 'Share result', 'Text zum Teilen': 'Text to share', 'Dein Ergebnis wurde kopiert.': 'Your result was copied.',
+  'Kopiere deinen Spielstand und fordere deine Freunde heraus.': 'Copy your progress and challenge your friends.',
+  'Traumwächter': 'Dream guardian',
+  // Einstellungen
+  'Musik': 'Music', 'Klänge': 'Sounds', 'Sprache': 'Language', 'Deutsch': 'Deutsch', 'Musik & Hilfen': 'Music & assists', 'Tempo': 'Speed', 'Unverwundbar': 'Invincible',
+  'Normal': 'Normal', 'Klassik': 'Classic', 'Mit Hilfe': 'With assist', 'Hilfe einstellen': 'Set assists',
+  'Tempo-Hilfe und Unverwundbarkeit haben eigene Bestzeiten und Sterne. Der Spielfortschritt bleibt erhalten.': 'Speed assist and invincibility have their own best times and stars. Your progress is kept.',
+  'Fortschritt zurücksetzen': 'Reset progress', 'Neu anfangen?': 'Start over?',
+  'Der Fortschritt dieser neuen Fassung wird gelöscht. Deine ursprüngliche Spielversion bleibt unberührt.': 'Progress of this version will be deleted. Your original game version stays untouched.',
+  'Sicherer Modus: weniger Effekte, weil das Spiel zuletzt nicht starten konnte.': 'Safe mode: fewer effects, because the game could not start last time.',
+  'Speichern im Browser ist gerade nicht möglich.': 'Saving in the browser is not possible right now.', 'Sicherungsdatei ist zu groß.': 'Backup file is too large.',
+  'Sicherung konnte nicht wiederhergestellt werden:': 'Backup could not be restored:',
+  'Spielstand konnte nicht gelesen werden. Die beschädigte Datei bleibt lokal gesichert.': 'Progress could not be read. The damaged file is kept locally.',
+  // Kauf
+  'Vollversion freischalten': 'Unlock full version', 'Kauf wiederherstellen': 'Restore purchase', 'Kostenlose Level weiterspielen': 'Keep playing free levels',
+  'Level 1–10 sind kostenlos. Mit der Vollversion spielst du die ganze Geschichte:': 'Levels 1–10 are free. With the full version you play the whole story:',
+  '40 weitere Level (11–50) mit acht neuen Welten': '40 more levels (11–50) in eight new worlds',
+  '8 Bosse, die Rettung aller fünf Traumfunken und das Ende der Geschichte': '8 bosses, the rescue of all five dream sparks and the end of the story',
+  'Abspann und deine persönliche Traumwächter-Urkunde': 'Credits and your personal dream guardian certificate',
+  'Dein bisheriger Fortschritt bleibt vollständig erhalten': 'Your progress so far is fully kept',
+  'Einmaliger Kauf · kein Abo · keine Werbung · keine kaufbaren Vorteile': 'One-time purchase · no subscription · no ads · no paid advantages',
+  'DIE ERSTEN ZWEI WELTEN GESCHAFFT': 'THE FIRST TWO WORLDS ARE DONE', 'TESTMODUS · KEIN ECHTES GELD': 'TEST MODE · NO REAL MONEY',
+  'Bezahlung ist noch nicht freigeschaltet.': 'Payment is not enabled yet.', 'Freischaltung konnte nicht bestätigt werden.': 'Unlock could not be confirmed.',
+  'Die Freischaltung wurde abgebrochen oder ist nicht verfügbar.': 'The unlock was cancelled or is not available.',
+  'Kaufabwicklung auf dieser Plattform nicht verfügbar. Level 1–10 bleiben kostenlos spielbar.': 'Purchasing is not available on this platform. Levels 1–10 stay free to play.',
+  'Frag einen Erwachsenen': 'Ask a grown-up', 'Private Testfassung: weiter': 'Private test version: continue', 'In die Traumgärten': 'Into the dream gardens',
+  // Sonstiges (ältere Systeme)
+  'Überspringen ›': 'Skip ›', 'Überspringen': 'Skip', 'Weiter': 'Next', 'Schließen': 'Close', 'Weiter ›': 'Next ›',
+  'Handy: Die Steuerung liegt direkt auf dem Spielfeld. Links laufen, rechts springen und mit Feuer schießen. Oben rechts findest du Pause und Vollbild. Alternativ links auf dem Spielfeld ziehen und rechts zum Springen berühren. Leuchtende Traumbrücken erscheinen nach einem Traumwechsel. Die drei goldenen Traumfunken jedes Levels liegen auf Entdeckerwegen. Wer alle 15 Funken einer Welt findet, öffnet im Boss-Level die Funkentür zu einer Erinnerung. Goldene Sterne verwandeln die Heldin für kurze Zeit in eine Sternenkriegerin. Fahnen sichern deinen Fortschritt innerhalb des Levels.': 'Phone: the controls are right on the playfield. Run on the left, jump on the right and shoot with Fire. Pause and fullscreen are at the top right. Glowing dream bridges appear after a dream switch. The three golden dream sparks of each level lie on explorer paths. Find all 15 sparks of a world to open the spark door to a memory in the boss level. Golden stars turn you into a star warrior for a short time. Flags save your progress within a level.',
+  '50 Level in 10 Welten · 15 Traumfunken je Welt öffnen eine Erinnerung · Welt 1–2 kostenlos · noch keine echte Bezahlung · Testfassung 4.0': '50 levels in 10 worlds · 15 dream sparks per world open a memory · worlds 1–2 free · no real payment yet · test version 4.0',
+  'Sternenstaub': 'Stardust', 'Relikte': 'Relics', 'Rang': 'Rank',
+  'Traummagie': 'Dream magic', 'Nächste Magie': 'Next magic', 'Im Fähigkeitenbaum freischalten': 'Unlock in the skill tree', 'Schalte im Fähigkeitenbaum zuerst eine Magie frei.': 'Unlock a magic in the skill tree first.',
+  'Neue Fähigkeit freigeschaltet:': 'New ability unlocked:', 'Traumkraft lädt sich wieder auf.': 'Dream power is recharging.',
+  'Traumanker gesetzt. Nochmals wirken: zurückkehren.': 'Dream anchor set. Cast again: return.', 'Traumportal nur auf sicherem Boden setzen.': 'Only place the dream portal on safe ground.',
+  'Portalanker ist nicht mehr sicher.': 'The portal anchor is no longer safe.', 'Traum-Dash (Shift)': 'Dream dash (Shift)', 'Dash': 'Dash', 'Shift': 'Shift', 'Zerfall': 'Crumbling',
+  'Funke': 'Spark', 'Perlen': 'Pearls', 'Leben': 'Lives', 'Punkte': 'Score', 'Kugeln': 'Orbs'
+};
+
+</script><script>/* src/systems/sprache-40.js */
+/* Traumsprung 4.0-p56 – Sprache: Deutsch oder Englisch.
+ *
+ * Alle Texte des Spiels sind auf Deutsch geschrieben. Ist Englisch gewählt, übersetzt dieses Modul beim Anzeigen:
+ *   – Menüs (DOM): Textknoten und die Attribute aria-label, placeholder, title (MutationObserver, auch bei neuen Ansichten)
+ *   – Leinwand-Text (HUD, Hinweise, Intro, Abspann): fillText, strokeText und measureText (gleiche Breite für das Layout)
+ * Wörterbuch: src/i18n/en.js (genaue Texte) + Muster mit Zahlen unten. Unbekannte Texte bleiben deutsch.
+ * Erster Start: Gerätesprache Deutsch → Deutsch, sonst Englisch. Umschalten in den Einstellungen („Sprache“), wird gespeichert.
+ * Abschalten (immer Deutsch): window.TRAUMSPRUNG_SPRACHE_OFF = true
+ */
+'use strict';
+(function () {
+  const EN = window.TRAUMSPRUNG_EN || {};
+  const norm = s => s.replace(/\s+/g, ' ').trim();
+  const map = new Map(Object.entries(EN).map(([k, v]) => [norm(k), v]));
+  const gross = new Map();
+  for (const [k, v] of map) if (k !== k.toUpperCase()) gross.set(k.toUpperCase(), v.toUpperCase());
+  const en = () => !window.TRAUMSPRUNG_SPRACHE_OFF && typeof lang !== 'undefined' && lang === 'en';
+  const w = s => tr1(s) ?? s;
+  const MUSTER = [
+    [/^(\d+)\/(\d+) · Boss: (.+)$/, m => `${m[1]}/${m[2]} · Boss: ${w(m[3])}`],
+    [/^(\d+-\d+) · (.+)$/, m => `${m[1]} · ${w(m[2])}`],
+    [/^(\d+-\d+) (.+)$/, m => `${m[1]} ${w(m[2])}`],
+    [/^WELT (\d+) · (.+)$/, m => `WORLD ${m[1]} · ${w(m[2])}`],
+    [/^Welt (\d+) · (.+)$/, m => `World ${m[1]} · ${w(m[2])}`],
+    [/^(\d+) · (.+)$/, m => `${m[1]} · ${w(m[2])}`],
+    [/^Weiter zu (\d+-\d+)$/, m => `Continue to ${m[1]}`],
+    [/^Level (\d+(?:-\d+)?)$/, m => `Level ${m[1]}`],
+    [/^(\d+) \/ (\d+) Level$/, m => `${m[1]} / ${m[2]} levels`],
+    [/^(\d+) Min\.$/, m => `${m[1]} min`], [/^(\d+) Std\. (\d+) Min\.$/, m => `${m[1]} h ${m[2]} min`],
+    [/^Funken (\d+)\/3$/, m => `Sparks ${m[1]}/3`], [/^Kugeln (\d+)\/7$/, m => `Orbs ${m[1]}/7`], [/^Perlen (\d+)$/, m => `Pearls ${m[1]}`], [/^Leben (\d+)$/, m => `Lives ${m[1]}`],
+    [/^Leben (\d+), Traumfunken (\d+) von 3$/, m => `Lives ${m[1]}, dream sparks ${m[2]} of 3`], [/^Traumfunken (\d+) von 3$/, m => `Dream sparks ${m[1]} of 3`],
+    [/^Punkte (\d+) · Best (\d+)$/, m => `Score ${m[1]} · Best ${m[2]}`], [/^Rang (\d+) · Relikte (\d+)\/(\d+)$/, m => `Rank ${m[1]} · Relics ${m[2]}/${m[3]}`],
+    [/^Tag (\d+)$/, m => `Day ${m[1]}`], [/^Spur in Level (.+)$/, m => `Trail in level ${m[1]}`], [/^(\d+)× besiegt$/, m => `defeated ${m[1]}×`],
+    [/^(Bronze|Silber|Gold): (\d+)$/, m => `${w(m[1])}: ${m[2]}`],
+    [/^Besiege (\d+) Tiere$/, m => `Defeat ${m[1]} animals`], [/^Sammle (\d+) Perlen$/, m => `Collect ${m[1]} pearls`], [/^Springe (\d+)-mal$/, m => `Jump ${m[1]} times`],
+    [/^Finde (\d+) Traumfunken$/, m => `Find ${m[1]} dream sparks`], [/^Schaffe (\d+) Level$/, m => `Finish ${m[1]} levels`], [/^Spucke (\d+) Feuerkugeln$/, m => `Throw ${m[1]} fireballs`],
+    [/^Wirf (\d+) Feuerkugeln$/, m => `Throw ${m[1]} fireballs`], [/^Wechsle (\d+)-mal in die Traumwelt$/, m => `Switch to the dream world ${m[1]} times`],
+    [/^(\d+) Sternenstaub erhalten!$/, m => `${m[1]} stardust received!`], [/^Wochenabenteuer gemeistert: (\d+) Sternenstaub!$/, m => `Weekly adventure done: ${m[1]} stardust!`],
+    [/^🎁 (\d+) Geschenke? warte[tn]!?$/, m => `🎁 ${m[1]} gift${m[1] === '1' ? '' : 's'} waiting!`],
+    [/^(\d+) von (\d+) Erfolgen freigeschaltet\.$/, m => `${m[1]} of ${m[2]} achievements unlocked.`],
+    [/^Fähigkeiten · (\d+) Essenz$/, m => `Skills · ${m[1]} essence`],
+    [/^Meine Traumreise: (\d+)\/50 Level, (\d+) Sterne und (\d+)\/7 Traumkugeln\. Traumsprung – Die fünf Traumfunken\.$/, m => `My dream journey: ${m[1]}/50 levels, ${m[2]} stars and ${m[3]}/7 dream orbs. Traumsprung – The Five Dream Sparks.`],
+    [/^Trage deinen Spitznamen ein\. Insgesamt (\d+) Bestpunkte aus den Leveln\. Du kannst deinen Eintrag verbessern\.$/, m => `Enter your nickname. ${m[1]} best points from all levels in total. You can improve your entry.`],
+    [/^· (\d+) Perlen gesammelt · nächste Stufe bei (\d+)$/, m => `· ${m[1]} pearls collected · next stage at ${m[2]}`],
+    [/^✦ Figur wechseln \((.+)\)$/, m => `✦ Change character (${m[1]})`],
+    [/^Vollversion freischalten · (.+)$/, m => `Unlock full version · ${m[1].replace(' (Test)', ' (test)')}`],
+    [/^(\d+),(\d+) € \(Test\)$/, m => `€${m[1]}.${m[2]} (test)`],
+    [/^Traumsprung (\d.+)$/, m => m[0]],
+    [/^(\d+(?:,\d+)?)s Flug$/, m => `${m[1].replace(',', '.')} s flight`],
+    [/^Erfolg: (.+)$/, m => `Achievement: ${w(m[1])}`],
+    [/^(.+) wählen$/, m => `Choose ${m[1]}`]
+  ];
+  // Zwischenspeicher: dieselben Texte werden jedes Bild gezeichnet
+  const CACHE = new Map();
+  function tr1(s) {
+    if (CACHE.has(s)) return CACHE.get(s);
+    const r = tr1roh(s); if (CACHE.size > 3000) CACHE.clear(); CACHE.set(s, r); return r;
+  }
+  function tr1roh(s) {
+    const k = norm(s); if (!k) return null;
+    if (map.has(k)) return map.get(k);
+    if (gross.has(k)) return gross.get(k);
+    for (const [re, f] of MUSTER) { const m = k.match(re); if (m) { const r = f(m); if (r !== k) return r; } }
+    if (k.includes(' · ')) { const t = k.split(' · ').map(x => tr1(x)); if (t.some(Boolean)) return k.split(' · ').map((x, i) => t[i] ?? x).join(' · '); }
+    return null;
+  }
+  function tr(s) {
+    if (typeof s !== 'string' || !en()) return s;
+    const r = tr1(s); if (r === null) return s;
+    const vorn = s.match(/^\s*/)[0], hinten = s.match(/\s*$/)[0];
+    return vorn + r + hinten;
+  }
+  window.TRAUMSPRUNG_TR = tr;
+  window.TRAUMSPRUNG_SPRACHE = { tr, tr1, en, setzen: l => setze(l) };
+
+  // ── Leinwand ──
+  const P2 = CanvasRenderingContext2D.prototype, fT = P2.fillText, sT = P2.strokeText, mT = P2.measureText;
+  P2.fillText = function (s, ...a) { return fT.call(this, en() ? tr(String(s)) : s, ...a); };
+  P2.strokeText = function (s, ...a) { return sT.call(this, en() ? tr(String(s)) : s, ...a); };
+  P2.measureText = function (s, ...a) { return mT.call(this, en() ? tr(String(s)) : s, ...a); };
+
+  // ── Menüs (DOM) ──
+  const ORIG = new WeakMap(), ATTR = ['aria-label', 'placeholder', 'title'];
+  let bin = false;
+  function textKnoten(n) {
+    const p = n.parentElement; if (!p || p.closest('script,style,textarea,[data-ts-roh]')) return;
+    let o = ORIG.get(n);
+    if (o === undefined || (n.nodeValue !== o.de && n.nodeValue !== o.en)) { o = { de: n.nodeValue, en: null }; ORIG.set(n, o); }
+    const ziel = en() ? (o.en ?? (o.en = tr(o.de))) : o.de;
+    if (n.nodeValue !== ziel) n.nodeValue = ziel;
+  }
+  function element(e) {
+    for (const a of ATTR) if (e.hasAttribute?.(a)) {
+      const key = '__de_' + a, cur = e.getAttribute(a);
+      if (e[key] === undefined || (cur !== e[key] && cur !== tr(e[key]))) e[key] = cur;
+      const ziel = en() ? tr(e[key]) : e[key];
+      if (cur !== ziel) e.setAttribute(a, ziel);
+    }
+  }
+  function baum(root) {
+    if (!root) return;
+    if (root.nodeType === 3) { textKnoten(root); return; }
+    if (root.nodeType !== 1) return;
+    element(root);
+    const it = document.createTreeWalker(root, NodeFilter.SHOW_TEXT | NodeFilter.SHOW_ELEMENT);
+    let n; while ((n = it.nextNode())) { if (n.nodeType === 3) textKnoten(n); else element(n); }
+  }
+  const mo = new MutationObserver(list => {
+    if (bin) return; bin = true;
+    try { for (const m of list) { if (m.type === 'characterData') textKnoten(m.target); else if (m.type === 'attributes') element(m.target); else for (const n of m.addedNodes) baum(n); } }
+    finally { bin = false; }
+  });
+  function start() { mo.observe(document.body, { subtree: true, childList: true, characterData: true, attributes: true, attributeFilter: ATTR }); alles(); }
+  function alles() { bin = true; try { baum(document.body); document.documentElement.lang = en() ? 'en' : 'de'; } finally { bin = false; } }
+  if (document.body) start(); else addEventListener('DOMContentLoaded', start, { once: true });
+
+  // ── Sprache wählen: erster Start nach Gerätesprache, Umschalten wirkt sofort ──
+  function setze(l) {
+    if (typeof lang === 'undefined') return;
+    lang = l === 'en' ? 'en' : 'de';
+    try { if (typeof sv === 'function') sv(); } catch (_) { }
+    try { if (typeof setLang === 'function') setLang(); } catch (_) { }
+    alles();
+    try { if (typeof menuSignature !== 'undefined') menuSignature = ''; if (typeof updateInterface === 'function') updateInterface(); } catch (_) { }
+    try { window.TRAUMSPRUNG_MENU_NEU?.(); } catch (_) { }
+  }
+  try {
+    const key = typeof SAVE_KEY !== 'undefined' ? SAVE_KEY : 'traumsprung-v2';
+    const roh = localStorage.getItem(key), d = roh ? JSON.parse(roh) : null;
+    if (!d || d.lang === undefined) { const g = (navigator.language || 'de').toLowerCase(); if (typeof lang !== 'undefined') lang = g.startsWith('de') ? 'de' : 'en'; try { if (typeof setLang === 'function') setLang(); } catch (_) { } }
+  } catch (_) { }
+  alles();
+  // Einstellungen: der Sprachpunkt (engine.js) schaltet lang um – danach alles neu übersetzen
+  let letzte = typeof lang !== 'undefined' ? lang : 'de';
+  setInterval(() => { if (typeof lang !== 'undefined' && lang !== letzte) { letzte = lang; try { if (typeof setLang === 'function') setLang(); } catch (_) { } alles(); try { if (typeof menuSignature !== 'undefined') menuSignature = ''; updateInterface?.(); } catch (_) { } } }, 400);
 })();
 
 </script>
