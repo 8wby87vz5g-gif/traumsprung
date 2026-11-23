@@ -1583,6 +1583,8 @@ function draw(){
     if(q.got)continue;
     const x=q.x-cam;if(x<-20||x>VW/sceneZoom+20)continue;
     const y=q.y+Math.sin(t/10+q.x)*2.6;
+    /* 4.0-p51: Perlen können anders aussehen (glanz-40.js: Traumdiamanten) */
+    if(window.TRAUMSPRUNG_GEMSKIN?.(q,x,y))continue;
     const glow=cx.createRadialGradient(x,y,1,x,y,11);
     glow.addColorStop(0,'#e6ffff99');glow.addColorStop(1,'#a1f9ff00');
     cx.fillStyle=glow;cx.beginPath();cx.arc(x,y,11,0,7);cx.fill();
@@ -7983,7 +7985,7 @@ setLang();menuSignature='';updateInterface();
     return;
   }
   window.__traumsprungDreamGateInstalled=true;
-  const VERSION='1.0 (Build 89)';
+  const VERSION='1.0 (Build 90)';
   const KEY_TIME='traumsprung-playtime-v1';
   const KEY_NAME='traumsprung-menu-nickname-v1';
   const KEY_DREAM='traumsprung-menu-realm-v1';
@@ -19577,6 +19579,179 @@ window.TRAUMSPRUNG_ZIEL = function (fx, fy) {
     };
   }
   window.TRAUMSPRUNG_BAUWERKE = { info: () => info };
+})();
+
+</script><script>/* src/systems/glanz-40.js */
+/* Traumsprung 4.0-p51 – Grafikpaket „Glanz“ (Weg 1: mehr aus dem Code holen), Vorzeige-Welt 1.
+ *
+ * Ziel: weg vom milchigen Pastell-Look hin zu Tiefe und Licht wie bei Giana Sisters – dunkle, tiefe Ferne,
+ * leuchtende Dinge im Vordergrund. Spielregeln, Trefferflächen und der Giana-Flow bleiben unverändert.
+ *  1) Traumdiamanten statt runder Perlen (alle Welten): geschliffener Kristall mit Facetten, Glanzlauf, Glitzern.
+ *  2) Tiefe (Welt 1): Luftperspektive – die Ferne wird dunkler und kühler, der Vordergrund hebt sich ab;
+ *     Bodennebel in zwei Schichten, der langsam zieht.
+ *  3) Licht (Welt 1): schräge Lichtstrahlen durch die Bäume (im Traum warm, im Albtraum keine – dort rotes Glimmen),
+ *     schwebende Lichtstäubchen, warmes Leuchten um den Drachen.
+ *  4) Bildrahmen (Welt 1): sanfte Vignette, dunkle Gräser und Blätter ganz vorne (ziehen schneller vorbei = Tiefe).
+ * Sparstufe (leistung-40.js, schaltet bei unter ~45 Bildern/s selbst) lässt Strahlen, Nebel, Stäubchen und Vordergrund weg. Abschaltbar: window.TRAUMSPRUNG_GLANZ_OFF = true
+ */
+'use strict';
+(function () {
+  const AUS = () => !!window.TRAUMSPRUNG_GLANZ_OFF;
+  const W1 = () => !AUS() && level >= 1 && level <= 5 && !!window.TRAUMSPRUNG_LEVEL_HANDMADE;
+  const spar = () => (window.TRAUMSPRUNG_LEISTUNG?.stufe?.() || 0) >= 1 || !!window.TRAUMSPRUNG_SICHER_MODUS;
+  const alb = () => dreamPhase === 2;
+  const rnd = (a, b) => { const v = Math.sin(a * 57.3 + b * 197.9) * 43758.5453; return v - Math.floor(v); };
+
+  // ── 1) Traumdiamanten ──
+  window.TRAUMSPRUNG_GEMSKIN = (q, x, y) => {
+    if (AUS()) return false;
+    const n = q.nm && alb(), s = 1;
+    const c = n ? ['#ffd0dc', '#ff5a7a', '#a01a3a', '#5a0a20'] : ['#e8ffff', '#6ae8ff', '#1f8ad0', '#0e3a6a'];
+    // Leuchten
+    const g = cx.createRadialGradient(x, y, 1, x, y, 13);
+    g.addColorStop(0, n ? 'rgba(255,120,150,.55)' : 'rgba(150,240,255,.55)'); g.addColorStop(1, 'rgba(120,220,255,0)');
+    cx.fillStyle = g; cx.beginPath(); cx.arc(x, y, 13, 0, 7); cx.fill();
+    const wob = Math.sin(t / 18 + q.x * .07) * .18, w = 6.2 * (1 - Math.abs(wob) * .5);   // dreht sich leicht
+    cx.save(); cx.translate(x, y); cx.scale(s, s);
+    // Unterteil (Pavillon)
+    cx.beginPath(); cx.moveTo(-w, -1.5); cx.lineTo(0, 8); cx.lineTo(w, -1.5); cx.closePath(); cx.fillStyle = c[2]; cx.fill();
+    cx.beginPath(); cx.moveTo(-w * .35 + wob * 4, -1.5); cx.lineTo(0, 8); cx.lineTo(w * .45 + wob * 4, -1.5); cx.closePath(); cx.fillStyle = c[1]; cx.fill();
+    // Oberteil (Krone) und Tafel
+    cx.beginPath(); cx.moveTo(-w, -1.5); cx.lineTo(-w * .55, -6); cx.lineTo(w * .55, -6); cx.lineTo(w, -1.5); cx.closePath(); cx.fillStyle = c[1]; cx.fill();
+    cx.beginPath(); cx.moveTo(-w * .55, -6); cx.lineTo(-w * .2 + wob * 3, -1.5); cx.lineTo(w * .2 + wob * 3, -1.5); cx.lineTo(w * .55, -6); cx.closePath(); cx.fillStyle = c[0]; cx.fill();
+    // Umriss
+    cx.beginPath(); cx.moveTo(-w, -1.5); cx.lineTo(-w * .55, -6); cx.lineTo(w * .55, -6); cx.lineTo(w, -1.5); cx.lineTo(0, 8); cx.closePath();
+    cx.strokeStyle = c[3]; cx.lineWidth = 1.1; cx.lineJoin = 'round'; cx.stroke();
+    // Glanzlauf alle ~2 s
+    const lauf = ((t + q.x) % 120) / 120;
+    if (lauf < .3) { const k = lauf / .3; cx.save(); cx.clip(); cx.fillStyle = 'rgba(255,255,255,.75)'; cx.beginPath(); const gx = -w - 4 + k * (2 * w + 8); cx.moveTo(gx, -7); cx.lineTo(gx + 3, -7); cx.lineTo(gx - 3, 9); cx.lineTo(gx - 6, 9); cx.fill(); cx.restore(); }
+    cx.restore();
+    // Glitzerstern
+    const gl = (t + q.x * 3) % 90;
+    if (gl < 14) { const k = Math.sin(gl / 14 * Math.PI), r = 4.5 * k; cx.fillStyle = `rgba(255,255,255,${k})`; cx.beginPath(); cx.moveTo(x + 4, y - 6 - r); cx.lineTo(x + 4.7, y - 6.7); cx.lineTo(x + 4 + r, y - 6); cx.lineTo(x + 4.7, y - 5.3); cx.lineTo(x + 4, y - 6 + r); cx.lineTo(x + 3.3, y - 5.3); cx.lineTo(x + 4 - r, y - 6); cx.lineTo(x + 3.3, y - 6.7); cx.closePath(); cx.fill(); }
+    return true;
+  };
+
+  // Vorgezeichnete Bilder: Nebelbank und Vignette werden einmal gemalt und danach nur kopiert
+  const nebelCache = {}, vigCache = {};
+  function nebelBank(n) {
+    const key = n ? 'a' : 'w'; if (nebelCache[key]) return nebelCache[key];
+    const k = document.createElement('canvas'); k.width = 150; k.height = 34; const c = k.getContext('2d');
+    const farbe = n ? '90,10,40' : '210,190,255';
+    c.translate(75, 17); c.scale(1, 34 / 150);
+    const g = c.createRadialGradient(0, 0, 4, 0, 0, 120); g.addColorStop(0, `rgba(${farbe},.16)`); g.addColorStop(1, `rgba(${farbe},0)`);
+    c.fillStyle = g; c.beginPath(); c.arc(0, 0, 150, 0, 7); c.fill();
+    return (nebelCache[key] = k);
+  }
+  function vignette(Wd, Hd, n) {
+    const key = (n ? 'a' : 'w') + Wd + 'x' + Hd; if (vigCache[key]) return vigCache[key];
+    for (const k in vigCache) if (k[0] === key[0]) delete vigCache[k];
+    // kleine Fassung reicht, sie wird weich hochskaliert
+    const w = Math.max(64, Math.round(Wd / 4)), h = Math.max(32, Math.round(Hd / 4));
+    const k = document.createElement('canvas'); k.width = w; k.height = h; const c = k.getContext('2d');
+    const g = c.createRadialGradient(w / 2, h * .45, h * .42, w / 2, h * .5, h * .95);
+    g.addColorStop(0, 'rgba(10,4,24,0)'); g.addColorStop(1, n ? 'rgba(20,0,10,.5)' : 'rgba(14,6,34,.38)');
+    c.fillStyle = g; c.fillRect(0, 0, w, h);
+    return (vigCache[key] = k);
+  }
+
+  // ── 2) Tiefe hinter der Spielwelt (direkt nach dem Hintergrund, vor Kacheln und Figuren) ──
+  const isles = window.TRAUMSPRUNG_ISLES;
+  if (isles && isles.drawBackground) {
+    const prior = isles.drawBackground;
+    isles.drawBackground = function (ctx) {
+      const r = prior.apply(this, arguments);
+      if (!W1()) return r;
+      const c = ctx || cx, VWz = VW / sceneZoom, BH = Math.max(VH, H * T);
+      c.save();
+      // Luftperspektive: Himmel und Ferne tiefer und satter, nach unten auslaufend
+      let g = c.createLinearGradient(0, 0, 0, BH);
+      if (alb()) { g.addColorStop(0, 'rgba(20,0,16,.55)'); g.addColorStop(.55, 'rgba(50,0,24,.28)'); g.addColorStop(1, 'rgba(40,0,20,.12)'); }
+      else { g.addColorStop(0, 'rgba(22,10,62,.62)'); g.addColorStop(.45, 'rgba(40,18,88,.46)'); g.addColorStop(.8, 'rgba(36,20,78,.3)'); g.addColorStop(1, 'rgba(28,16,60,.18)'); }
+      c.fillStyle = g; c.fillRect(0, 0, VWz + 40, BH);
+      // Lichtstrahlen durch die Bäume (nur Traum/wach)
+      if (!spar() && !alb()) {
+        c.globalCompositeOperation = 'lighter';
+        for (let i = 0; i < 5; i++) {
+          const bx = ((i * 190 + 60 - cam * .15) % (VWz + 260) + VWz + 260) % (VWz + 260) - 120, sw = Math.sin(t / 140 + i * 1.7) * 18, br = 26 + (i % 3) * 18;
+          const a = .06 + .035 * Math.sin(t / 90 + i * 2.1);
+          g = c.createLinearGradient(bx, 0, bx + 120, BH * .8); g.addColorStop(0, `rgba(255,236,190,${a * 1.6})`); g.addColorStop(1, 'rgba(255,236,190,0)');
+          c.fillStyle = g; c.beginPath(); c.moveTo(bx + sw, -10); c.lineTo(bx + br + sw, -10); c.lineTo(bx + br + 150, BH * .85); c.lineTo(bx + 110, BH * .85); c.closePath(); c.fill();
+        }
+        c.globalCompositeOperation = 'source-over';
+      } else if (alb() && !spar()) {
+        // Albtraum: rotes Glimmen von unten
+        g = c.createLinearGradient(0, BH * .55, 0, BH); g.addColorStop(0, 'rgba(255,40,60,0)'); g.addColorStop(1, `rgba(255,40,60,${.16 + .05 * Math.sin(t / 30)})`);
+        c.fillStyle = g; c.fillRect(0, BH * .55, VWz + 40, BH * .45);
+      }
+      // Bodennebel in zwei Schichten (vorgezeichnete Nebelbank, nur noch kopiert = schnell)
+      if (!spar()) for (const [tief, yy, al, sp] of [[.25, 300, .16, .15], [.5, 350, .12, .3]]) {
+        const bank = nebelBank(alb()); c.globalAlpha = al / .16;
+        for (let i = 0; i < 7; i++) {
+          const px = ((i * 170 - cam * tief + t * sp) % (VWz + 340) + VWz + 340) % (VWz + 340) - 170, py = yy + Math.sin(i * 1.3 + t / 120) * 10;
+          c.drawImage(bank, px - 150, py - 34, 300, 68);
+        }
+        c.globalAlpha = 1;
+      }
+      c.restore();
+      return r;
+    };
+  }
+
+  // ── 3) Licht über der Spielwelt (Weltkoordinaten) ──
+  if (typeof drawDreamObjects === 'function') {
+    const priorDDO = drawDreamObjects;
+    drawDreamObjects = function () {
+      const r = priorDDO.apply(this, arguments);
+      if (!W1() || !P || !(state === 'play' || state === 'morph' || state === 'dead')) return r;
+      cx.save(); cx.globalCompositeOperation = 'lighter';
+      // warmes Licht um den Drachen
+      const hx = P.x + 11 - cam, hy = P.y + 12, g = cx.createRadialGradient(hx, hy, 2, hx, hy, 46);
+      g.addColorStop(0, alb() ? 'rgba(255,200,150,.16)' : 'rgba(255,230,180,.13)'); g.addColorStop(1, 'rgba(255,220,160,0)');
+      cx.fillStyle = g; cx.beginPath(); cx.arc(hx, hy, 46, 0, 7); cx.fill();
+      // schwebende Lichtstäubchen
+      if (!spar()) {
+        const VWz = VW / sceneZoom;
+        for (let i = 0; i < 26; i++) {
+          const tief = .4 + rnd(i, 1) * .5, px = ((rnd(i, 2) * 1400 - cam * tief + t * (.12 + rnd(i, 3) * .2)) % (VWz + 60) + VWz + 60) % (VWz + 60) - 30;
+          const py = 60 + rnd(i, 4) * 330 + Math.sin(t / (40 + i) + i) * 14, a = .25 + .45 * Math.abs(Math.sin(t / (30 + i * 2) + i));
+          cx.fillStyle = alb() ? `rgba(255,90,110,${a * .7})` : `rgba(255,240,190,${a})`;
+          cx.beginPath(); cx.arc(px, py, .9 + tief * 1.3, 0, 7); cx.fill();
+        }
+      }
+      cx.restore();
+      return r;
+    };
+  }
+
+  // ── 4) Bildrahmen im Bildschirmraum: Vignette und dunkler Vordergrund ──
+  if (typeof draw === 'function') {
+    const priorDraw = draw;
+    draw = function () {
+      const r = priorDraw.apply(this, arguments);
+      if (!W1() || !(state === 'play' || state === 'morph' || state === 'dead')) return r;
+      const Wd = cv.width, Hd = cv.height, s = RENDER_SCALE;
+      cx.save(); cx.setTransform(1, 0, 0, 1, 0, 0);
+      cx.drawImage(vignette(Wd, Hd, alb()), 0, 0, Wd, Hd);
+      if (!spar()) {
+        // Gräser und Blätter ganz vorne: ziehen schneller als die Welt vorbei
+        const z = RENDER_SCALE * sceneZoom, fx = cam * 1.35 * z, span = 260 * z, unten = Hd;
+        cx.fillStyle = alb() ? 'rgba(18,2,10,.92)' : 'rgba(16,8,30,.88)';
+        for (let i = -1; i < Wd / span + 2; i++) {
+          const k = Math.floor((fx / span)) + i, bx = k * span - fx, art = Math.floor(rnd(k, 7) * 3), h = (18 + rnd(k, 8) * 22) * s;
+          if (rnd(k, 9) < .35) continue;
+          cx.beginPath();
+          if (art === 0) { for (let j = 0; j < 7; j++) { const gx = bx + j * 6 * s, gh = h * (.6 + rnd(k * 9 + j, 1) * .6), wind = Math.sin(t / 50 + j) * 3 * s; cx.moveTo(gx - 2.4 * s, unten); cx.quadraticCurveTo(gx + wind * .5, unten - gh * .6, gx + wind, unten - gh); cx.quadraticCurveTo(gx + 1 * s, unten - gh * .5, gx + 2.4 * s, unten); } }
+          else if (art === 1) { cx.ellipse(bx + 20 * s, unten + 4 * s, 34 * s, h * .7, 0, Math.PI, 0); }
+          else { for (let j = 0; j < 3; j++) { const lx = bx + j * 14 * s, ly = unten - h * .5 - j * 4 * s; cx.moveTo(lx, unten); cx.quadraticCurveTo(lx - 10 * s, ly, lx + 4 * s, ly - 10 * s); cx.quadraticCurveTo(lx + 10 * s, ly, lx + 4 * s, unten); } }
+          cx.fill();
+        }
+      }
+      cx.restore();
+      return r;
+    };
+  }
+  window.TRAUMSPRUNG_GLANZ = { welt1: W1 };
 })();
 
 </script><script>/* src/systems/rausch-40.js */
