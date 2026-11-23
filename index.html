@@ -1185,7 +1185,10 @@ async function shareScore(){
   msgUntil=t+240;toastMsg(msg)
 }
 const gpS={l:0,r:0,j:0,f:0,s:0,b:0};
-function pollPad(){try{const pads=navigator.getGamepads?navigator.getGamepads():[];let g=null;for(const q of pads)if(q&&q.connected){g=q;break}if(!g)return;
+// 4.0-p54: Controllerverlust – gedrückte Controller-Tasten werden losgelassen (sonst lief die Figur endlos weiter)
+function releasePad(){for(const k of['l','r','j','f'])if(gpS[k]){gpS[k]=0;press(k,0);}gpS.s=gpS.b=0;}
+addEventListener('gamepaddisconnected',()=>{releasePad();if(state==='play')state='pause';});
+function pollPad(){try{const pads=navigator.getGamepads?navigator.getGamepads():[];let g=null;for(const q of pads)if(q&&q.connected){g=q;break}if(!g){releasePad();return;}
   const ax=g.axes[0]||0,b=i=>g.buttons[i]&&g.buttons[i].pressed;
   const n={l:ax<-.4||b(14)?1:0,r:ax>.4||b(15)?1:0,j:b(0)||b(1)?1:0,f:b(2)||b(3)?1:0,s:b(9)?1:0,b:b(8)?1:0};
   for(const k of['l','r','j','f'])if(n[k]!==gpS[k])press(k,n[k]);
@@ -1245,12 +1248,15 @@ function upd(){
   P.coy=P.ground?7:P.coy-1;jb--;
   if(!P.ground&&jb>0&&P.wallTime>0&&!P.sw){const wallPlus=window.TRAUMSPRUNG_RPG?.has("wallJump");P.vy=wallPlus?-10.3:-8.8;P.vx=-P.wallSide*(wallPlus?5.8:5.2);P.wallLock=wallPlus?9:12;P.wallTime=0;jb=0;snd(610,.12)}
   if(P.sw&&jb>0){P.vy=window.TRAUMSPRUNG_WASSER?.stroke?.(P)??-4.2;jb=0;snd(520,.05)}   /* 4.0: an der Oberfläche springt man aus dem Wasser */
-  else if(jb>0&&P.coy>0){P.vy=P.star>0?-12.1:(P.boots?-11.5:-9.6);P.coy=0;jb=0;snd(440,.1)}
+  else if(jb>0&&P.coy>0){P.vy=P.star>0?-12.1:(P.boots?-11.5:-9.6);P.coy=0;jb=0;P.jt=0;snd(440,.1)}
   else if(jb>0&&!P.ground&&!P.sw&&(P.airJumps||0)>0){
     P.airJumps--;P.vy=-9.0;P.coy=0;jb=0;P.dashTicks=0;
     spark(P.x+11,P.y+26,'#a9fff0',12);snd(760,.10,'triangle',.045);
   }
-  if(!keys.j&&P.vy<-4&&!P.sw&&!dashing)P.vy=-4;P.hold=keys.j&&P.vy<0&&!P.sw;
+  // 4.0-p54: Mindestsprung – ein kurzer Tipp (auch ein gepufferter vor der Landung oder Drücken+Loslassen im selben Bild)
+  // trägt die ersten 4 Bilder wie gehalten. Vorher ergab er nur einen Hüpfer von 0,4 Feldern, der sich wie verschluckt anfühlte.
+  if(P.jt!==undefined&&P.jt<99)P.jt++;const minSprung=(P.jt??99)<=4;
+  if(!keys.j&&!minSprung&&P.vy<-4&&!P.sw&&!dashing)P.vy=-4;P.hold=(keys.j||minSprung)&&P.vy<0&&!P.sw;
   const pv=P.vy;const r=move(P);if(r.hx&&!P.ground&&P.vy>0&&(keys.l||keys.r)){P.vy=Math.min(P.vy,3.4);P.wallTime=7;P.wallSide=P.face;}else P.wallTime=Math.max(0,(P.wallTime||0)-1);if(P.ground)P.wallTime=0;if(P.ground&&pv>4)spark(P.x+11,P.y+28,'#ffffff88',6,1);else if(P.ground&&Math.abs(P.vx)>2.5&&t%6===0)spark(P.x+11-P.face*6,P.y+28,'#ffffff66',2,1);
   if(r.bump){
     let tx=fl((P.x+P.w/2)/T),ty=r.bump[1];if(!sol(tx,ty)){tx=r.bump[0]}
@@ -2601,6 +2607,8 @@ function smoothDraw(alpha){
       // Säule, kleine Grube, Ziegelreihe mit Feuer
       a.column(19, 2); a.arc(22, [10, 9, 9, 10]); a.pit(23, 25); a.tiles(8, 28, 'BBB?BBB'); a.tiles(4, 30, 'B%B'); a.foe(33, 0); a.foe(37, 0);
       a.mark(23, 'R'); a.mark(28, 'B'); a.mark(34, 'U');
+      // 4.0-p54: erster Neustartpunkt schon vor dem Inselsprung (vorher erst bei Feld 79 – ein Fehler kostete ~20 s)
+      a.restart(39);
       // Inselsprung – Funke 1 offen über der Insel
       a.pit(42, 44); a.island(45, 9, 3); a.seal(46, 6); a.pit(48, 50); a.arc(47, [8, 7, 7, 8]); a.tiles(8, 53, 'B?B'); a.foe(57, 1);
       // Die erste Blase: im Traum trägt die Brücke über die breite Grube
@@ -2614,6 +2622,8 @@ function smoothDraw(alpha){
       a.column(99, 2); a.tiles(8, 101, 'BwB'); a.tiles(5, 105, 'BBBBBBBB'); a.pearls(4, 106, 111); a.seal(112, 3);
       a.foe(108, 0); a.pit(116, 118); a.arc(115, [10, 9, 9, 10]);
       a.mark(81, 'B'); a.mark(92, 'G'); a.mark(101, 'R'); a.mark(106, 'B'); a.mark(112, 'U');
+      // 4.0-p54: Neustart vor dem Sternenlauf (vorher lagen 78 Felder zwischen zwei Neustartpunkten)
+      a.restart(120);
       // Sternenlauf durch die Gegnergruppe
       a.tiles(8, 121, 'B!B'); a.foe(125, 0); a.foe(128, 0); a.foe(131, 1); a.foe(134, 0); a.pearls(10, 124, 136); a.tiles(4, 128, 'BBB');
       // Funke 3 nur im Traum: Traumstufen hinauf
@@ -5484,7 +5494,8 @@ function configureView(){
     // stretched sprites, black letterboxing or losing touch buttons.
     const rw=Math.max(280,window.visualViewport?.width||innerWidth);
     const rh=Math.max(260,window.visualViewport?.height||innerHeight);
-    if(portrait){VH=640;VW=Math.max(275,Math.min(495,Math.round(VH*rw/rh)));sceneZoom=1.20;}
+    // 4.0-p54: Hochformat zeigt mehr Weg nach vorn (Zoom 1,0 statt 1,2: etwa 9 statt 7,7 Felder breit)
+    if(portrait){VH=640;VW=Math.max(275,Math.min(495,Math.round(VH*rw/rh)));sceneZoom=1.0;}
     else{VW=779;VH=Math.max(245,Math.min(448,Math.round(VW*rh/rw)));sceneZoom=1.12;}   // 3.0: breiterer Ausschnitt (wie Zoom 0,92) – mehr Überblick wie bei Giana
   }else{VW=640;VH=448;sceneZoom=1.12;}
   // Match the actual CSS canvas width at device-pixel density. The previous
@@ -7084,7 +7095,9 @@ setLang();menuSignature='';updateInterface();
     const look = Math.max(-params.lookAheadMax,
       Math.min(params.lookAheadMax, (P.vx||0)*params.lookAhead));
     lookCur += (look - lookCur) * .035;
-    let target = P.x+P.w*.5-viewWidth*params.heroScreenX+lookCur;
+    // 4.0-p54: im schmalen Hochformat steht die Figur weiter links – mehr Sicht auf das, was kommt
+    const heldX = VH > VW ? .24 : params.heroScreenX;
+    let target = P.x+P.w*.5-viewWidth*heldX+lookCur;
     const bossActive = boss?.act && !boss.dead && boss.x > bossArenaStart;
     if (bossActive) {
       // Keep the boss in frame without pushing the hero off-screen.
@@ -7987,7 +8000,7 @@ setLang();menuSignature='';updateInterface();
     return;
   }
   window.__traumsprungDreamGateInstalled=true;
-  const VERSION='1.0 (Build 92)';
+  const VERSION='1.0 (Build 93)';
   const KEY_TIME='traumsprung-playtime-v1';
   const KEY_NAME='traumsprung-menu-nickname-v1';
   const KEY_DREAM='traumsprung-menu-realm-v1';
@@ -18569,6 +18582,53 @@ setLang();menuSignature='';updateInterface();
 // Das Hauptmenü wurde evtl. schon vor diesem Modul gezeichnet: Figur dort einmal neu zeichnen
 (function () { const neu = () => { try { window.TRAUMSPRUNG_MENU_FIGUR?.(); } catch (_) { } }; if (document.readyState === 'complete') neu(); else addEventListener('load', neu, { once: true }); setTimeout(neu, 700); })();
 
+</script><script>/* src/systems/daumenblick-40.js */
+/* Traumsprung 4.0-p54 – Daumenblick: Steuerflächen verdecken nichts Wichtiges.
+ *
+ * Die sichtbaren Hinweise der Laufen- und Sprungfläche (Handy, Hoch- und Querformat) werden fast durchsichtig,
+ * sobald die Figur oder ein Gegner in ihrer Nähe darunter liegt – die Berührungsflächen selbst bleiben unverändert
+ * und reagieren weiter sofort. Geprüft wird alle 4 Bilder (billig: zwei Rechtecke, keine Zeichnung).
+ * Abschaltbar: window.TRAUMSPRUNG_DAUMENBLICK_OFF = true
+ */
+'use strict';
+(function () {
+  const pads = ['.mobile-move-visual', '.mobile-jump-visual'].map(s => document.querySelector(s)).filter(Boolean);
+  if (!pads.length || typeof cv === 'undefined') return;
+  const st = document.createElement('style');
+  st.textContent = '.ts-daumen-frei{opacity:.16!important;transition:opacity .18s ease}.mobile-move-visual,.mobile-jump-visual{transition:opacity .25s ease}';
+  document.head.appendChild(st);
+  let n = 0;
+  // Weltpunkt → Bildschirm (CSS-Pixel), genau wie draw(): x = RS·zoom·(wx−cam), y = RS·(zoom·wy + sceneY)
+  function schirm(wx, wy, r) {
+    const k = r.width / cv.width;
+    return [r.left + RENDER_SCALE * sceneZoom * (wx - cam) * k, r.top + RENDER_SCALE * (sceneZoom * wy + sceneY) * k];
+  }
+  function pruefen() {
+    requestAnimationFrame(pruefen);
+    if (++n % 4) return;
+    const an = !window.TRAUMSPRUNG_DAUMENBLICK_OFF && typeof P !== 'undefined' && P && (state === 'play' || state === 'morph' || state === 'dead') && level > 0;
+    const r = an ? cv.getBoundingClientRect() : null;
+    const ziele = [];
+    if (an) {
+      ziele.push([P.x - 6, P.y - 8, P.x + P.w + 6, P.y + P.h + 4]);
+      if (typeof foes !== 'undefined') for (const f of foes) if (!f.dead && Math.abs(f.x - P.x) < 9 * T) ziele.push([f.x, f.y, f.x + (f.w || 26), f.y + (f.h || 22)]);
+    }
+    for (const el of pads) {
+      let frei = false;
+      if (an && el.offsetParent !== null) {
+        const b = el.getBoundingClientRect();
+        for (const [x0, y0, x1, y1] of ziele) {
+          const [a0, c0] = schirm(x0, y0, r), [a1, c1] = schirm(x1, y1, r);
+          if (a1 > b.left && a0 < b.right && c1 > b.top && c0 < b.bottom) { frei = true; break; }
+        }
+      }
+      if (el.classList.contains('ts-daumen-frei') !== frei) el.classList.toggle('ts-daumen-frei', frei);
+    }
+  }
+  requestAnimationFrame(pruefen);
+  window.TRAUMSPRUNG_DAUMENBLICK = { pruefen: () => pads.map(e => e.classList.contains('ts-daumen-frei')) };
+})();
+
 </script><script>/* src/systems/begleiter-40.js */
 /* Traumsprung 4.0-p31 – Der Traumbegleiter „Funki“.
  *
@@ -20069,7 +20129,7 @@ window.TRAUMSPRUNG_ZIEL = function (fx, fy) {
         for (let i = 0; i < 5; i++) {
           const bx = ((i * 190 + 60 - cam * .15) % (VWz + 260) + VWz + 260) % (VWz + 260) - 120, sw = Math.sin(t / 140 + i * 1.7) * 18, br = 26 + (i % 3) * 18;
           const a = .06 + .035 * Math.sin(t / 90 + i * 2.1);
-          g = c.createLinearGradient(bx, 0, bx + 120, BH * .8); g.addColorStop(0, `rgba(255,236,190,${a * 1.6})`); g.addColorStop(1, 'rgba(255,236,190,0)');
+          g = c.createLinearGradient(bx, 0, bx + 120, BH * .8); g.addColorStop(0, 'rgba(255,236,190,0)'); g.addColorStop(.14, `rgba(255,236,190,${a * 1.6})`); g.addColorStop(1, 'rgba(255,236,190,0)');   /* 4.0-p54: oben weich auslaufen (im Hochformat sah man sonst harte Kanten am Himmelsrand) */
           c.fillStyle = g; c.beginPath(); c.moveTo(bx + sw, -10); c.lineTo(bx + br + sw, -10); c.lineTo(bx + br + 150, BH * .85); c.lineTo(bx + 110, BH * .85); c.closePath(); c.fill();
         }
         c.globalCompositeOperation = 'source-over';
